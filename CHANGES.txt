@@ -1,5 +1,5 @@
 1-October-2019 - (tagged with 1.skeleton)
-    Just a python package, should work with "scipion installp -p /home/you/scipion-em-template/ --devel
+    Just a python package, should work with "scipion installp -p /home/you/scipion-em-prody/ --devel
 
 3-October-2019 - (tagged with 2.scipion-plugin-skeleton)
     prody/__init__.py added, with its own Plugin instance and the registering call:

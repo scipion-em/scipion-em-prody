@@ -1,95 +1,52 @@
 =======================
-Scipion template plugin
+Scipion ProDy plugin
 =======================
 
-This is a template plugin for **scipion**
+This plugin provide a wrapper around `ProDy <https://github.com/prody/prody>`_ software: A Python Package for Protein Dynamics Analysis
 
-==========================
-Steps to adapt this plugin
-==========================
+Installation
+-------------
 
-IMPORTANT: To simplify the instructions all the commands would refer to an hypothetical new plugin name called "coolem".
-Note that you must replace "coolem" by your plugin name.
+You will need to use 3.0+ version of Scipion to be able to run these protocols. To install the plugin, you have one option so far:
 
-**Clone it:**
+Developer's version
 
-.. code-block::
+   * download repository
 
-    git clone https://github.com/scipion-em/scipion-em-template.git scipion-em-coolem
+    .. code-block::
 
-**Reset the git repo**
+        git clone https://github.com/jamesmkrieger/scipion-em-prody.git
 
-.. code-block::
+   * install
 
-    cd scipion-em-coolem
-    rm -rf .git
-    git init
+    .. code-block::
 
-**Empty CHANGES.txt**
+       scipion installp -p path_to_scipion-em-prody --devel
 
-.. code-block::
+ProDy software will be installed automatically with the plugin but you can also use an existing installation by providing *PRODY_ENV_ACTIVATION* (see below).
 
-    rm CHANGES.txt && touch CHANGES.txt
+**Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
 
-**Rename "prody" to coolem (IDE might help here)**
+Configuration variables
+-----------------------
+*CONDA_ACTIVATION_CMD*: If undefined, it will rely on conda command being in the
+PATH (not recommended), which can lead to execution problems mixing scipion
+python with conda ones. One example of this could can be seen below but
+depending on your conda version and shell you will need something different:
+CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-.. code-block::
-
-    mv prody coolem
-
-**Tidy up imports**
-
-Tip 1: IDE refactrization should rename at once the classes and the imports
-Tip 2: Search in your IDE for "prody" and replace by *"coolem"*
-
-coolem/protocols/protocol_hello_world.py:
- class prodyPrefixHelloWorld --> class CoolemPrefixHelloWorld
-
-coolem/protocol/__init__.py:
- from .protocol_hello_world import prodyPrefixHelloWorld --> from .protocol_hello_world import CoolemPrefixHelloWorld
-
-coolem/wizards/wizard_hello_world.py:
- _targets = [(prodyPrefixHelloWorld, ['message'])]  -->     _targets = [(CoolemPrefixHelloWorld, ['message'])]
- class prodyPrefixHelloWorldWizard --> class CoolemPrefixHelloWorldWizard
-
-coolem/wizards/__init__.py:
- from .wizard_hello_world import prodyPrefixHelloWorldWizard  --> from .wizard_hello_world import CoolemPrefixHelloWorldWizard
-
-protcocols.conf: rename prodyPrefixHelloWorld --> CoolemPrefixHelloWorld
+*PRODY_ENV_ACTIVATION* (default = conda activate prody-2.0.1):
+Command to activate the ProDy environment.
 
 
-setup.py:
- update almost all values: name, description, ...
+Protocols
+----------
 
- be sure to update package data
-.. code-block::
+* hello world (for initial testing)
 
-    package_data={  # Optional
-       'coolem': ['icon.png', 'protocols.conf'],
-    }
+References
+-----------
 
-  and the entry point
-.. code-block::
-
-    entry_points={
-        'pyworkflow.plugin': 'coolem = coolem'
-    }
-
-**Install the plugin in devel mode**
-
-.. code-block::
-
-    scipion3 installp -p /home/me/scipion-em-coolem --devel
-
-TIP: If installation fails, you can access pip options like:
-
-.. code-block::
-
-    scipion3 python -m pip ... (list, install, uninstall)
-
-**Customize it**
-    replace icon.png with your logo.
-    update the bibtex.py with your reference.
-
-**Get rid of this content and keep the readme informative**
-
+1. Zhang S, Krieger JM, Zhang Y, Kaya C, Kaynak B, Mikulska-Ruminska K, Doruker P, Li H, Bahar I (2021). ProDy 2.0: Increased scale and scope after 10 years of protein dynamics modelling with Python. Bioinformatics, btab187.
+2. Bakan A, Meireles LM, Bahar I ProDy: Protein Dynamics Inferred from Theory and Experiments 2011 Bioinformatics 27(11):1575-1577
+3. Bakan A, Dutta A, Mao W, Liu Y, Chennubhotla C, Lezon TR, Bahar I Evol and ProDy for Bridging Protein Sequence Evolution and Structural Dynamics 2014 Bioinformatics 30(18):2681-2683

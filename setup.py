@@ -11,29 +11,27 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
+from prody import __version__
+
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
 
 setup(
-    name='scipion-em-template',  # Required
-    version='0.1',  # Required
-    description='Scipion plugin template.',  # Required
+    name='scipion-em-prody',  # Required
+    version=__version__,  # Required
+    description='Scipion plugin for ProDy',  # Required
     long_description=long_description,  # Optional
-    url='https://github.com/scipion-em/scipion-em-prody',  # Optional
-    author='you',  # Optional
-    author_email='you@yourinstitution.email',  # Optional
-    keywords='scipion cryoem imageprocessing scipion-3.0',  # Optional
+    url='https://github.com/jamesmkrieger/scipion-em-prody',  # Optional
+    author='James Krieger',  # Optional
+    author_email='jmkrieger@cnb.csic.es',  # Optional
+    keywords='scipion cryoem imageprocessing scipion-3.0 prody-2.0',  # Optional
     packages=find_packages(),
-    install_requires=[requirements],
     entry_points={'pyworkflow.plugin': 'prody = prody'},
     package_data={  # Optional
        'prody': ['icon.png', 'protocols.conf'],
