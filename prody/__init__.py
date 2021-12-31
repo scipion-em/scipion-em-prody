@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '2.0.1'
+__version__ = 'devel'
 _logo = "icon.png"
 _references = ['Zhang2021']
 
@@ -87,28 +87,40 @@ class Plugin(pwem.Plugin):
         installCmd = [cls.getCondaActivationCmd()]
 
         # Create the environment
-        installCmd.append('conda create -y -n %s python=3;' % ENV_NAME)
+        installCmd.append('conda create -y -n %s python=3.8 ipykernel matplotlib pip;' % ENV_NAME)
 
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)
 
-        # Install downloaded code
-        installCmd.append('pip install -e . &&')
+        if version == DEVEL:
+            # Replace with latest scipion branch of prody on my github
+            installCmd.append('pip install git+https://github.com/jamesmkrieger/ProDy.git@scipion')
+        else:
+            # Install downloaded code
+            installCmd.append('pip install -e .')
 
         # Flag installation finished
-        installCmd.append('touch %s' % PRODY_INSTALLED)
+        installCmd.append(' && touch %s' % PRODY_INSTALLED)
 
         prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        env.addPackage('ProDy', version=version,
-                       url='https://github.com/prody/prody/archive/v%s.tar.gz' % version,
-                       commands=prody_commands,
-                       neededProgs=cls.getDependencies(),
-                       default=default,
-                       vars=installEnvVars)
+        if version == DEVEL:
+            env.addPackage('ProDy', version=version,
+                           buildDir='prody', tar='void.tgz',
+                           commands=prody_commands,
+                           neededProgs=cls.getDependencies(),
+                           default=default,
+                           vars=installEnvVars)
+        else:
+            env.addPackage('ProDy', version=version,
+                           url='https://github.com/prody/prody/archive/v%s.tar.gz' % version,
+                           commands=prody_commands,
+                           neededProgs=cls.getDependencies(),
+                           default=default,
+                           vars=installEnvVars)
 
     @classmethod
     def getProgram(cls, program):
