@@ -35,14 +35,14 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*PRODY_ENV_ACTIVATION* (default = conda activate prody-2.0.1):
+*PRODY_ENV_ACTIVATION* (default = conda activate prody-github):
 Command to activate the ProDy environment.
 
 
 Protocols
 ----------
 
-* hello world (for initial testing)
+* ProDy ANM for anisotropic network model normal mode analysis
 
 References
 -----------
