@@ -1,7 +1,7 @@
 from pyworkflow.gui import ListTreeProviderString, dialog
 from pyworkflow.object import String
 from pyworkflow.wizard import Wizard
-from prody.protocols import prodyPrefixHelloWorld
+from prody2.protocols import prodyPrefixHelloWorld
 
 class prodyPrefixHelloWorldWizard(Wizard):
     # Dictionary to target protocol parameters

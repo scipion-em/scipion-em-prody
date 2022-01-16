@@ -28,10 +28,8 @@
 def getProDyEnvName(version):
     return "prody-%s" % version
 
-V2_0 = '2.0'
-V2_0_1 = '2.0.1'
 DEVEL = 'github'
-VERSIONS = [V2_0, V2_0_1, DEVEL]
+VERSIONS = [DEVEL]
 PRODY_DEFAULT_VER_NUM = DEVEL
 
 DEFAULT_ENV_NAME = getProDyEnvName(PRODY_DEFAULT_VER_NUM)

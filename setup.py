@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-from prody import __version__
+from prody2 import __version__
 
 here = path.abspath(path.dirname(__file__))
 
@@ -32,8 +32,8 @@ setup(
     author_email='jmkrieger@cnb.csic.es',  # Optional
     keywords='scipion cryoem imageprocessing scipion-3.0 prody-2.0',  # Optional
     packages=find_packages(),
-    entry_points={'pyworkflow.plugin': 'prody = prody'},
+    entry_points={'pyworkflow.plugin': 'prody2 = prody2'},
     package_data={  # Optional
-       'prody': ['icon.png', 'protocols.conf'],
+       'prody2': ['icon.png', 'protocols.conf'],
     }
 )

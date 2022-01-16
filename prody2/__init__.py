@@ -82,25 +82,23 @@ class Plugin(pwem.Plugin):
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
         PRODY_INSTALLED = 'prody_%s_installed' % version
-        ENV_NAME = getProDyEnvName(version)
+        ENV_NAME = 'scipion3'
         # try to get CONDA activation command
         installCmd = [cls.getCondaActivationCmd()]
-
-        # Create the environment
-        installCmd.append('conda create -y -n %s python=3.8 ipykernel matplotlib pip;' % ENV_NAME)
 
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)
 
         if version == DEVEL:
             # Replace with latest scipion branch of prody on my github
+            installCmd.append('pip uninstall prody -y &&')
             installCmd.append('pip install git+https://github.com/jamesmkrieger/ProDy.git@scipion')
         else:
             # Install downloaded code
-            installCmd.append('pip install -e .')
+            installCmd.append('pip install -U -e .')
 
         # Flag installation finished
-        installCmd.append(' && touch %s' % PRODY_INSTALLED)
+        installCmd.append('&& touch %s' % PRODY_INSTALLED)
 
         prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]
 
@@ -109,7 +107,7 @@ class Plugin(pwem.Plugin):
         installEnvVars = {'PATH': envPath} if envPath else None
         if version == DEVEL:
             env.addPackage('ProDy', version=version,
-                           buildDir='prody', tar='void.tgz',
+                           buildDir='prody2', tar='void.tgz',
                            commands=prody_commands,
                            neededProgs=cls.getDependencies(),
                            default=default,
