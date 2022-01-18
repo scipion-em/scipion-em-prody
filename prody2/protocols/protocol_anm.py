@@ -41,6 +41,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE)
 from pwem.objects import SetOfNormalModes
+from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.utils.path import copyFile, createLink, makePath, cleanPath, moveFile
@@ -49,7 +50,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 
-class ProDyANM(FlexProtNMA):
+class ProDyANM(EMProtocol):
     """
     This protocol will perform normal mode analysis using the anisotropic network model (ANM)
     """
@@ -215,6 +216,41 @@ class ProDyANM(FlexProtNMA):
         
         prody.writeCFlexModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
                               collectivityThreshold=collectivityThreshold)
+
+    def computeAtomShiftsStep(self, numberOfModes):
+        fnOutDir = self._getExtraPath("distanceProfiles")
+        makePath(fnOutDir)
+        maxShift=[]
+        maxShiftMode=[]
+        
+        for n in range(7, numberOfModes+1):
+            fnVec = self._getPath("modes", "vec.%d" % n)
+            if exists(fnVec):
+                fhIn = open(fnVec)
+                md = MetaData()
+                atomCounter = 0
+                for line in fhIn:
+                    x, y, z = map(float, line.split())
+                    d = math.sqrt(x*x+y*y+z*z)
+                    if n==7:
+                        maxShift.append(d)
+                        maxShiftMode.append(7)
+                    else:
+                        if d>maxShift[atomCounter]:
+                            maxShift[atomCounter]=d
+                            maxShiftMode[atomCounter]=n
+                    atomCounter+=1
+                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
+                md.write(join(fnOutDir,"vec%d.xmd" % n))
+                fhIn.close()
+        md = MetaData()
+        for i, _ in enumerate(maxShift):
+            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            if exists(fnVec):
+                objId = md.addObject()
+                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
+                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
+        md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
