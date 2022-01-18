@@ -38,7 +38,8 @@ import numpy as np
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE)
+                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
+                        MDL_NMA_ATOMSHIFT, MDL_NMA_MODEFILE)
 from pwem.objects import SetOfNormalModes
 from pwem.protocols import EMProtocol
 
@@ -150,8 +151,10 @@ class ProDyANM(EMProtocol):
     def computeModesStep(self, inputFn, n):
         if self.structureEM:
             selection = 'all'
+            self.runJob('prody', 'select {0} {1} -o pseudoatoms.pdb'.format(selection, inputFn))
         else:
             selection = 'ca'
+            self.runJob('prody', 'select {0} {1} -o atoms.pdb'.format(selection, inputFn))
 
         self.runJob('prody', 'anm {0} -s {1} -w -yz -o {2} -p modes -n {3}'.format(inputFn, selection,
                                                                                    self._getPath(),

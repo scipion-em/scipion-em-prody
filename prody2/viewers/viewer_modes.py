@@ -36,16 +36,18 @@ from pwem.viewers import ObjectView, VmdView
 from pwem.emlib import MDL_NMA_ATOMSHIFT
 
 from continuousflex.viewers.nma_plotter import FlexNmaPlotter
-from continuousflex.viewers.viewer_nma import createShiftPlot, createDistanceProfilePlot
+from continuousflex.viewers.viewer_nma import createShiftPlot
 
-from prody2.protocols import ProDyANM
+from prody2.protocols import ProDyANM, ProDyWriteNMD
+
+import os
 
 class ProDyModeViewer(ProtocolViewer):
     """ Visualization of results from the ProDy ANM NMA protocol.    
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [ProDyANM]
+    _targets = [ProDyANM, ProDyWriteNMD]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
@@ -76,11 +78,15 @@ class ProDyModeViewer(ProtocolViewer):
                 } 
 
     def _viewParam(self, paramName):
-        if paramName == 'displayModes':
-            modes =  self.protocol.outputModes
-            return [ObjectView(self._project, modes.strId(), modes.getFileName())]
+        """ visualisation for mode sets"""
+        modes =  self.protocol.outputModes
+        fnSqlite = modes.getFileName()
+        modes_path = os.path.split(fnSqlite)[0]
+
+        if paramName == 'displayModes':    
+            return [ObjectView(self._project, modes.strId(), fnSqlite)]
         elif paramName == 'displayMaxDistanceProfile':
-            fn = self.protocol._getExtraPath("maxAtomShifts.xmd")
+            fn = modes_path + "/extra/maxAtomShifts.xmd"
             return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
         elif paramName == 'displayVmd':
             return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
@@ -88,6 +94,9 @@ class ProDyModeViewer(ProtocolViewer):
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
         modes =  self.protocol.outputModes
+        fnSqlite = modes.getFileName()
+        modes_path = os.path.split(fnSqlite)[0]
+
         modeNumber = self.modeNumber.get()
         mode = modes[modeNumber]
         
@@ -97,5 +106,11 @@ class ProDyModeViewer(ProtocolViewer):
                                       "the availables ones." % modeNumber,
                                       title="Invalid input")]
         elif paramName == 'displayDistanceProfile':
-            return [createDistanceProfilePlot(self.protocol, modeNumber)]
+            return [createDistanceProfilePlot(modes_path, modeNumber)]
+
+def createDistanceProfilePlot(modes_path, modeNumber):
+    vectorMdFn = modes_path + "/extra/distanceProfiles/vec%d.xmd" % modeNumber
+    plotter = createShiftPlot(vectorMdFn, "Atom shifts for mode %d"
+                              % modeNumber, "shift")
+    return plotter
 
