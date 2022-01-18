@@ -21,7 +21,7 @@
 # * 02111-1307  USA
 # *
 # *  All comments concerning this program package may be sent to the
-# *  e-mail address 'you@yourinstitution.email'
+# *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
 
@@ -30,7 +30,7 @@
 This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
 """
 from pyworkflow.protocol import Protocol, params, Integer
-from pwem.protocols import EMProtocol
+from continuousflex.protocols import FlexProtNMA
 
 import os
 from os.path import basename, exists, join
@@ -38,18 +38,18 @@ import math
 import numpy as np
 
 from pwem import *
-from pwem.convert.atom_struct import cifToPdb
-from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT, MDL_NMA_MODEFILE
+from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
+                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE)
+from pwem.objects import SetOfNormalModes
+
 from pyworkflow.utils import *
 from pyworkflow.utils.path import copyFile, createLink, makePath, cleanPath, moveFile
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
-from pwem.objects import NormalMode, SetOfNormalModes
 
-from xmipp3.base import XmippMdRow
 import prody
 
-class prodyANM(EMProtocol):
+class ProDyANM(FlexProtNMA):
     """
     This protocol will perform normal mode analysis using the anisotropic network model (ANM)
     """
@@ -118,6 +118,16 @@ class prodyANM(EMProtocol):
                       label="Use turbo mode",
                       help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
+        form.addParam('collectivityThreshold', FloatParam, default=0.15,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Threshold on collectivity',
+                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
+                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
+                      'the modes metadata file as these modes are much less collective. \n'
+                      'For no deselection, this parameter should be set to 0 . \n'
+                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
+                      'The modes metadata file can be used to see which modes are more collective '
+                      'in order to decide which modes to use at the image analysis step.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -125,48 +135,92 @@ class prodyANM(EMProtocol):
 
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
+        self.structureEM = self.inputStructure.get().getPseudoAtoms()
 
-        # Compute modes
-        self._insertFunctionStep('computeModesStep', inputFn)
+        self.model_type = 'anm'
+        n = self.numberOfModes.get()
+
+        self._insertFunctionStep('computeModesStep', inputFn, n)
+        self._insertFunctionStep('qualifyModesStep', n,
+                                 self.collectivityThreshold.get(),
+                                 self.structureEM)
+        self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn):
-        self.structureEM = False #self.inputStructure.get().getPseudoAtoms()
-
-        ag = prody.parsePDB(inputFn)
-        
+    def computeModesStep(self, inputFn, n):
         if self.structureEM:
-            self.atoms = ag
+            selection = 'all'
         else:
-            self.atoms = ag.ca
+            selection = 'ca'
 
-        self.anm = prody.ANM(ag.getTitle())
-        self.anm.buildHessian(self.atoms, cutoff=self.cutoff.get(),
-                              gamma=eval(self.gamma.get()), 
-                              sparse=self.sparse.get(), 
-                              kdtree=self.kdtree.get())
-        self.anm.calcModes(n_modes=self.numberOfModes.get(), 
-                           zeros=self.zeros.get(),
-                           turbo=self.turbo.get())
+        self.runJob('prody', 'anm {0} -s {1} -w -yz -o {2} -p modes -n {3}'.format(inputFn, selection,
+                                                                                   self._getPath(),
+                                                                                   n))
+        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
 
-        prody.saveModel(self.anm, self._getExtraPath('{0}.anm.npz'.format(basename(inputFn))))
-        prody.writeNMD(self._getExtraPath('{0}.anm.nmd'.format(basename(inputFn))), self.anm, self.atoms)
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
+        self._enterWorkingDir()
 
-        prody.writeCFlexModes(self._getPath(), self.anm)
+        fnVec = glob("modes/vec.*")
+
+        if len(fnVec) < numberOfModes:
+            msg = "There are only %d modes instead of %d. "
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
+            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
+            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
+            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+
+        mdOut = MetaData()
+        collectivityList = list(prody.calcCollectivity(self.anm))
+
+        for n in range(len(fnVec)):
+            collectivity = collectivityList[n]
+
+            objId = mdOut.addObject()
+            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
+            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
+
+            if n >= 6:
+                mdOut.setValue(MDL_ENABLED, 1, objId)
+            else:
+                mdOut.setValue(MDL_ENABLED, -1, objId)
+            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
+
+            if collectivity < collectivityThreshold:
+                mdOut.setValue(MDL_ENABLED, -1, objId)
+
+        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
+
+        score = []
+        for j in range(len(fnVec)):
+            score.append(0)
+
+        modeNum = []
+        l = 0
+        for k in range(len(fnVec)):
+            modeNum.append(k)
+            l += 1
+
+        for i in range(len(fnVec)):
+            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
+        i = 0
+        for objId in mdOut:
+            score[i] = float(score[i]) / (2.0 * l)
+            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
+            i += 1
+        mdOut.write("modes%s.xmd" % suffix)
+
+        self._leaveWorkingDir()
+        
+        prody.writeCFlexModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+                              collectivityThreshold=collectivityThreshold)
 
     def createOutputStep(self):
-        """Copied from continuous_flex protocol_nma"""
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-
-        md = MetaData(self._getPath('modes.xmd'))
-        row = XmippMdRow()
-        
-        for objId in md:
-            row.readFromMd(md, objId)
-            nmSet.append(rowToMode(row))
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
+        self._defineSourceRelation(self.inputStructure, nmSet)        
 
