@@ -30,7 +30,6 @@
 This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
 """
 from pyworkflow.protocol import Protocol, params, Integer
-from continuousflex.protocols import FlexProtNMA
 
 import os
 from os.path import basename, exists, join
