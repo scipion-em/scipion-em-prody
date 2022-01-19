@@ -151,10 +151,12 @@ class ProDyANM(EMProtocol):
     def computeModesStep(self, inputFn, n):
         if self.structureEM:
             selection = 'all'
-            self.runJob('prody', 'select {0} {1} -o pseudoatoms.pdb'.format(selection, inputFn))
+            self.runJob('prody', 'select {0} {1} -o {2}/pseudoatoms.pdb'.format(selection, inputFn,
+                                                                                self._getPath()))
         else:
             selection = 'ca'
-            self.runJob('prody', 'select {0} {1} -o atoms.pdb'.format(selection, inputFn))
+            self.runJob('prody', 'select {0} {1} -o {2}/atoms.pdb'.format(selection, inputFn,
+                                                                          self._getPath()))
 
         self.runJob('prody', 'anm {0} -s {1} -w -yz -o {2} -p modes -n {3}'.format(inputFn, selection,
                                                                                    self._getPath(),

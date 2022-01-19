@@ -73,15 +73,12 @@ class ProDyWriteNMD(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        # Link the input
-        self.nmSet = self.inputNMSet
-
         # Insert processing steps
         self._insertFunctionStep('convertModesStep')
         self._insertFunctionStep('createOutputStep')
 
     def convertModesStep(self):
-        modes_path = os.path.split(self.nmSet.getFilename())[0]
+        modes_path = os.path.split(self.inputNMSet.get()._mapperPath.get())[0]
         modes = prody.parseCFlexModes(modes_path)
 
         pdb = glob(modes_path+"/*atoms.pdb")
@@ -90,4 +87,4 @@ class ProDyWriteNMD(EMProtocol):
         prody.writeNMD(self._getPath('modes.nmd'), modes, atoms)
 
     def createOutputStep(self):
-        self._defineOutputs(outputModes=self.nmSet)
+        self._defineOutputs(outputModes=self.inputNMSet)
