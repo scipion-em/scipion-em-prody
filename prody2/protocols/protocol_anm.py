@@ -40,7 +40,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_MODEFILE)
-from pwem.objects import SetOfNormalModes
+from pwem.objects import SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -72,23 +72,28 @@ class ProDyANM(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
 
+        form.addParam('selection', StringParam, default="",
+                      label="selection string",
+                      help='This determines which atoms are used in the calculations. '
+                           'If left empty, the default behaviour is to use '
+                           '"protein and name CA or nucleic and name P C4\' C2" '
+                           'for atomic structures and "all" for pseudoatoms.')
+
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 6 times the number of '
-                           'RTB blocks and for pseudoatomic normal mode analysis 3 '
-                           'times the number of pseudoatoms. However, the protocol '
-                           'allows only up to 200 modes as 20-100 modes are usually '
-                           'enough. The number of modes given here should be below '
-                           'the minimum between these two numbers.')
+                           'atomic normal mode analysis is 3 times the '
+                           'number of nodes (Calpha atoms or pseudoatoms).')
 
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the distance of 15 Angstroms works well in the majority of cases. \n'
-                           'For pseudoatoms, please set this according to the level of coarse-graining '
-                           'following Doruker et al., J Comput Chem 2002.')
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
+                           'For pseudoatoms, set this according to the level of coarse-graining '
+                           '(see Doruker et al., J Comput Chem 2002). \n'
+                           'For all atoms, Tirion (Phys. Rev. Lett. 1996) found ~5 A works well '
+                           '(2 vdW radii of ~1.5 A + ~2 A)')
 
         form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -97,6 +102,17 @@ class ProDyANM(EMProtocol):
                            'This allows the use of ENMs based on pseudoatom, atom or residue properties including radii, '
                            'secondary structure, distance-dependent potentials, and other custom functions. \n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+
+        form.addParam('collectivityThreshold', FloatParam, default=0.15,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Threshold on collectivity',
+                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
+                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
+                      'the modes metadata file as these modes are much less collective. \n'
+                      'For no deselection, this parameter should be set to 0 . \n'
+                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
+                      'The modes metadata file can be used to see which modes are more collective '
+                      'in order to decide which modes to use at the image analysis step.')
 
         form.addParam('sparse', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
@@ -119,17 +135,6 @@ class ProDyANM(EMProtocol):
                       label="Use turbo mode",
                       help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
-
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
@@ -149,18 +154,23 @@ class ProDyANM(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
+        
         if self.structureEM:
-            selection = 'all'
-            self.runJob('prody', 'select {0} {1} -o {2}/pseudoatoms.pdb'.format(selection, inputFn,
-                                                                                self._getPath()))
+            if self.selection == "":
+                self.selection = "all"
+            filename = 'pseudoatoms.pdb'
         else:
-            selection = 'ca'
-            self.runJob('prody', 'select {0} {1} -o {2}/atoms.pdb'.format(selection, inputFn,
-                                                                          self._getPath()))
+            if self.selection == "":
+                self.selection = "protein and name CA or nucleic and name P C4' C2"
+            filename = 'atoms.pdb'
 
-        self.runJob('prody', 'anm {0} -s {1} -w -yz -o {2} -p modes -n {3}'.format(inputFn, selection,
-                                                                                   self._getPath(),
-                                                                                   n))
+        ag = prody.parsePDB(inputFn, alt='all')
+        selection = ag.select(str(self.selection))
+        prody.writePDB(self._getPath(filename), selection)
+
+        self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes '
+                    '--export-scipion --npz -o {1} -p modes -n {2}'.format(self._getPath(filename),
+                                                                           self._getPath(), n))
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
@@ -218,7 +228,7 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeCFlexModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
                               collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
@@ -261,6 +271,7 @@ class ProDyANM(EMProtocol):
         nmSet = SetOfNormalModes(filename=fnSqlite)
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
+        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)        
+        self._defineSourceRelation(self.inputStructure, nmSet)      
 

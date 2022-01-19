@@ -79,12 +79,11 @@ class ProDyModeViewer(ProtocolViewer):
 
     def _viewParam(self, paramName):
         """ visualisation for mode sets"""
-        modes =  self.protocol.outputModes
-        fnSqlite = modes.getFileName()
-        modes_path = os.path.split(fnSqlite)[0]
+        modes = self.protocol.outputModes
+        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
 
         if paramName == 'displayModes':    
-            return [ObjectView(self._project, modes.strId(), fnSqlite)]
+            return [ObjectView(self._project, modes.strId(), self.protocol.outputModes.getFileName())]
         elif paramName == 'displayMaxDistanceProfile':
             fn = modes_path + "/extra/maxAtomShifts.xmd"
             return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
@@ -94,8 +93,7 @@ class ProDyModeViewer(ProtocolViewer):
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
         modes =  self.protocol.outputModes
-        fnSqlite = modes.getFileName()
-        modes_path = os.path.split(fnSqlite)[0]
+        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
 
         modeNumber = self.modeNumber.get()
         mode = modes[modeNumber]

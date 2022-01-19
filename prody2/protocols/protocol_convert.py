@@ -39,7 +39,7 @@ import numpy as np
 from pwem import *
 from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE)
-from pwem.objects import SetOfNormalModes
+from pwem.objects import SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -78,13 +78,16 @@ class ProDyWriteNMD(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def convertModesStep(self):
-        modes_path = os.path.split(self.inputNMSet.get()._mapperPath.get())[0]
-        modes = prody.parseCFlexModes(modes_path)
+        modes_path = os.path.split(self.inputNMSet.get().getFileName())[0]
+        modes = prody.parseScipionModes(modes_path)
 
         pdb = glob(modes_path+"/*atoms.pdb")
-        atoms = prody.parsePDB(pdb)
+        atoms = prody.parsePDB(pdb, altloc='all')
 
         prody.writeNMD(self._getPath('modes.nmd'), modes, atoms)
 
     def createOutputStep(self):
-        self._defineOutputs(outputModes=self.inputNMSet)
+        outputNMSet = self._createSetOfNormalModes()
+        _ = [outputNMSet.append(mode.clone()) for mode in self.inputNMSet.get().iterItems()]
+        outputNMSet._nmdFileName = String(self._getPath('modes.nmd'))
+        self._defineOutputs(outputModes=outputNMSet)
