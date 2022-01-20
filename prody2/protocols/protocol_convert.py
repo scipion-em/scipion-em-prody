@@ -79,7 +79,11 @@ class ProDyWriteNMD(EMProtocol):
 
     def convertModesStep(self):
         modes_path = os.path.split(self.inputNMSet.get().getFileName())[0]
-        modes = prody.parseScipionModes(modes_path)
+
+        if glob(modes_path+"/*npz"):
+            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
+        else:
+            modes = prody.parseScipionModes(modes_path)
 
         pdb = glob(modes_path+"/*atoms.pdb")
         atoms = prody.parsePDB(pdb, altloc='all')
