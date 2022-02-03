@@ -4,4 +4,4 @@
 # Find documentation here: https://scipion-em.github.io/docs/docs/developer/creating-a-protocol
 # **************************************************************************
 from .protocol_anm import ProDyANM
-from .protocol_select import ProDySelect
+from .protocol_atoms import ProDySelect, ProDySuperpose
