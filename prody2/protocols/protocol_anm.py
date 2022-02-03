@@ -27,24 +27,22 @@
 
 
 """
-This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
+This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import Protocol, params, Integer
+from pyworkflow.protocol import params
 
-import os
 from os.path import basename, exists, join
 import math
-import numpy as np
 
 from pwem import *
-from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
+from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_MODEFILE)
+                        MDL_NMA_ATOMSHIFT)
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.utils.path import copyFile, createLink, makePath, cleanPath, moveFile
+from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
@@ -52,7 +50,7 @@ import prody
 
 class ProDyANM(EMProtocol):
     """
-    This protocol will perform normal mode analysis using the anisotropic network model (ANM)
+    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
     """
     _label = 'ANM analysis'
 
