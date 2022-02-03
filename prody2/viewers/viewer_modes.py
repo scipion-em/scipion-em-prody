@@ -29,86 +29,41 @@ This module implements wrappers around the Xmipp NMA protocol
 visualization program and the normal mode wizard NMWiz.
 """
 
-from pyworkflow.gui.project import ProjectWindow
-from pyworkflow.protocol.params import LabelParam, IntParam
-from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
-from pwem.viewers import ObjectView, VmdView
-from pwem.emlib import MDL_NMA_ATOMSHIFT
+from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
+from pyworkflow.utils import *
 
-from continuousflex.viewers.nma_plotter import FlexNmaPlotter
-from continuousflex.viewers.viewer_nma import createShiftPlot
+from pwem.objects import SetOfNormalModes
+from pwem.viewers import VmdView
 
-from prody2.protocols import ProDyANM, ProDyWriteNMD
+from prody2.protocols import ProDyANM
 
 import os
+import prody
 
-class ProDyModeViewer(ProtocolViewer):
-    """ Visualization of results from the ProDy ANM NMA protocol.    
+class ProDyModeViewer(Viewer):
+    """ Visualization of a SetOfNormalModes from the ProDy ANM NMA protocol or elsewhere.    
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [ProDyANM, ProDyWriteNMD]
+    _targets = [ProDyANM, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
-    def _defineParams(self, form):
-        form.addSection(label='Visualization')
-  
-        form.addParam('displayModes', LabelParam,
-                      label="Display output Normal Modes?", important=True)
-        form.addParam('displayMaxDistanceProfile', LabelParam,
-                      label="Plot max distance profile?",
-                      help="Maximum unitary shift of each atom or pseudoatom over all computed modes.")
-    
-        # VMD display is now a property for the whole set of modes not single modes
-        form.addParam('displayVmd', LabelParam,
-                       label='Display mode animations with VMD NMWiz?') 
-        
-        group = form.addGroup('Single mode')  
-        group.addParam('modeNumber', IntParam, default=7,
-              label='Mode number')
-        group.addParam('displayDistanceProfile', LabelParam, default=False,
-                      label="Plot mode distance profile?",
-                      help="Unitary shift of each atom or pseudoatom along the mode that is requested to be animated.")
+    def _visualize(self, obj, **kwargs):
+        """visualisation for mode sets"""
 
-    def _getVisualizeDict(self):
-        return {'displayModes': self._viewParam,
-                'displayMaxDistanceProfile': self._viewParam,
-                'displayVmd': self._viewParam,
-                'displayDistanceProfile': self._viewSingleMode,
-                } 
+        type_ = type(obj)
 
-    def _viewParam(self, paramName):
-        """ visualisation for mode sets"""
-        modes = self.protocol.outputModes
+        if isinstance(obj, SetOfNormalModes):
+            modes = obj
+        elif isinstance(obj, ProDyANM):
+            modes = obj.outputModes
+
         modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
 
-        if paramName == 'displayModes':    
-            return [ObjectView(self._project, modes.strId(), self.protocol.outputModes.getFileName())]
-        elif paramName == 'displayMaxDistanceProfile':
-            fn = modes_path + "/extra/maxAtomShifts.xmd"
-            return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
-        elif paramName == 'displayVmd':
-            return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
+        if not os.path.isfile(self.protocol._getPath("modes.nmd")):
+            prody_modes = prody.parseScipionModes(modes_path)
+            atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
+            prody.writeNMD(modes_path+"/modes.nmd", prody_modes, atoms)
 
-    def _viewSingleMode(self, paramName):
-        """ visualization for a selected mode. """
-        modes =  self.protocol.outputModes
-        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
-
-        modeNumber = self.modeNumber.get()
-        mode = modes[modeNumber]
-        
-        if mode is None:
-            return [self.errorMessage("Invalid mode number *%d*\n"
-                                      "Display the output Normal Modes to see "
-                                      "the availables ones." % modeNumber,
-                                      title="Invalid input")]
-        elif paramName == 'displayDistanceProfile':
-            return [createDistanceProfilePlot(modes_path, modeNumber)]
-
-def createDistanceProfilePlot(modes_path, modeNumber):
-    vectorMdFn = modes_path + "/extra/distanceProfiles/vec%d.xmd" % modeNumber
-    plotter = createShiftPlot(vectorMdFn, "Atom shifts for mode %d"
-                              % modeNumber, "shift")
-    return plotter
+        return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
 
