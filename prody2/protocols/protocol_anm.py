@@ -37,7 +37,7 @@ import math
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT)
+                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
@@ -185,6 +185,7 @@ class ProDyANM(EMProtocol):
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.anm))
+        eigvals = self.anm.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -198,7 +199,9 @@ class ProDyANM(EMProtocol):
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
+
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
+            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
 
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -227,7 +230,7 @@ class ProDyANM(EMProtocol):
         self._leaveWorkingDir()
         
         prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
-                              collectivityThreshold=collectivityThreshold)
+                                collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
         fnOutDir = self._getExtraPath("distanceProfiles")
