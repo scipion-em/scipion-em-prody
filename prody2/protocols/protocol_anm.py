@@ -40,7 +40,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_MODEFILE)
-from pwem.objects import SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -158,18 +158,18 @@ class ProDyANM(EMProtocol):
         if self.structureEM:
             if self.selection == "":
                 self.selection = "all"
-            filename = 'pseudoatoms.pdb'
+            self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
             if self.selection == "":
                 self.selection = "protein and name CA or nucleic and name P C4' C2"
-            filename = 'atoms.pdb'
+            self.pdbFileName = self._getPath('atoms.pdb')
 
         ag = prody.parsePDB(inputFn, alt='all')
         selection = ag.select(str(self.selection))
-        prody.writePDB(self._getPath(filename), selection)
+        prody.writePDB(self.pdbFileName, selection)
 
         self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes '
-                    '--export-scipion --npz -o {1} -p modes -n {2}'.format(self._getPath(filename),
+                    '--export-scipion --npz -o {1} -p modes -n {2}'.format(self.pdbFileName,
                                                                            self._getPath(), n))
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
 
@@ -269,9 +269,12 @@ class ProDyANM(EMProtocol):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        inputPdb = self.inputStructure.get()
-        nmSet.setPdb(inputPdb)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)      
+
+        outputPdb = AtomStruct()
+        outputPdb.setFileName(self.pdbFileName)
+        nmSet.setPdb(outputPdb.get())
+
+        self._defineOutputs(outputModes=nmSet, outputStructure=outputPdb)
+        self._defineSourceRelation(outputPdb, nmSet)
 
