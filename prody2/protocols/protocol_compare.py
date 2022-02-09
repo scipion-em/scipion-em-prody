@@ -29,31 +29,27 @@
 """
 This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import Protocol, params, Integer
-
 import os
-from os.path import basename, exists, join
-import math
 import numpy as np
 
 from pwem import *
-from pwem.emlib import (MetaData, MDL_X, MDL_COUNT, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE)
-from pwem.objects import SetOfNormalModes, String
+from pwem.objects import SetOfNormalModes, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.utils.path import copyFile, createLink, makePath, cleanPath, moveFile
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
-                                        BooleanParam, LEVEL_ADVANCED)
+from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
 
 import prody
 
-class ProDyWriteNMD(EMProtocol):
+NMA_METRIC_OVERLAP = 0
+NMA_METRIC_COV_OVERLAP = 1
+NMA_METRIC_RWSIP = 2
+
+class ProDyCompare(EMProtocol):
     """
-    This protocol will convert a SetOfNormalModes from continuousflex NMA to ProDy NMD files for NMWiz
+    This protocol will compare two SetOfNormalModes objects
     """
-    _label = 'ProDy writeNMD'
+    _label = 'ProDy compare'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -62,36 +58,89 @@ class ProDyWriteNMD(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy writeNMD')
+        form.addSection(label='ProDy compare')
 
-        form.addParam('inputNMSet', PointerParam, label="Input SetOfNormalModes",
+        form.addParam('modes1', PointerParam, label="Input SetOfNormalModes 1",
                       important=True,
                       pointerClass='SetOfNormalModes',
                       help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+                           '(true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms).\n'
+                           'The two sets should have the same number of nodes '
+                           'unless one of them has exactly 1 mode in it.')
+
+        form.addParam('modes2', PointerParam, label="Input SetOfNormalModes 2",
+                      important=True,
+                      pointerClass='SetOfNormalModes',
+                      help='The input SetOfNormalModes can be from an atomic model '
+                           '(true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms).\n'
+                           'The two sets should have the same number of nodes '
+                           'unless one of them has exactly 1 mode in it.')
+
+        form.addParam('metric', EnumParam, choices=['Overlap', 'Covariance Overlap', 'RWSIP'],
+                      default=NMA_METRIC_OVERLAP,
+                      label='Comparison metric',
+                      help='Modes can be compared pairwise using correlation cosine overlaps (inner products), '
+                      'or in sets using either covariance overlap (Hess, Phys Rev E 2002; aka spectral overlap) '
+                      'or the root weighted square inner product (RWSIP; Carnevale et al., J Phys Condens Matter 2007). \n'
+                      'Covariance overlaps and RWSIPs are calculated over growing mode sets.\n'
+                      'The six zero modes are excluded from covariance overlap and RWSIP calculations.')
+
+        form.addParam('diag', BooleanParam, default=False, 
+                      condition='metric==%d' % NMA_METRIC_OVERLAP,
+                      label='Calculate diagonal values only',
+                      help='Elect whether to calculate diagonal values only.')      
+
+        form.addParam('match', BooleanParam, default=False, 
+                      condition='metric!=%d' % NMA_METRIC_RWSIP,
+                      label='Match modes',
+                      help='Elect whether to match modes.')     
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-        self._insertFunctionStep('convertModesStep')
+        self._insertFunctionStep('compareModesStep')
         self._insertFunctionStep('createOutputStep')
 
-    def convertModesStep(self):
-        modes_path = os.path.split(self.inputNMSet.get().getFileName())[0]
+    def compareModesStep(self):
 
-        if glob(modes_path+"/*npz"):
-            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
+        modes1_path = os.path.dirname(os.path.dirname(self.modes1.get()[1].getModeFile()))
+        modes1 = prody.parseScipionModes(modes1_path)
+
+        modes2_path = os.path.dirname(os.path.dirname(self.modes2.get()[1].getModeFile()))
+        modes2 = prody.parseScipionModes(modes2_path)
+
+        n_modes = np.max([modes1.numModes(), modes2.numModes()])
+        min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
+        if modes1.numModes() != modes2.numModes() and min_n_modes != 1:
+            raise ValueError('The two sets should have the same number of nodes '
+                           'unless one of them has exactly 1 mode in it.')
+
+        if min_n_modes != 1:
+            mode_ens = prody.ModeEnsemble()
+            mode_ens.addModeSet(modes1)
+            mode_ens.addModeSet(modes2)
+            if self.match:
+                mode_ens.match()
         else:
-            modes = prody.parseScipionModes(modes_path)
+            mode_ens = [modes1, modes2]
+        
+        if self.metric == NMA_METRIC_OVERLAP:
+            self.matrix = prody.calcOverlap(mode_ens[0], mode_ens[1], diag=self.diag)
+            if self.matrix.ndim == 1:
+                self.matrix.reshape(-1, 1)
 
-        pdb = glob(modes_path+"/*atoms.pdb")
-        atoms = prody.parsePDB(pdb, altloc='all')
+        else:
+            self.matrix = np.empty((n_modes-6, 1))
+            for i in range(6, n_modes):
+                if self.metric == NMA_METRIC_COV_OVERLAP:
+                    self.matrix[i-6, 0] = prody.calcEnsembleSpectralOverlaps(mode_ens[:, 6:i+1])[0, 1]
+                else:
+                    self.matrix[i-6, 0] = prody.calcRWSIP(mode_ens[0, 6:i+1], mode_ens[1, 6:i+1])
 
-        prody.writeNMD(self._getPath('modes.nmd'), modes, atoms)
+        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix)
 
     def createOutputStep(self):
-        outputNMSet = self._createSetOfNormalModes()
-        _ = [outputNMSet.append(mode.clone()) for mode in self.inputNMSet.get().iterItems()]
-        outputNMSet._nmdFileName = String(self._getPath('modes.nmd'))
-        self._defineOutputs(outputModes=outputNMSet)
+        outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
+        self._defineOutputs(matrixFile=outputMatrix)
