@@ -39,7 +39,7 @@ _references = ['Zhang2021']
 
 class Plugin(pwem.Plugin):
     _supportedVersions = VERSIONS
-    _url = "https://github.com/jamesmkrieger/scipion-em-prody"
+    _url = "https://github.com/scipion-em/scipion-em-prody"
 
     @classmethod
     def _defineVariables(cls):
