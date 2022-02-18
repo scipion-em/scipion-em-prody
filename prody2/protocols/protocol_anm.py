@@ -166,10 +166,14 @@ class ProDyANM(EMProtocol):
         selection = ag.select(str(self.selection))
         prody.writePDB(self.pdbFileName, selection)
 
-        self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes '
+        self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes --hessian'
                     '--export-scipion --npz -o {1} -p modes -n {2}'.format(self.pdbFileName,
                                                                            self._getPath(), n))
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        
+        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
+        self.anm.setHessian(hessian)
+        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrix=True)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
