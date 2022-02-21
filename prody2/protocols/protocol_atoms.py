@@ -64,7 +64,9 @@ class ProDySelect(EMProtocol):
 
         form.addParam('selection', StringParam, default="protein and name CA or nucleic and name P C4' C2",
                       label="selection string",
-                      help='This determines which atoms are selected.')
+                      help='This determines which atoms are selected. '
+                           'There is a rich selection engine with similarities to VMD '
+                           '(see http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html)')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
