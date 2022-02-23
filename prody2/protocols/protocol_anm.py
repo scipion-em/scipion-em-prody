@@ -105,26 +105,10 @@ class ProDyANM(EMProtocol):
                       'The modes metadata file can be used to see which modes are more collective '
                       'in order to decide which modes to use at the image analysis step.')
 
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices",
-                      help='Elect whether to use Scipy sparse matrices. \n'
-                           'This allows efficient usage of memory at the cost of computation speed')
-
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix",
-                      help='Elect whether to use KDTree for building Hessian matrix. This is usually slower.')
-
         form.addParam('zeros', BooleanParam, default=True,
                       expertLevel=LEVEL_ADVANCED,
                       label="include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
-
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -154,9 +138,19 @@ class ProDyANM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
-        self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes --hessian '
-                    '--export-scipion --npz -o {1} -p modes -n {2}'.format(self.pdbFileName,
-                                                                           self._getPath(), n))
+        if self.zeros.get():
+            self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes --hessian '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
+        else:
+            self.runJob('prody', 'anm {0} -s "all" --altloc "all" --hessian '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
+        
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
         
         eigvecs = self.anm.getEigvecs()
