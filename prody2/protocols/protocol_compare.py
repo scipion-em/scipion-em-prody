@@ -49,7 +49,7 @@ class ProDyCompare(EMProtocol):
     """
     This protocol will compare two SetOfNormalModes objects
     """
-    _label = 'ProDy compare'
+    _label = 'Compare modes'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):

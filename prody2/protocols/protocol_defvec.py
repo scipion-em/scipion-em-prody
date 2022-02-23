@@ -42,7 +42,7 @@ class ProDyDefvec(EMProtocol):
     """
     This protocol will perform deformation vector analysis
     """
-    _label = 'Deformation Vector'
+    _label = 'Deformation'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):

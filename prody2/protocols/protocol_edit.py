@@ -50,7 +50,7 @@ class ProDyEdit(EMProtocol):
     """
     This protocol will edit a SetOfNormalModes object to have more or fewer nodes
     """
-    _label = 'ProDy edit modes'
+    _label = 'Edit modes'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
