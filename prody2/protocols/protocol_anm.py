@@ -70,13 +70,6 @@ class ProDyANM(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
 
-        form.addParam('selection', StringParam, default="",
-                      label="selection string",
-                      help='This determines which atoms are used in the calculations. '
-                           'If left empty, the default behaviour is to use '
-                           '"protein and name CA or nucleic and name P C4\' C2" '
-                           'for atomic structures and "all" for pseudoatoms.')
-
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -154,17 +147,12 @@ class ProDyANM(EMProtocol):
     def computeModesStep(self, inputFn, n):
         
         if self.structureEM:
-            if self.selection == "":
-                self.selection = "all"
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
-            if self.selection == "":
-                self.selection = "protein and name CA or nucleic and name P C4' C2"
             self.pdbFileName = self._getPath('atoms.pdb')
 
         ag = prody.parsePDB(inputFn, alt='all')
-        selection = ag.select(str(self.selection))
-        prody.writePDB(self.pdbFileName, selection)
+        prody.writePDB(self.pdbFileName, ag)
 
         self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes --hessian '
                     '--export-scipion --npz -o {1} -p modes -n {2}'.format(self.pdbFileName,
@@ -280,10 +268,9 @@ class ProDyANM(EMProtocol):
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self.pdbFileName)
-        nmSet.setPdb(outputPdb.get())
+        inputPdb = self.inputStructure.get()
+        nmSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet, outputStructure=outputPdb)
-        self._defineSourceRelation(outputPdb, nmSet)
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.inputStructure, nmSet)
 
