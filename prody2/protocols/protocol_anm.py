@@ -106,7 +106,7 @@ class ProDyANM(EMProtocol):
 
         form.addParam('zeros', BooleanParam, default=True,
                       expertLevel=LEVEL_ADVANCED,
-                      label="include zero eigvals",
+                      label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
 
     # --------------------------- STEPS functions ------------------------------
