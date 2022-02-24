@@ -83,8 +83,7 @@ class ProDyANM(EMProtocol):
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, Tirion (Phys. Rev. Lett. 1996) found ~5 A works well '
-                           '(2 vdW radii of ~1.5 A + ~2 A)')
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
 
         form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
