@@ -33,7 +33,7 @@ import os
 import numpy as np
 
 from pwem import *
-from pwem.objects import SetOfNormalModes, EMFile
+from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -123,6 +123,16 @@ class ProDyCompare(EMProtocol):
             mode_ens.addModeSet(modes2)
             if self.match:
                 mode_ens.match()
+
+                match_inds = prody.matchModes(modes1, modes2, index=True)
+
+                prody.writeArray(self._getExtraPath('match_inds.txt'),
+                                 np.array(match_inds, dtype=int)[1]+1,
+                                 format='%3d')
+
+                atoms = prody.parsePDB(self.modes1.get().getPdb().getFileName())
+                prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
+                prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
             mode_ens = [modes1, modes2]
         
@@ -143,4 +153,19 @@ class ProDyCompare(EMProtocol):
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
-        self._defineOutputs(matrixFile=outputMatrix)
+
+        if self.match:
+            fnSqlite = self._getPath('modes.sqlite')
+            nmSet = SetOfNormalModes(filename=fnSqlite)
+            nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+
+            outputPdb = AtomStruct()
+            outputPdb.setFileName(self._getPath('atoms.pdb'))
+            nmSet.setPdb(outputPdb.get())
+
+            outputMatch = EMFile(filename=self._getExtraPath('match_inds.txt'))
+            nmSet._indsFileName = String(self._getExtraPath('match_inds.txt'))
+
+            self._defineOutputs(matrixFile=outputMatrix, matchFile=outputMatch, outputModes=nmSet)
+        else:
+            self._defineOutputs(matrixFile=outputMatrix)
