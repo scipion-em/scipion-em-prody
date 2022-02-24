@@ -8,3 +8,4 @@ from .protocol_atoms import ProDySelect, ProDySuperpose
 from .protocol_compare import ProDyCompare
 from .protocol_edit import ProDyEdit
 from .protocol_defvec import ProDyDefvec
+from .protocol_import import ProDyImportModes

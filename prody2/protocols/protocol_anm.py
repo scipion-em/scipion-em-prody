@@ -88,9 +88,8 @@ class ProDyANM(EMProtocol):
         form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
-                      help='This determines the strength of the strings and can be a function. \n'
-                           'This allows the use of ENMs based on pseudoatom, atom or residue properties including radii, '
-                           'secondary structure, distance-dependent potentials, and other custom functions. \n'
+                      help='This number determines the strength of the springs.\n'
+                           'More sophisticated options are available within the ProDy API.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
