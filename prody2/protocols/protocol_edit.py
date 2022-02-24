@@ -40,6 +40,7 @@ from pyworkflow.utils import *
 from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
 
 import prody
+from prody.utilities import ZERO
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
@@ -122,7 +123,9 @@ class ProDyEdit(EMProtocol):
                     modes.buildHessian(bigger)
                 
                 self.outModes, self.outAtoms = prody.reduceModel(modes, bigger, amap)
-                self.outModes.calcModes()
+                
+                zeros = bool(np.any(modes.getEigvals() < ZERO))
+                self.outModes.calcModes(zeros=zeros)
             else:
                 # RTB needs to be supported or we need a Scipion error
                 # In the meantime, we slice instead and ProDy warn in the logs.
