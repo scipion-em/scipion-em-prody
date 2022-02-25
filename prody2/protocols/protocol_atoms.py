@@ -36,9 +36,13 @@ from pwem.objects import AtomStruct, Transform, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import PointerParam, StringParam
+from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
+                                        EnumParam, LEVEL_ADVANCED)
 
 import prody
+
+BEST_MATCH = 0
+SAME_CHID = 1
 
 class ProDySelect(EMProtocol):
     """
@@ -87,11 +91,11 @@ class ProDySelect(EMProtocol):
         self._defineOutputs(outputStructure=outputPdb)   
 
 
-class ProDySuperpose(EMProtocol):
+class ProDyAlign(EMProtocol):
     """
-    This protocol will perform atomic structure superposition
+    This protocol will perform atomic structure mapping and superposition
     """
-    _label = 'Atom Superposition'
+    _label = 'Atom Alignment'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -100,51 +104,92 @@ class ProDySuperpose(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy Superpose')
+        form.addSection(label='ProDy Align')
 
         form.addParam('mobStructure', PointerParam, label="Mobile structure",
                       important=True,
                       pointerClass='AtomStruct',
                       help='The structure to be moved can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms).'
-                           'The two structures should have the same number of nodes.')
+                           '(an EM volume converted into pseudoatoms).')
 
         form.addParam('tarStructure', PointerParam, label="Target structure",
                       important=True,
                       pointerClass='AtomStruct',
                       help='The target structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)'
-                           'The two structures should have the same number of nodes.')
+                           '(an EM volume converted into pseudoatoms).')
+
+        form.addParam('seqid', FloatParam, default=1.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Sequence Identity Cut-off (%)",
+                      help='Alignment mapping with lower sequence identity will not be accepted.')
+
+        form.addParam('overlap', FloatParam, default=1.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Overlap Cut-off (%)",
+                      help='Alignment mapping with lower sequence coverage will not be accepted.\n'
+                           'This can be a number between 0 and 100 or a decimal between 0 and 1') 
+
+        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
+                      default=BEST_MATCH,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Chain matching function",
+                      help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
+                           'Custom match functions will be added soon.')    
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
-        self._insertFunctionStep('superposeStep', mobFn, tarFn)
+        self._insertFunctionStep('alignStep', mobFn, tarFn)
         self._insertFunctionStep('createOutputStep')
 
-    def superposeStep(self, mobFn, tarFn):
+    def alignStep(self, mobFn, tarFn):
+        """This step includes alignment mapping and superposition"""
 
         mob = prody.parsePDB(mobFn, alt='all')
         tar = prody.parsePDB(tarFn, alt='all')
 
-        alg, self.T = prody.superpose(mob, tar)
+        if self.matchFunc.get() == BEST_MATCH:
+            match_func = prody.bestMatch
+        else:
+            match_func = prody.sameChid
 
-        self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, alg)
+        mob_amap = prody.alignChains(mob, tar,
+                                     seqid=self.seqid.get(),
+                                     overlap=self.overlap.get(),
+                                     match_func=match_func)[0]
+        mob_sel = mob.select(mob_amap.getSelstr())
+
+        tar_amap = prody.alignChains(tar, mob_sel,
+                                     seqid=self.seqid.get(),
+                                     overlap=self.overlap.get(),
+                                     match_func=match_func)[0]
+        tar_sel = tar.select(tar_amap.getSelstr())
+
+        alg, self.T = prody.superpose(mob_sel, tar_sel)
+
+        self.pdbFileNameMob = self._getPath('mobile.pdb')
+        prody.writePDB(self.pdbFileNameMob, alg)
+
+        self.pdbFileNameTar = self._getPath('target.pdb')
+        prody.writePDB(self.pdbFileNameTar, tar_sel)
 
         self.matrixFileName = self._getPath('transformation.txt')
         prody.writeArray(self.matrixFileName, self.T.getMatrix())
 
     def createOutputStep(self):
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self.pdbFileName)
+        outputPdbMob = AtomStruct()
+        outputPdbMob.setFileName(self.pdbFileNameMob)
+
+        outputPdbTar = AtomStruct()
+        outputPdbTar.setFileName(self.pdbFileNameTar)
 
         outputTrans = Transform()
         outputTrans.setMatrix(self.T.getMatrix())
 
-        self._defineOutputs(outputStructure=outputPdb,
+        self._defineOutputs(outputStructureMob=outputPdbMob,
+                            outputStructureTar=outputPdbTar,
                             outputTransformation=outputTrans)
 
