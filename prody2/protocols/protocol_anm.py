@@ -85,11 +85,12 @@ class ProDyANM(EMProtocol):
                            '(see Doruker et al., J Comput Chem 2002). \n'
                            'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
 
-        form.addParam('gamma', StringParam, default=1.,
+        form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
-                      help='This number determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API.\n'
+                      help='This number or function determines the strength of the springs.\n'
+                           'More sophisticated options are available within the ProDy API and '
+                           'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
