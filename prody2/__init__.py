@@ -89,13 +89,11 @@ class Plugin(pwem.Plugin):
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)
 
-        if version == DEVEL:
-            # Replace with latest scipion branch of prody on my github
-            installCmd.append('pip uninstall prody -y &&')
-            installCmd.append('pip install git+https://github.com/jamesmkrieger/ProDy.git@scipion')
-        else:
-            # Install downloaded code
-            installCmd.append('pip install -U -e .')
+        # Replace with latest scipion branch of prody on my github
+        installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git; cd ProDy;')
+
+        # Install downloaded code
+        installCmd.append('pip install -U -e .; python setup.py build_ext --inplace --force; cd ..')
 
         # Flag installation finished
         installCmd.append('&& touch %s' % PRODY_INSTALLED)
@@ -105,20 +103,12 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        if version == DEVEL:
-            env.addPackage('ProDy', version=version,
-                           buildDir='prody2', tar='void.tgz',
-                           commands=prody_commands,
-                           neededProgs=cls.getDependencies(),
-                           default=default,
-                           vars=installEnvVars)
-        else:
-            env.addPackage('ProDy', version=version,
-                           url='https://github.com/prody/prody/archive/v%s.tar.gz' % version,
-                           commands=prody_commands,
-                           neededProgs=cls.getDependencies(),
-                           default=default,
-                           vars=installEnvVars)
+        env.addPackage('ProDy', version=version,
+                        buildDir='prody2', tar='void.tgz',
+                        commands=prody_commands,
+                        neededProgs=cls.getDependencies(),
+                        default=default,
+                        vars=installEnvVars)
 
     @classmethod
     def getProgram(cls, program):
@@ -136,5 +126,5 @@ class Plugin(pwem.Plugin):
         return envVar.split()[-1]
 
     @classmethod
-    def IS_V201(cls):
-        return cls.getActiveVersion().startswith(getProDyEnvName('2.0.1'))
+    def IS_V202(cls):
+        return cls.getActiveVersion().startswith(getProDyEnvName('2.0.2'))
