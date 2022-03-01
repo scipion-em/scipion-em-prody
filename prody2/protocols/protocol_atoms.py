@@ -41,8 +41,15 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
 
 import prody
 
+# chain matching methods
 BEST_MATCH = 0
 SAME_CHID = 1
+
+# residue mapping methods
+NOTHING = 0 # stop trivial mapping if trivial mapping fails
+PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
+CEALIGN = 2 # combinatorial extension (CE) as in PyMOL. Not included as doesn't work well enough
+DEFAULT = 3 # try pwalign then CE. Not included because CE doesn't work well enough
 
 class ProDySelect(EMProtocol):
     """
@@ -120,33 +127,48 @@ class ProDyAlign(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms).')
 
-        form.addParam('seqid', FloatParam, default=1.,
+        form.addParam('seqid', FloatParam, default=100.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Sequence Identity Cut-off (%)",
-                      help='Alignment mapping with lower sequence identity will not be accepted.')
+                      help='Alignment mapping with lower sequence identity will not be accepted.\n'
+                           'This should be a number between 0 and 100')
 
-        form.addParam('overlap', FloatParam, default=1.,
+        form.addParam('overlap', FloatParam, default=100.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Overlap Cut-off (%)",
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1') 
+                           'This should be a number between 0 and 100') 
 
         form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
                       default=BEST_MATCH,
                       expertLevel=LEVEL_ADVANCED,
                       label="Chain matching function",
-                      help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
-                           'Custom match functions will be added soon.')    
+                      help='Chains can be matched by either trying all combinations and taking the best one '
+                           'based on a number of criteria including final RMSD or by taking chains with the same ID.\n'
+                           'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')    
+
+        form.addParam('mapping', EnumParam, choices=['Nothing', 'Biopython pwalign local sequence alignment'],
+                      default=PWALIGN,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Residue mapping function",
+                      help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
+                           'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
+                           'for more details.')    
+
+        form.addParam('rmsd_reject', FloatParam, default=15.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Rejection RMSD (A)",
+                      help='Alignments with worse RMSDs than this will be rejected.')    
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        mobFn = self.mobStructure.get().getFileName()
-        tarFn = self.tarStructure.get().getFileName()
-        self._insertFunctionStep('alignStep', mobFn, tarFn)
+        self._insertFunctionStep('alignStep')
         self._insertFunctionStep('createOutputStep')
 
-    def alignStep(self, mobFn, tarFn):
+    def alignStep(self):
         """This step includes alignment mapping and superposition"""
+        mobFn = self.mobStructure.get().getFileName()
+        tarFn = self.tarStructure.get().getFileName()
 
         mob = prody.parsePDB(mobFn, alt='all')
         tar = prody.parsePDB(tarFn, alt='all')
@@ -156,40 +178,79 @@ class ProDyAlign(EMProtocol):
         else:
             match_func = prody.sameChid
 
-        mob_amap = prody.alignChains(mob, tar,
-                                     seqid=self.seqid.get(),
-                                     overlap=self.overlap.get(),
-                                     match_func=match_func)[0]
-        mob_sel = mob.select(mob_amap.getSelstr())
+        if self.mapping.get() == DEFAULT:
+            mapping = 'auto'
+        elif self.mapping.get() == PWALIGN:
+            mapping = 'pwalign'
+        elif self.mapping.get() == CEALIGN:
+            mapping = 'ce'
+        else:
+            mapping = False
 
-        tar_amap = prody.alignChains(tar, mob_sel,
-                                     seqid=self.seqid.get(),
-                                     overlap=self.overlap.get(),
-                                     match_func=match_func)[0]
-        tar_sel = tar.select(tar_amap.getSelstr())
+        mob_amap_list = prody.alignChains(mob, tar,
+                                          seqid=self.seqid.get(),
+                                          overlap=self.overlap.get(),
+                                          match_func=match_func,
+                                          mapping=mapping,
+                                          rmsd_reject=self.rmsd_reject.get())
+        if len(mob_amap_list):
+            mob_amap = mob_amap_list[0]
+            mob_sel = mob.select(mob_amap.getSelstr())
 
-        alg, self.T = prody.superpose(mob_sel, tar_sel)
+            tar_amap_list = prody.alignChains(tar, mob_sel,
+                                              seqid=self.seqid.get(),
+                                              overlap=self.overlap.get(),
+                                              match_func=match_func,
+                                              mapping=mapping,
+                                              rmsd_reject=self.rmsd_reject.get())
+            if len(tar_amap_list):
+                tar_amap = tar_amap_list[0]
+                tar_sel = tar.select(tar_amap.getSelstr())
 
-        self.pdbFileNameMob = self._getPath('mobile.pdb')
-        prody.writePDB(self.pdbFileNameMob, alg)
+                if mob_sel.numAtoms != tar_sel.numAtoms():
+                    mob_amap_list = prody.alignChains(mob_sel, tar_sel,
+                                                      seqid=self.seqid.get(),
+                                                      overlap=self.overlap.get(),
+                                                      match_func=match_func,
+                                                      mapping=mapping,
+                                                      rmsd_reject=self.rmsd_reject.get())
+                    if len(mob_amap_list):
+                        mob_amap = mob_amap_list[0]
+                        mob_sel = mob.select(mob_amap.getSelstr())
 
-        self.pdbFileNameTar = self._getPath('target.pdb')
-        prody.writePDB(self.pdbFileNameTar, tar_sel)
+                    tar_amap_list = prody.alignChains(tar_sel, mob_sel,
+                                                      seqid=self.seqid.get(),
+                                                      overlap=self.overlap.get(),
+                                                      match_func=match_func,
+                                                      mapping=mapping,
+                                                      rmsd_reject=self.rmsd_reject.get())
+                    if len(tar_amap_list):
+                        tar_amap = tar_amap_list[0]
+                        tar_sel = tar.select(tar_amap.getSelstr())
 
-        self.matrixFileName = self._getPath('transformation.txt')
-        prody.writeArray(self.matrixFileName, self.T.getMatrix())
+                alg, self.T = prody.superpose(mob_sel, tar_sel)
+
+                self.pdbFileNameMob = self._getPath('mobile.pdb')
+                prody.writePDB(self.pdbFileNameMob, alg)
+
+                self.pdbFileNameTar = self._getPath('target.pdb')
+                prody.writePDB(self.pdbFileNameTar, tar_sel)
+
+                self.matrixFileName = self._getPath('transformation.txt')
+                prody.writeArray(self.matrixFileName, self.T.getMatrix())
 
     def createOutputStep(self):
-        outputPdbMob = AtomStruct()
-        outputPdbMob.setFileName(self.pdbFileNameMob)
+        if hasattr(self, "pdbFileNameMob"):
+            outputPdbMob = AtomStruct()
+            outputPdbMob.setFileName(self.pdbFileNameMob)
 
-        outputPdbTar = AtomStruct()
-        outputPdbTar.setFileName(self.pdbFileNameTar)
+            outputPdbTar = AtomStruct()
+            outputPdbTar.setFileName(self.pdbFileNameTar)
 
-        outputTrans = Transform()
-        outputTrans.setMatrix(self.T.getMatrix())
+            outputTrans = Transform()
+            outputTrans.setMatrix(self.T.getMatrix())
 
-        self._defineOutputs(outputStructureMob=outputPdbMob,
-                            outputStructureTar=outputPdbTar,
-                            outputTransformation=outputTrans)
+            self._defineOutputs(outputStructureMob=outputPdbMob,
+                                outputStructureTar=outputPdbTar,
+                                outputTransformation=outputTrans)
 
