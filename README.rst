@@ -15,7 +15,7 @@ Developer's version
 
     .. code-block::
 
-        git clone https://github.com/jamesmkrieger/scipion-em-prody.git
+        git clone https://github.com/scipion-em/scipion-em-prody.git
 
    * install
 
