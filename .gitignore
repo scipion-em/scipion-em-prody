@@ -1,5 +1,6 @@
 # Python compilation files
 *.pyc
+prody2/protocols/__pycache__/
 
 # Ignore temporary packaging folder
 *.egg-info
