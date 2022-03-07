@@ -35,7 +35,8 @@ from pyworkflow.utils import *
 from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
-from prody2.protocols import ProDyANM, ProDyDefvec, ProDyEdit, ProDyImportModes
+from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
+                              ProDyImportModes, ProDyRTB)
 
 import os
 import prody
@@ -45,7 +46,8 @@ class ProDyModeViewer(Viewer):
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, ProDyDefvec, ProDyEdit, ProDyImportModes]
+    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB,
+                ProDyDefvec, ProDyEdit, ProDyImportModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
