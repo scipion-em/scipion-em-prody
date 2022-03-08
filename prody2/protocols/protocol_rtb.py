@@ -94,6 +94,10 @@ class ProDyRTB(EMProtocol):
                       label='Number of residues in shortest block',
                       help='Blocks with fewer residues will be combined into the previous block')
 
+        form.addParam('longest_block', IntParam, default=20,
+                      label='Number of residues in longest block',
+                      help='Blocks with more residues will be split in half')
+
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
@@ -161,10 +165,12 @@ class ProDyRTB(EMProtocol):
 
         if self.blockDef.get() == BLOCKS_FROM_RES:
             self.blocks, self.amap = prody.assignBlocks(atoms, res_per_block=self.res_per_block.get(),
-                                                        shortest_block=self.shortest_block.get())
+                                                        shortest_block=self.shortest_block.get(),
+                                                        longest_block=self.longest_block.get())
         else:
             self.blocks, self.amap = prody.assignBlocks(atoms, secstr=True,
-                                                        shortest_block=self.shortest_block.get())
+                                                        shortest_block=self.shortest_block.get(),
+                                                        longest_block=self.longest_block.get())
 
         prody.writePDB(self.pdbFileName, self.amap)
 
