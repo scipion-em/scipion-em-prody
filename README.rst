@@ -21,7 +21,7 @@ Developer's version
 
     .. code-block::
 
-       scipion3 installp -p path_to_scipion-em-prody --devel
+       scipion3 installp -p ./scipion-em-prody --devel
 
 ProDy software will be installed automatically with the plugin but you can also use an existing installation by providing *PRODY_ENV_ACTIVATION* (see below).
 
