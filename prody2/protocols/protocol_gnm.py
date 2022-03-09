@@ -2,7 +2,6 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
-# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -28,7 +27,7 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the gaussian network model (GNM).
+This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (GNM).
 """
 from pyworkflow.protocol import params
 
@@ -77,14 +76,14 @@ class ProDyGNM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=7.5,
+        form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance is recommended.')
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -161,12 +160,6 @@ class ProDyGNM(EMProtocol):
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
-        prody.writeArray(self._getPath('modes_covariance.txt'), covariances)
-
-        crossCorr = prody.calcCrossCorr(self.gnm[1:])
-        prody.writeArray(self._getPath('modes_crossCorr.txt'), crossCorr)
-
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
 
@@ -241,7 +234,8 @@ class ProDyGNM(EMProtocol):
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    d = abs(float(line))
+                    x, y, z = map(float, line.split())
+                    d = math.sqrt(x*x+y*y+z*z)
                     if n==7:
                         maxShift.append(d)
                         maxShiftMode.append(7)
