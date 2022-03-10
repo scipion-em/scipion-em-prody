@@ -30,6 +30,7 @@
 This module will provide ProDy deformation vector analysis.
 """
 from pwem import *
+from pwem.emlib import MetaData, MDL_NMA_MODEFILE, MDL_NMA_ATOMSHIFT
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
@@ -37,6 +38,8 @@ from pyworkflow.utils import *
 from pyworkflow.protocol.params import PointerParam, StringParam
 
 import prody
+
+import math
 
 class ProDyDefvec(EMProtocol):
     """
@@ -74,6 +77,7 @@ class ProDyDefvec(EMProtocol):
         self.mobFn = self.mobStructure.get().getFileName()
         self.tarFn = self.tarStructure.get().getFileName()
         self._insertFunctionStep('defvecStep', self.mobFn, self.tarFn)
+        self._insertFunctionStep('computeAtomShiftsStep')
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self, mobFn, tarFn):
@@ -91,6 +95,32 @@ class ProDyDefvec(EMProtocol):
         prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, mob)
+
+    def computeAtomShiftsStep(self):
+        fnOutDir = self._getExtraPath("distanceProfiles")
+        makePath(fnOutDir)
+        maxShift=[]
+        maxShiftMode=[]
+        
+        n = 1
+        fnVec = self._getPath("modes", "vec.%d" % n)
+        fhIn = open(fnVec)
+        md = MetaData()
+        for line in fhIn:
+            x, y, z = map(float, line.split())
+            d = math.sqrt(x*x+y*y+z*z)
+            maxShift.append(d)
+            maxShiftMode.append(1)
+            md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
+        md.write(join(fnOutDir,"vec%d.xmd" % n))
+        fhIn.close()
+
+        md = MetaData()
+        for i, _ in enumerate(maxShift):
+            objId = md.addObject()
+            md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
+            md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
+        md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
