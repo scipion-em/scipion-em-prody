@@ -136,6 +136,25 @@ class ProDyRTB(EMProtocol):
                       label="Use turbo mode",
                       help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
+        form.addSection(label='Animation')        
+        form.addParam('rmsd', FloatParam, default=5,
+                      label='RMSD Amplitude (A)',
+                      help='Used only for animations of computed normal modes. '
+                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
+                      'along normal modes in the animations. \n')
+        form.addParam('n_steps', IntParam, default=10,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Number of frames',
+                      help='Number of frames used in each direction of animations.')
+        form.addParam('pos', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include positive direction",
+                      help='Elect whether to animate in the positive mode direction.')
+        form.addParam('neg', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include negative direction",
+                      help='Elect whether to animate in the negative mode direction.')
+                           
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
@@ -148,6 +167,9 @@ class ProDyRTB(EMProtocol):
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)
+        self._insertFunctionStep('animateModesStep', n,
+                                 self.rmsd.get(), self.n_steps.get(),
+                                 self.neg.get(), self.pos.get())
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get(),
                                  self.structureEM)
@@ -181,6 +203,39 @@ class ProDyRTB(EMProtocol):
         prody.writeScipionModes(self._getPath(), self.rtb)
         prody.writeNMD(self._getPath('modes.rtb.nmd'), self.rtb, self.amap)
         prody.saveModel(self.rtb, self._getPath('modes.rtb.npz'), matrices=True)
+
+    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
+
+        animations_dir = self._getExtraPath('animations')
+        makePath(animations_dir)
+        for i, mode in enumerate(self.rtb[6:]):
+            modenum = i+7
+            fnAnimation = join("extra", "animations", "animated_mode_%03d"
+                               % modenum)
+            prody.writePDB(fnAnimation+".pdb", 
+                           prody.traverseMode(mode, self.amap, rmsd=rmsd, n_steps=n_steps,
+                                              pos=pos, neg=neg)
+                           )
+
+            fhCmd=open(fnAnimation+".vmd",'w')
+            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
+            fhCmd.write("animate style Rock\n")
+            fhCmd.write("display projection Orthographic\n")
+            if self.structureEM:
+                fhCmd.write("mol modcolor 0 0 Beta\n")
+                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
+            else:
+                fhCmd.write("mol modcolor 0 0 Index\n")
+                if self.amap.ca.numAtoms() == self.amap.numAtoms():
+                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
+                    #         "2.600000 0\n")
+                else:
+                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
+                            "2.600000 0\n")
+            fhCmd.write("animate speed 0.5\n")
+            fhCmd.write("animate forward\n")
+            fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
