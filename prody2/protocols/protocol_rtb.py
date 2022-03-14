@@ -210,7 +210,7 @@ class ProDyRTB(EMProtocol):
         makePath(animations_dir)
         for i, mode in enumerate(self.rtb[6:]):
             modenum = i+7
-            fnAnimation = join("extra", "animations", "animated_mode_%03d"
+            fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
             prody.writePDB(fnAnimation+".pdb", 
                            prody.traverseMode(mode, self.amap, rmsd=rmsd, n_steps=n_steps,
