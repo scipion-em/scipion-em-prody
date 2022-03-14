@@ -201,7 +201,7 @@ class ProDyRTB(EMProtocol):
         self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
         
         prody.writeScipionModes(self._getPath(), self.rtb)
-        prody.writeNMD(self._getPath('modes.rtb.nmd'), self.rtb, self.amap)
+        prody.writeNMD(self._getPath('modes.nmd'), self.rtb, self.amap)
         prody.saveModel(self.rtb, self._getPath('modes.rtb.npz'), matrices=True)
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
@@ -210,7 +210,7 @@ class ProDyRTB(EMProtocol):
         makePath(animations_dir)
         for i, mode in enumerate(self.rtb[6:]):
             modenum = i+7
-            fnAnimation = join("extra", "animations", "animated_mode_%03d"
+            fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
             prody.writePDB(fnAnimation+".pdb", 
                            prody.traverseMode(mode, self.amap, rmsd=rmsd, n_steps=n_steps,
