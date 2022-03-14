@@ -201,7 +201,7 @@ class ProDyRTB(EMProtocol):
         self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
         
         prody.writeScipionModes(self._getPath(), self.rtb)
-        prody.writeNMD(self._getPath('modes.rtb.nmd'), self.rtb, self.amap)
+        prody.writeNMD(self._getPath('modes.nmd'), self.rtb, self.amap)
         prody.saveModel(self.rtb, self._getPath('modes.rtb.npz'), matrices=True)
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
