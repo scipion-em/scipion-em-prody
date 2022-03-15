@@ -101,15 +101,14 @@ class ProDyEdit(EMProtocol):
         structureEM = self.inputStructure.getPseudoAtoms()
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
-
-        new_nodes = prody.parsePDB(self.newNodes.get().getFileName())
+        new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
 
         nodes_list = [old_nodes, new_nodes]
         n_atoms_arr = np.array([nodes.numAtoms() for nodes in nodes_list])
         smaller = nodes_list[np.argmin(n_atoms_arr)]
         bigger = nodes_list[np.argmax(n_atoms_arr)]
 
-        amap = prody.alignChains(bigger, smaller)[0]
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
             self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
@@ -147,9 +146,11 @@ class ProDyEdit(EMProtocol):
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self._getPath('atoms.pdb'))
-        nmSet.setPdb(outputPdb.get())
+        # outputPdb = AtomStruct()
+        # outputPdb.setFileName(self._getPath('atoms.pdb'))
+        # nmSet.setPdb(outputPdb.get())
+        nmSet.setPdb(self.newNodes.get())
 
-        self._defineOutputs(outputModes=nmSet, outputStructure=outputPdb)
-        self._defineSourceRelation(outputPdb, nmSet)
+        self._defineOutputs(outputModes=nmSet)#, outputStructure=outputPdb)
+        # self._defineSourceRelation(outputPdb, nmSet)
+        self._defineSourceRelation(self.newNodes, nmSet)
