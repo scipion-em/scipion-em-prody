@@ -91,14 +91,14 @@ class ProDyEdit(EMProtocol):
     def editModesStep(self):
         modes_path = os.path.dirname(os.path.dirname(self.modes.get()[1].getModeFile()))
         
-        from_prody = len(glob(modes_path+"/*npz"))
-        if from_prody:
+        from_prody_anm = len(glob(modes_path+"/*anm.npz"))
+        if from_prody_anm:
             modes = prody.loadModel(modes_path+"/modes.anm.npz")
         else:
             modes = prody.parseScipionModes(modes_path)
 
         self.inputStructure = self.modes.get().getPdb()
-        structureEM = self.inputStructure.getPseudoAtoms()
+        #structureEM = self.inputStructure.getPseudoAtoms()
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
 
@@ -115,12 +115,12 @@ class ProDyEdit(EMProtocol):
             self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
 
         elif self.edit == NMA_REDUCE:
-            if from_prody or structureEM:
-                if structureEM:
+            if from_prody_anm:# or structureEM:
+                #if structureEM:
                     # ANM used so can use it again. Will need to carry over the cutoff
                     # It would be better still if we could save the Hessian from cflex
-                    modes = prody.ANM(modes.getTitle())
-                    modes.buildHessian(bigger)
+                    #modes = prody.ANM(modes.getTitle())
+                    #modes.buildHessian(bigger)
                 
                 self.outModes, self.outAtoms = prody.reduceModel(modes, bigger, amap)
                 
