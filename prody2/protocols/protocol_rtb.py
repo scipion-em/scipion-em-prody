@@ -72,40 +72,11 @@ class ProDyRTB(EMProtocol):
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
-
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
-
-        form.addParam('blockDef', EnumParam, choices=['res', 'secstr'],
-                      label="Block definition type",
-                      default=BLOCKS_FROM_RES,
-                      display=EnumParam.DISPLAY_HLIST,
-                      help='Define blocks using either a number of residues or secondary structure information')
-
-        form.addParam('res_per_block', IntParam, default=10,
-                      condition='blockDef==%d' % BLOCKS_FROM_RES,
-                      label="Number of residues per block",
-                      help='All blocks will have this number of residues except the last one')
-
-        form.addParam('shortest_block', IntParam, default=2,
-                      label='Number of residues in shortest block',
-                      help='Blocks with fewer residues will be combined into the previous block')
-
-        form.addParam('longest_block', IntParam, default=20,
-                      label='Number of residues in longest block',
-                      help='Blocks with more residues will be split in half')
-
-        form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -114,7 +85,27 @@ class ProDyRTB(EMProtocol):
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+        form.addParam('cutoff', FloatParam, default=15.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Cut-off distance (A)",
+                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
+                           'For pseudoatoms, set this according to the level of coarse-graining '
+                           '(see Doruker et al., J Comput Chem 2002). \n'
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+        form.addParam('sparse', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use sparse matrices?",
+                      help='This saves memory at the expense of computational time.')
 
+        form.addParam('zeros', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include zero eigvals",
+                      help='Elect whether modes with zero eigenvalues will be kept.')
+        form.addParam('turbo', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use turbo mode",
+                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
@@ -126,15 +117,24 @@ class ProDyRTB(EMProtocol):
                       'The modes metadata file can be used to see which modes are more collective '
                       'in order to decide which modes to use at the image analysis step.')
 
-        form.addParam('zeros', BooleanParam, default=True,
+        form.addSection(label='Block definition')
+        form.addParam('blockDef', EnumParam, choices=['res', 'secstr'],
+                      label="Block definition type",
+                      default=BLOCKS_FROM_RES,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='Define blocks using either a number of residues or secondary structure information')
+        form.addParam('res_per_block', IntParam, default=10,
+                      condition='blockDef==%d' % BLOCKS_FROM_RES,
+                      label="Number of residues per block",
+                      help='All blocks will have this number of residues except the last one')
+        form.addParam('shortest_block', IntParam, default=2,
                       expertLevel=LEVEL_ADVANCED,
-                      label="Include zero eigvals",
-                      help='Elect whether modes with zero eigenvalues will be kept.')
-
-        form.addParam('turbo', BooleanParam, default=True,
+                      label='Number of residues in shortest block',
+                      help='Blocks with fewer residues will be combined into the previous block')
+        form.addParam('longest_block', IntParam, default=20,
                       expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
+                      label='Number of residues in longest block',
+                      help='Blocks with more residues will be split in half')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
@@ -197,8 +197,20 @@ class ProDyRTB(EMProtocol):
         prody.writePDB(self.pdbFileName, self.amap)
 
         self.rtb = prody.RTB()
-        self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(), gamma=self.gamma.get())
-        self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+
+        mem_limits = self.sparse.get()==True or self.turbo.get()==False
+        if not mem_limits:
+            try:
+                self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                    gamma=self.gamma.get(), sparse=self.sparse.get())
+                self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+            except MemoryError:
+                mem_limits = True
+        
+        if mem_limits:
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                    gamma=self.gamma.get(), sparse=True)
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
         
         prody.writeScipionModes(self._getPath(), self.rtb)
         prody.writeNMD(self._getPath('modes.nmd'), self.rtb, self.amap)
