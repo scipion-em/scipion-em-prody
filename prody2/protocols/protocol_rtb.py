@@ -206,18 +206,18 @@ class ProDyRTB(EMProtocol):
 
         self.rtb = prody.RTB()
 
-        mem_limits = self.sparse.get()==True or self.turbo.get()==False
-        if not mem_limits:
-            try:
-                self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
-                                    gamma=self.gamma.get(), sparse=self.sparse.get())
-                self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
-            except MemoryError:
-                mem_limits = True
-        
-        if mem_limits:
+        try:
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                gamma=self.gamma.get(), sparse=self.sparse.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
             self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
                                     gamma=self.gamma.get(), sparse=True)
+
+        try:
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
             self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
         
         prody.writeScipionModes(self._getPath(), self.rtb)
