@@ -43,7 +43,24 @@ Otherwise, it will use ProDy installed in the default scipion3 environment.
 Protocols
 ----------
 
-* ProDy ANM for anisotropic network model normal mode analysis
+* ProDyANM for anisotropic network model normal mode analysis
+* ProDyRTB for rotation and translation blocks normal mode analysis
+* ProDyDefvec for calculating deformation vectors between two structures
+
+* ProDyEdit to edit normal modes to different nodes/atoms, including slice and extend
+* ProDyCompare for comparing motions between different calculations including from continuousflex
+
+* ProDySelect for atom selection
+* ProDyAlign for alignment two structures, including atom matching and superposition
+
+* ProDyImportModes for importing modes calculated outside Scipion, including from Gromacs
+
+Viewers
+----------
+
+* ProDyComparisonsViewer for viewing matrices and bar graphs quantifying motion similarities
+* ProDyModeViewer for viewing modes of motion in the VMD plugin NMWiz
+
 
 References
 -----------
