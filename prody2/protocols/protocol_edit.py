@@ -136,7 +136,7 @@ class ProDyEdit(ProDyModesBase):
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
-            self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap)
+            self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=True)
 
         elif self.edit == NMA_REDUCE:
             if from_prody_anm:# or structureEM:

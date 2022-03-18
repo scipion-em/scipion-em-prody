@@ -127,10 +127,11 @@ class ProDyRTB(EMProtocol):
                       condition='blockDef==%d' % BLOCKS_FROM_RES,
                       label="Number of residues per block",
                       help='All blocks will have this number of residues except the last one')
-        form.addParam('shortest_block', IntParam, default=2,
+        form.addParam('shortest_block', IntParam, default=4,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in shortest block',
-                      help='Blocks with fewer residues will be combined into the previous block')
+                      help='Blocks with fewer residues will be combined into the previous block. '
+                           'Smaller numbers than 4 can be problematic sometimes.')
         form.addParam('longest_block', IntParam, default=20,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in longest block',
