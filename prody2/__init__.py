@@ -98,7 +98,12 @@ class Plugin(pwem.Plugin):
         # Flag installation finished
         installCmd.append('&& touch %s' % PRODY_INSTALLED)
 
-        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]
+        # Install PDBFixer and OpenMM for ClustENM
+        OPEN_MM_INSTALLED = 'openmm_installed'
+        installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
+
+        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED),
+                          (installOpenMM, OPEN_MM_INSTALLED)]
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
@@ -125,6 +130,3 @@ class Plugin(pwem.Plugin):
         envVar = cls.getVar(PRODY_ENV_ACTIVATION)
         return envVar.split()[-1]
 
-    @classmethod
-    def IS_V202(cls):
-        return cls.getActiveVersion().startswith(getProDyEnvName('2.0.2'))
