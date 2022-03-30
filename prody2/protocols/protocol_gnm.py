@@ -27,7 +27,7 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (GNM).
+This module will provide ProDy normal mode analysis (NMA) using the gaussian network model (GNM).
 """
 from pyworkflow.protocol import params
 
@@ -76,14 +76,14 @@ class ProDyGNM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=15.,
+        form.addParam('cutoff', FloatParam, default=7.5,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
+                           'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                           'For all atoms, a shorter distance is recommended.')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -234,8 +234,7 @@ class ProDyGNM(EMProtocol):
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
+                    d = abs(float(line))
                     if n==7:
                         maxShift.append(d)
                         maxShiftMode.append(7)
