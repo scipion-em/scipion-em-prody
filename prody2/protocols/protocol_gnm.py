@@ -2,6 +2,7 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# *              Ricardo Serrano (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
