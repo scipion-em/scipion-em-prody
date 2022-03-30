@@ -154,7 +154,7 @@ class ProDyEdit(ProDyModesBase):
                 # RTB needs to be supported or we need a Scipion error
                 # In the meantime, we slice instead and ProDy warn in the logs.
                 prody.LOGGER.warn('RTB modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap)
+                self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=True)
 
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
