@@ -2,7 +2,7 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
-# *              Ricardo Serrano (rserranogut@hotmail.com)                 
+# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -160,6 +160,12 @@ class ProDyGNM(EMProtocol):
         self.gnm.setKirchhoff(kirchhoff)
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
+
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
+        prody.writeArray(self._getPath('modes_covariance.txt'), covariances)
+
+        crossCorr = prody.calcCrossCorr(self.gnm[1:])
+        prody.writeArray(self._getPath('modes_crossCorr.txt'), crossCorr)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
