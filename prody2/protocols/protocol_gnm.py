@@ -2,6 +2,7 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -27,7 +28,7 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
+This module will provide ProDy normal mode analysis (NMA) using the gaussian network model (GNM).
 """
 from pyworkflow.protocol import params
 
@@ -48,11 +49,11 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 
-class ProDyANM(EMProtocol):
+class ProDyGNM(EMProtocol):
     """
-    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
+    This protocol will perform normal mode analysis (NMA) using the Gaussian network model (GNM)
     """
-    _label = 'ANM analysis'
+    _label = 'GNM analysis'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -60,10 +61,8 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        form.addParallelSection(threads=1, mpi=0)
-
         # You need a params to belong to a section:
-        form.addSection(label='ProDy ANM NMA')
+        form.addSection(label='ProDy GNM NMA')
 
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
@@ -78,14 +77,15 @@ class ProDyANM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=15.,
+        form.addParam('cutoff', FloatParam, default=7.5,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
+                           'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                           'For all atoms, a shorter distance is recommended.')
+
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
@@ -93,14 +93,6 @@ class ProDyANM(EMProtocol):
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -117,10 +109,6 @@ class ProDyANM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -130,7 +118,7 @@ class ProDyANM(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
 
-        self.model_type = 'anm'
+        self.model_type = 'gnm'
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)
@@ -150,36 +138,34 @@ class ProDyANM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
-
         if self.zeros.get():
-            args += ' --zero-modes'
-
-        if self.turbo.get():
-            args += ' --turbo'
-
-        self.runJob('prody', args)
+            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
+        else:
+            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
         
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
         
-        eigvecs = self.anm.getEigvecs()
-        eigvals = self.anm.getEigvals()
-        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
+        eigvecs = self.gnm.getEigvecs()
+        eigvals = self.gnm.getEigvals()
+        kirchhoff = prody.parseArray(self._getPath('modes_kirchhoff.txt'))
 
-        self.anm.setHessian(hessian)
-        self.anm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrices=True)
+        self.gnm.setKirchhoff(kirchhoff)
+        self.gnm.setEigens(eigvecs, eigvals)
+        prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
+
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
+        prody.writeArray(self._getPath('modes_covariance.txt'), covariances)
+
+        crossCorr = prody.calcCrossCorr(self.gnm[1:])
+        prody.writeArray(self._getPath('modes_crossCorr.txt'), crossCorr)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
@@ -194,8 +180,8 @@ class ProDyANM(EMProtocol):
             self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.anm))
-        eigvals = self.anm.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.gnm))
+        eigvals = self.gnm.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -239,7 +225,7 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.gnm, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
@@ -255,8 +241,7 @@ class ProDyANM(EMProtocol):
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
+                    d = abs(float(line))
                     if n==7:
                         maxShift.append(d)
                         maxShiftMode.append(7)
