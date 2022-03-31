@@ -93,7 +93,7 @@ class ProDyEdit(EMProtocol):
         
         from_prody = len(glob(modes_path+"/*npz"))
         if from_prody:
-            modes = prody.loadModel(modes_path+"/modes.anm.npz")
+            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
         else:
             modes = prody.parseScipionModes(modes_path)
 
@@ -115,21 +115,12 @@ class ProDyEdit(EMProtocol):
             self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
 
         elif self.edit == NMA_REDUCE:
-            if from_prody or structureEM:
-                if structureEM:
-                    # ANM used so can use it again. Will need to carry over the cutoff
-                    # It would be better still if we could save the Hessian from cflex
-                    modes = prody.ANM(modes.getTitle())
-                    modes.buildHessian(bigger)
-                
+            if from_prody:
                 self.outModes, self.outAtoms = prody.reduceModel(modes, bigger, amap)
-                
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
             else:
-                # RTB needs to be supported or we need a Scipion error
-                # In the meantime, we slice instead and ProDy warn in the logs.
-                prody.LOGGER.warn('RTB modes cannot be reduced at this time. Slicing instead')
+                prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
                 self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
 
         elif self.edit == NMA_EXTEND:
