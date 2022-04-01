@@ -125,8 +125,9 @@ class TestProDy_1(TestWorkflow):
         protEdit3.setObjLabel('Extend_to_AA')
         self.launchProtocol(protEdit3)        
 
-        # Compare reduced and original CA NMA
-        protComp3 = self.newProtocol(ProDyCompare)
+        # Compare original AA ANM NMA and extended CA ANM NMA
+        # Test matching too
+        protComp3 = self.newProtocol(ProDyCompare, match=True)
         protComp3.modes1.set(protANM1.outputModes)
         protComp3.modes2.set(protEdit3.outputModes)
         protComp3.setObjLabel('Compare_AA_to_extCA')
@@ -142,7 +143,7 @@ class TestProDy_1(TestWorkflow):
         protEdit4.setObjLabel('Interp_to_AA')
         self.launchProtocol(protEdit4)        
 
-        # Compare reduced and original CA NMA
+        # Compare original AA ANM NMA and interpolated CA ANM NMA
         protComp4 = self.newProtocol(ProDyCompare)
         protComp4.modes1.set(protANM1.outputModes)
         protComp4.modes2.set(protEdit4.outputModes)
@@ -175,8 +176,8 @@ class TestProDy_1(TestWorkflow):
 
         # Defvec from same starting point as NMA
         protDefvec1 = self.newProtocol(ProDyDefvec)
-        protDefvec1.mobStructure.set(protSel2.outputStructure)
-        protDefvec1.tarStructure.set(protSel3.outputStructure)
+        protDefvec1.mobStructure.set(protAlign1.outputStructureTar)
+        protDefvec1.tarStructure.set(protAlign1.outputStructureMob)
         protDefvec1.setObjLabel('Defvec_4akeA_1akeA_CA')
         self.launchProtocol(protDefvec1) 
 
@@ -184,7 +185,7 @@ class TestProDy_1(TestWorkflow):
         protComp5 = self.newProtocol(ProDyCompare)
         protComp5.modes1.set(protANM2.outputModes)
         protComp5.modes2.set(protDefvec1.outputModes)
-        protComp5.setObjLabel('Compare_slcAA_to_CA')
+        protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
 
         # -------------------------------------------------------
@@ -207,20 +208,20 @@ class TestProDy_1(TestWorkflow):
         protComp6 = self.newProtocol(ProDyCompare)
         protComp6.modes1.set(protRTB1.outputModes)
         protComp6.modes2.set(protRTB2.outputModes)
-        protComp6.setObjLabel('Compare_slcAA_to_CA')
+        protComp6.setObjLabel('Compare_RTB1_to_RTB2')
         self.launchProtocol(protComp6)  
 
         # Compare CA ANM and RTB1
         protComp7 = self.newProtocol(ProDyCompare)
         protComp7.modes1.set(protANM2.outputModes)
         protComp7.modes2.set(protRTB1.outputModes)
-        protComp7.setObjLabel('Compare_slcAA_to_CA')
+        protComp7.setObjLabel('Compare_ANM_to_RTB1')
         self.launchProtocol(protComp7)  
 
         # Compare CA ANM and RTB2
         protComp8 = self.newProtocol(ProDyCompare)
         protComp8.modes1.set(protANM2.outputModes)
         protComp8.modes2.set(protRTB2.outputModes)
-        protComp8.setObjLabel('Compare_slcAA_to_CA')
+        protComp8.setObjLabel('Compare_ANM_to_RTB2')
         self.launchProtocol(protComp8) 
         

@@ -106,10 +106,10 @@ class ProDyCompare(EMProtocol):
     def compareModesStep(self):
 
         modes1_path = os.path.dirname(os.path.dirname(self.modes1.get()[1].getModeFile()))
-        modes1 = prody.parseScipionModes(modes1_path)
+        modes1 = prody.parseScipionModes(modes1_path, pdb=glob(modes1_path+"/*atoms.pdb"))
 
         modes2_path = os.path.dirname(os.path.dirname(self.modes2.get()[1].getModeFile()))
-        modes2 = prody.parseScipionModes(modes2_path)
+        modes2 = prody.parseScipionModes(modes2_path, pdb=glob(modes2_path+"/*atoms.pdb"))
 
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])

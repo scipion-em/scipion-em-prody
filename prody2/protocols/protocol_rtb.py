@@ -78,13 +78,26 @@ class ProDyRTB(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('gamma', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+        form.addParam('blockDef', EnumParam, choices=['res', 'secstr'],
+                      label="Block definition type",
+                      default=BLOCKS_FROM_RES,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='Define blocks using either a number of residues or secondary structure information')
+
+        form.addParam('res_per_block', IntParam, default=10,
+                      condition='blockDef==%d' % BLOCKS_FROM_RES,
+                      label="Number of residues per block",
+                      help='All blocks will have this number of residues except the last one')
+
+        form.addParam('shortest_block', IntParam, default=4,
+                      label='Number of residues in shortest block',
+                      help='Blocks with fewer residues will be combined into the previous block. '
+                           'Fewer than 4 can be problematic.')
+
+        form.addParam('longest_block', IntParam, default=20,
+                      label='Number of residues in longest block',
+                      help='Blocks with more residues will be split in half')
+
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",

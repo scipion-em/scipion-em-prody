@@ -48,7 +48,6 @@ from prody2.protocols.protocol_modes_base import ProDyModesBase
 NMA_SLICE = 0
 NMA_REDUCE = 1
 NMA_EXTEND = 2
-NMA_INTERP = 3
 
 class ProDyEdit(ProDyModesBase):
     """
@@ -65,14 +64,14 @@ class ProDyEdit(ProDyModesBase):
         # You need a params to belong to a section:
         form.addSection(label='ProDy edit')
 
-        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
+        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend'],
                       default=NMA_SLICE,
                       label='Type of edit',
                       help='Modes can have the number of nodes decreased using either eigenvector slicing '
                       'or Hessian reduction (aka vibrational subsystem analysis; Hinsen et al., Chem Phys 2000; '
-                      'Woodcock et al., J Chem Phys 2008). \nThe number of nodes can be increased by extending '
-                      '(copying) eigenvector values from nodes of the same residue or by through-space '
-                      'interpolation')
+                      'Woodcock et al., J Chem Phys 2008) in the case of modes from ProDy. \n'
+                      'The number of nodes can be increased by extending (copying) eigenvector values '
+                      'from nodes of the same residue')
 
         form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
                       pointerClass='SetOfNormalModes',
@@ -116,9 +115,9 @@ class ProDyEdit(ProDyModesBase):
     def computeModesStep(self):
         modes_path = os.path.dirname(os.path.dirname(self.modes.get()[1].getModeFile()))
         
-        from_prody_anm = len(glob(modes_path+"/*anm.npz"))
-        if from_prody_anm:
-            modes = prody.loadModel(modes_path+"/modes.anm.npz")
+        from_prody = len(glob(modes_path+"/*npz"))
+        if from_prody:
+            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
         else:
             modes = prody.parseScipionModes(modes_path)
 
@@ -139,30 +138,18 @@ class ProDyEdit(ProDyModesBase):
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=True)
 
         elif self.edit == NMA_REDUCE:
-            if from_prody_anm:# or structureEM:
-                #if structureEM:
-                    # ANM used so can use it again. Will need to carry over the cutoff
-                    # It would be better still if we could save the Hessian from cflex
-                    #modes = prody.ANM(modes.getTitle())
-                    #modes.buildHessian(bigger)
-                
-                self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
-                
+            if from_prody:
+                self.outModes, self.outAtoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
             else:
-                # RTB needs to be supported or we need a Scipion error
-                # In the meantime, we slice instead and ProDy warn in the logs.
-                prody.LOGGER.warn('RTB modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=True)
+                prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
+                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
 
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
 
-        else:
-            self.outModes, self.atoms = prody.interpolateModel(modes, amap, bigger, norm=True)
-
-        prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
+        prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
 
