@@ -60,6 +60,7 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
+        form.addParallelSection(threads=1, mpi=0)
 
         # You need a params to belong to a section:
         form.addSection(label='ProDy ANM NMA')
@@ -150,10 +151,11 @@ class ProDyANM(EMProtocol):
         prody.writePDB(self.pdbFileName, ag)
 
         args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                                        self._getPath(), n,
                                                                        self.gamma.get(),
-                                                                       self.cutoff.get())
+                                                                       self.cutoff.get(),
+                                                                       self.numberOfThreads.get())
 
         if self.sparse.get():
             args += ' --sparse-hessian'
