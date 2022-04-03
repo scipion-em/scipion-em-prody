@@ -63,7 +63,6 @@ class ProDyClustENM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        form.addParallelSection(threads=1, mpi=0)
 
         form.addSection(label='NMA')
         form.addParam('inputStructure', PointerParam, label="Input structure",
@@ -89,18 +88,6 @@ class ProDyClustENM(EMProtocol):
                       label="Cut-off distance (A)",
                       help='Calpha atoms beyond this distance will not interact. \n'
                            'The default distance of 15 A works well in the majority of cases.')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')                      
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
         form.addSection(label='ClustENM')
         form.addParam('n_gens', IntParam, default=5,
@@ -117,7 +104,7 @@ class ProDyClustENM(EMProtocol):
                            'the numbers of steps set below.')
         form.addParam('parallel', BooleanParam, default=False,
                       label='Whether to use parallel threads for conformer generation.',
-                      help='If set, then the number of threads is as set above.')  
+                      help='This will only affect the ENM NMA steps')  
         form.addParam('rmsd', StringParam, default="1.",
                       expertLevel=LEVEL_ADVANCED,
                       label="Average RMSD (A) of the new conformers from source conformer",
@@ -215,11 +202,6 @@ class ProDyClustENM(EMProtocol):
         else:
             self.solvent = 'exp'
 
-        if self.parallel.get():
-            parallel = self.numberOfThreads.get()
-        else:
-            parallel = False
-
         ens = prody.ClustENM(atoms)
         ens.setAtoms(atoms)
         ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
@@ -229,9 +211,7 @@ class ProDyClustENM(EMProtocol):
                 solvent=self.solvent, force_field=eval(self.force_field.get()),  
                 sim=self.sim.get(), temp=self.temp.get(),
                 t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
-                outlier=self.outlier.get(), mzscore=self.mzscore.get(),
-                sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
-                platform='CPU', threads=self.numberOfThreads.get(), 
+                outlier=self.outlier.get(), mzscore=self.mzscore.get(), 
                 parallel=parallel)
 
         self.outFileName = self._getPath('clustenm')
