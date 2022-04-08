@@ -32,7 +32,7 @@ from pyworkflow.tests import setupTestProject
 from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, ProDyRTB,
                               ProDyDefvec, ProDyEdit, ProDyCompare)
 
-from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
+from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 
 class TestProDy_1(TestWorkflow):
@@ -132,23 +132,6 @@ class TestProDy_1(TestWorkflow):
         protComp3.modes2.set(protEdit3.outputModes)
         protComp3.setObjLabel('Compare_AA_to_extCA')
         self.launchProtocol(protComp3)           
-
-        # ------------------------------------------------
-        # Step 6. Interpolate -> Compare
-        # ------------------------------------------------
-        # Interpolate CA NMA to all-atoms
-        protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
-        protEdit4.modes.set(protANM2.outputModes)
-        protEdit4.newNodes.set(protSel1.outputStructure)
-        protEdit4.setObjLabel('Interp_to_AA')
-        self.launchProtocol(protEdit4)        
-
-        # Compare original AA ANM NMA and interpolated CA ANM NMA
-        protComp4 = self.newProtocol(ProDyCompare)
-        protComp4.modes1.set(protANM1.outputModes)
-        protComp4.modes2.set(protEdit4.outputModes)
-        protComp4.setObjLabel('Compare_AA_to_intCA')
-        self.launchProtocol(protComp4)
 
         # ------------------------------------------------
         # Step 7. Import other Pdb -> Select chain A and CA
