@@ -136,12 +136,7 @@ class ProDyEdit(EMProtocol):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-
-        # outputPdb = AtomStruct()
-        # outputPdb.setFileName(self._getPath('atoms.pdb'))
-        # nmSet.setPdb(outputPdb.get())
         nmSet.setPdb(self.newNodes.get())
 
-        self._defineOutputs(outputModes=nmSet)#, outputStructure=outputPdb)
-        # self._defineSourceRelation(outputPdb, nmSet)
+        self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.newNodes, nmSet)
