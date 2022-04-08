@@ -3,6 +3,9 @@
 # Module to declare protocols
 # Find documentation here: https://scipion-em.github.io/docs/docs/developer/creating-a-protocol
 # **************************************************************************
+import prody
+prody.confProDy(auto_secondary=True)
+
 from .protocol_anm import ProDyANM
 from .protocol_rtb import ProDyRTB
 from .protocol_gnm import ProDyGNM
