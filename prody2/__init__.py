@@ -87,7 +87,7 @@ class Plugin(pwem.Plugin):
         installCmd = [cls.getCondaActivationCmd()]
 
         # Activate the new environment
-        installCmd.append('conda activate %s;' % ENV_NAME)
+        installCmd.append('conda activate %s; pip install threadpoolctl; ' % ENV_NAME)
 
         if version == DEVEL:
             # Use latest scipion branch of prody on my github
@@ -113,14 +113,14 @@ class Plugin(pwem.Plugin):
         installEnvVars = {'PATH': envPath} if envPath else None
 
         if version == DEVEL:
-            env.addPackage('ProDy', version=version, dep=['threadpoolctl'],
+            env.addPackage('ProDy', version=version,
                             buildDir='prody2', tar='void.tgz',
                             commands=prody_commands,
                             neededProgs=cls.getDependencies(),
                             default=default,
                             vars=installEnvVars)
         else:
-            env.addPackage('ProDy', version=version, dep=['threadpoolctl'],
+            env.addPackage('ProDy', version=version,
                            url='https://github.com/prody/prody/archive/v%s.tar.gz' % version,
                            commands=prody_commands,
                            neededProgs=cls.getDependencies(),
