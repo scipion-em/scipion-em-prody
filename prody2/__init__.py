@@ -94,10 +94,14 @@ class Plugin(pwem.Plugin):
             installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git; cd ProDy;')
 
         # Install downloaded code
-        installCmd.append('pip install -U -e .; python setup.py build_ext --inplace --force')
+        installCmd.append('pip install -U -e .; python setup.py build_ext --inplace --force; ')
 
         if version == DEVEL:
-            installCmd.append('; cd ..')
+            installCmd.append('cd ..; ')
+
+        # configure ProDy to automatically handle secondary structure information
+        installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')"'.format(Config.SCIPION_HOME + os.path.sep))
+        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True)"')
 
         # Flag installation finished
         installCmd.append('&& touch %s' % PRODY_INSTALLED)
