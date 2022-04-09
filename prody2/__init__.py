@@ -95,6 +95,7 @@ class Plugin(pwem.Plugin):
 
         # Install downloaded code
         installCmd.append('pip install -U -e .; python setup.py build_ext --inplace --force')
+        installCmd.append('; python -c "import prody; prody.confProDy(auto_secondary=True)"')
 
         if version == DEVEL:
             installCmd.append('; cd ..')
@@ -104,9 +105,10 @@ class Plugin(pwem.Plugin):
 
         prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]
 
+        envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
-        # keep path since conda likely in there
-        installEnvVars = {'PATH': envPath} if envPath else None
+        # keep path since conda likely in there, and home since prody needs it to configure
+        installEnvVars = {'PATH': envPath, 'HOME': envHome} if envPath else {'HOME': envHome}
 
         if version == DEVEL:
             env.addPackage('ProDy', version=version,
