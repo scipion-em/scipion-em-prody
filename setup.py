@@ -35,5 +35,6 @@ setup(
     entry_points={'pyworkflow.plugin': 'prody2 = prody2'},
     package_data={  # Optional
        'prody2': ['icon.png', 'protocols.conf'],
-    }
+    },
+    install_requires=['threadpoolctl==3.1.0']
 )
