@@ -87,7 +87,7 @@ class Plugin(pwem.Plugin):
         installCmd = [cls.getCondaActivationCmd()]
 
         # Activate the new environment
-        installCmd.append('conda activate %s; pip install threadpoolctl;' % ENV_NAME)
+        installCmd.append('conda activate %;' % ENV_NAME)
 
         if version == DEVEL:
             # Use latest scipion branch of prody on my github
