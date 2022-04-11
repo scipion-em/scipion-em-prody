@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = 'devel'
+__version__ = 3.0.0
 _logo = "icon.png"
 _references = ['Zhang2021']
 
