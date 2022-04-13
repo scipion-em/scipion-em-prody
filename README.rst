@@ -41,7 +41,6 @@ Protocols
 ----------
 
 * ProDyANM for anisotropic network model normal mode analysis
-* ProDyRTB for rotation and translation blocks normal mode analysis
 * ProDyDefvec for calculating deformation vectors between two structures
 
 * ProDyEdit to edit normal modes to different nodes/atoms, including slice and extend
