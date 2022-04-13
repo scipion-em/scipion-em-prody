@@ -29,18 +29,16 @@ This module implement the wrappers around ProDy GNM
 visualization programs.
 """
 
+from pyworkflow.utils import *
 from pyworkflow.gui.project import ProjectWindow
 from pyworkflow.protocol.params import LabelParam, IntParam, BooleanParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
+from pwem import *
 from pwem.viewers.plotter import EmPlotter
-
 from pwem.viewers import ObjectView, VmdView, DataView
-from pwem.emlib import MDL_NMA_ATOMSHIFT
 from pwem.objects import SetOfNormalModes
-
-from continuousflex.protocols import FlexProtNMA
-from continuousflex.viewers.nma_plotter import FlexNmaPlotter
+from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
 from prody2.protocols import ProDyGNM
 
@@ -51,7 +49,6 @@ from prody.utilities.drawtools import IndexFormatter
 from matplotlib.pyplot import *
 
 OBJCMD_NMA_PLOTDIST = "Plot distance profile"
-OBJCMD_NMA_VMD = "Display VMD animation"
 
 
 class ProDyGNMViewer(ProtocolViewer):
@@ -72,49 +69,25 @@ class ProDyGNMViewer(ProtocolViewer):
 
         if isinstance(self.protocol, SetOfNormalModes):
             protocol_path = os.path.dirname(os.path.dirname(self.protocol[1].getModeFile()))
-            vmdFiles = protocol_path + "/extra/animations/"
             nmdFile = protocol_path + "/modes.nmd"
         else:
-            vmdFiles = self.protocol._getExtraPath("animations")
             nmdFile = self.protocol._getPath("modes.nmd")
 
         form.addSection(label='Visualization')
-  
-        form.addParam('displayModes', LabelParam,
+
+        group = form.addGroup('All non zero modes')
+        group.addParam('displayModes', LabelParam,
                       label="Display output Normal Modes?", important=True)
-        form.addParam('displayMaxDistanceProfile', LabelParam,
+        group.addParam('displayMaxDistanceProfile', LabelParam,
                       label="Plot max distance profile?",
                       help="Maximum unitary shift of each atom or pseudoatom over all computed modes.") 
-
-        form.addParam('displaySqFlucts', LabelParam,
+        group.addParam('displaySqFlucts', LabelParam,
                       label="Plot MSF from all the computed modes?",
-                      help="The MSF residues are found on the diagonal of "
+                      help="The mean square fluctuations (MSF) for each residue are found on the diagonal of "
                            "the covariance matrix and describe the residue mobility or flexibility.")
-
-        group = form.addGroup('Single mode')  
-        group.addParam('modeNumber', IntParam, default=7,
-                      label='Mode number')
-        group.addParam('displayVmd', LabelParam,
-                      condition=os.path.isdir(vmdFiles),
-                      label='Display mode animation with VMD?') 
-        group.addParam('displayDistanceProfile', LabelParam, default=False,
-                      label="Plot mode distance profile?",
-                      help="Unitary shift of each atom or pseudoatom along the mode that is requested to be animated.")
-        group.addParam('displaySingleSqFluct', LabelParam, default=False,
-                      label="Plot mode square fluctuation?",
-                      help="Shows the single mode Square Fluctuation")
-        group.addParam('cumulSqFluct', BooleanParam, default=False,
-                      #condition=metric==NMA_METRIC_OVERLAP,
-                      label='Display cumulative Square Fluctuation?',
-                      help='Show the cumulative MSF of the modes selected or show the single MSF of the mode selected')
-        
-        form.addParam('displayVmd2', LabelParam,
-                      condition=os.path.isfile(nmdFile),
-                      label="Display mode animations with VMD NMWiz?",
-                      help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
-                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
-        
-        group = form.addGroup('GNM covariance and Cross-correlation')
+        group.addParam('displayRMSFlucts', LabelParam,
+                      label="Plot RMSF from all the computed modes?",
+                      help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
                       #condition=have_matrix == True,
                       label='Display Covariance matrix?',
@@ -124,30 +97,62 @@ class ProDyGNMViewer(ProtocolViewer):
                       label='Display Cross Correlation matrix?',
                       help='Cross Correlation matrices are shown as heatmaps.')
         
+        group = form.addGroup('Single mode')  
+        group.addParam('modeNumber', IntParam, default=2,
+                      label='Mode number')
+        group.addParam('displaySingleMode', LabelParam, default=False,
+                      label="Plot mode shape?",
+                      help="Shows the mode shape for a single GNM mode. Residues with positive and negative "
+                            "values move in opposite directions.")
 
+        group = form.addGroup('Modes range')  
+        group.addParam('modeNumber1', IntParam, default=2,
+                      label='Initial mode number')
+        group.addParam('modeNumber2', IntParam, default=2,
+                      label='Final mode number')
+        group.addParam('displayRangeSqFluct', LabelParam, default=False,
+                      label="Plot range mean square fluctuation?",
+                      help="Shows the cumulative Mean Square Fluctuations of the range of modes selected, to calculate the Square fluctuations "
+                      "of a single mode, just put the same number in the range boxes.")
+        group.addParam('displayRangeRMSFluct', LabelParam, default=False,
+                      label="Plot range root mean square fluctuation?",
+                      help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected. To calculate the Root Square fluctuations "
+                      "of a single mode, just put the same number in the range boxes.")
+        
+        form.addParam('displayVmd2', LabelParam,
+                      condition=os.path.isfile(nmdFile),
+                      label="Display mode color structures with VMD NMWiz?",
+                      help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
+                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
+        
     def _getVisualizeDict(self):
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
-                'displayVmd': self._viewSingleMode,
-                'displayVmd2': self._viewSingleMode,
-                'displayDistanceProfile': self._viewSingleMode,
-                'displaySingleSqFluct': self._viewSQF,
-                'displayCovMatrix': self._viewMatrix,
-                'displayCrossCorrMatrix': self._viewMatrix
+                'displayRMSFlucts': self._viewSQF,
+                'displayVmd2': self._viewAllModes,
+                'displayRangeSqFluct': self._viewSQF,
+                'displayRangeRMSFluct': self._viewSQF,
+                'displayCovMatrix': self._viewAllModes,
+                'displayCrossCorrMatrix': self._viewAllModes,
+                'displaySingleMode': self._viewSingleMode
                 } 
 
-    def _viewMatrix(self, paramName):
+    def _viewAllModes(self, paramName):
         """ visualisation for 2D covariance and Cross correlation matrices""" 
-        if paramName=='displayCovMatrix':
+        if paramName == 'displayVmd2':
+            return [createVmdNmwizView(self.protocol)]
+        
+        elif paramName=='displayCovMatrix':
             matrix = prody.parseArray(self.protocol.matrixFileCV.getFileName())
             title = 'Covariance matrix'
+
         else:
             matrix = prody.parseArray(self.protocol.matrixFileCC.getFileName())
             title = 'Cross Correlation matrix'
 
         plotter = EmPlotter(mainTitle=title)
-        plot = prody.showMatrix(matrix, vmax=1, vmin=-1, origin='lower')
+        plot = prody.showMatrix(matrix, origin='lower')
         
         return [plotter] 
 
@@ -171,27 +176,62 @@ class ProDyGNMViewer(ProtocolViewer):
             return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
 
     def _viewSQF(self, paramName):
-        """ visualization of square fluctuation for all/single mode/s. """   
+        """ visualization of square fluctuation for all the modes or the range of modes selected. """   
         modes_path = self.protocol._getPath("modes.gnm.npz")
         modes = prody.loadModel(modes_path)
         
-        cumulSqFluct = self.cumulSqFluct.get()
-        modeNumber = self.modeNumber.get()
+        # Adapt mode numbers from scipion to python
+        modeNumber1 = self.modeNumber1.get()-1
+        modeNumber2 = self.modeNumber2.get() # no subtraction as end of range
+
+        if modeNumber1+1 > modeNumber2:
+            return [self.errorMessage("Invalid mode range\n"
+                                      "Initial mode number can not be " 
+                                      "bigger than the final one.", title="Invalid input")]
+        elif modeNumber1 < 1:
+            return [self.errorMessage("Invalid mode range\n"
+                                      "Initial mode number can not be " 
+                                      "smaller than 2.", title="Invalid input")]
+
+        elif modeNumber2 < 2:
+            return [self.errorMessage("Invalid mode range\n"
+                                      "Final mode number can not be " 
+                                      "smaller than 2.", title="Invalid input")]
+        
+        try:
+            mode1 = modes[modeNumber1] 
+        except IndexError:
+            return [self.errorMessage("Invalid initial mode number *%d*\n"
+                                    "Display the output Normal Modes to see "
+                                    "the availables ones." % modeNumber1+1,
+                                    title="Invalid input")] 
+        try:
+            mode2 = modes[modeNumber2-1] 
+        except IndexError:
+            return [self.errorMessage("Invalid final mode number *%d*\n"
+                                    "Display the output Normal Modes to see "
+                                    "the availables ones." % modeNumber2,
+                                    title="Invalid input")]  
+                
+        plotter = EmPlotter()
 
         if paramName == 'displaySqFlucts':
-            plotter = EmPlotter()
-            plot = prody.showSqFlucts(modes)
-        
-        elif paramName == 'displaySingleSqFluct':
-            if cumulSqFluct:
-                plotter = EmPlotter(mainTitle="Qumulative")
-                plot = prody.showSqFlucts(modes[:modeNumber])
+            plot = prody.showSqFlucts(modes[1:])
+        elif paramName == 'displayRMSFlucts':
+            plot = prody.showRMSFlucts(modes[1:])
+        else:            
+            if modeNumber1 == modeNumber2:
+                if paramName == 'displayRangeSqFluct':
+                    plot = prody.showSqFlucts(modes[modeNumber1])
+                elif paramName == 'displayRangeRMSFluct':
+                    plot = prody.showRMSFlucts(modes[modeNumber1])
             else:
-                plotter = EmPlotter()
-                plot = prody.showSqFlucts(modes[modeNumber-1])
+                if paramName == 'displayRangeSqFluct':
+                    plot = prody.showSqFlucts(modes[modeNumber1:modeNumber2])
+                elif paramName == 'displayRangeRMSFluct':
+                    plot = prody.showRMSFlucts(modes[modeNumber1:modeNumber2])
 
         return [plotter]
-
     
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
@@ -208,19 +248,29 @@ class ProDyGNMViewer(ProtocolViewer):
                                       "Display the output Normal Modes to see "
                                       "the availables ones." % modeNumber,
                                       title="Invalid input")]
-                                      
-        elif paramName == 'displayVmd':
-            return [createVmdView(self.protocol, modeNumber)]
-        elif paramName == 'displayVmd2':
-            return [createVmdNmwizView(self.protocol, modeNumber)]
-        elif paramName == 'displayDistanceProfile':
-            return [createDistanceProfilePlot(self.protocol, modeNumber)]
+        
+        if paramName == 'displaySingleMode':
+            modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+            modes = prody.parseScipionModes(modes_path, pdb=glob(modes_path+"/*atoms.pdb"))
+            mode = modes[modeNumber-1]
 
+            plotter = EmPlotter()
+            plot = prody.showMode(mode)        
+            return [plotter]
 
 def createShiftPlot(mdFn, title, ylabel):
-    plotter = FlexNmaPlotter()
+    plotter = EmPlotter()
     plotter.createSubPlot(title, 'atom index', ylabel)
-    plotter.plotMdFile(mdFn, None, MDL_NMA_ATOMSHIFT)
+    
+    md = MetaData(mdFn)
+    yy = []
+    for objId in md:
+        yy.append(md.getValue(MDL_NMA_ATOMSHIFT, objId))
+
+    xx = list(range(len(yy)))
+        
+    plotter.plotData(xx, yy)
+
     return plotter
 
 
@@ -236,15 +286,7 @@ def createDistanceProfilePlot(protocol, modeNumber):
     return plotter
 
 
-def createVmdView(protocol, modeNumber):
-    if isinstance(protocol, SetOfNormalModes):
-        vmdFile = os.path.dirname(os.path.dirname(protocol[1].getModeFile())) + "/extra/animations/animated_mode_%03d.vmd" % modeNumber
-    else:
-        vmdFile = protocol._getExtraPath("animations", "animated_mode_%03d.vmd"
-                                        % modeNumber)
-    return VmdView('-e "%s"' % vmdFile)
-
-def createVmdNmwizView(protocol, modeNumber):
+def createVmdNmwizView(protocol):
     if isinstance(protocol, SetOfNormalModes):
         nmdFile = os.path.dirname(os.path.dirname(protocol[1].getModeFile())) + "/modes.nmd"
     else:
@@ -255,12 +297,6 @@ def showDistanceProfilePlot(protocol, modeNumber):
     createDistanceProfilePlot(protocol, modeNumber).show()
 
 
-def showVmdView(protocol, modeNumber):
-    createVmdView(protocol, modeNumber).show()
-
-
 ProjectWindow.registerObjectCommand(OBJCMD_NMA_PLOTDIST,
                                     showDistanceProfilePlot)
-ProjectWindow.registerObjectCommand(OBJCMD_NMA_VMD,
-                                    showVmdView)
 
