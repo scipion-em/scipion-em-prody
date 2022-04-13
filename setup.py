@@ -25,9 +25,9 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='scipion-em-prody',  # Required
     version=__version__,  # Required
-    description='Scipion plugin for ProDy',  # Required
+    description='Scipion plugin for ProDy, the Bahar lab Python Package for Protein Dynamics Analysis',  # Required
     long_description=long_description,  # Optional
-    url='https://github.com/jamesmkrieger/scipion-em-prody',  # Optional
+    url='https://github.com/scipion-em/scipion-em-prody',  # Optional
     author='James Krieger',  # Optional
     author_email='jmkrieger@cnb.csic.es',  # Optional
     keywords='scipion cryoem imageprocessing scipion-3.0 prody-2.0',  # Optional
