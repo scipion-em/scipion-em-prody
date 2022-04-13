@@ -192,7 +192,7 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
+            if n >= 1:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -235,7 +235,7 @@ class ProDyGNM(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
+        for n in range(2, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
@@ -243,9 +243,9 @@ class ProDyGNM(EMProtocol):
                 atomCounter = 0
                 for line in fhIn:
                     d = abs(float(line))
-                    if n==7:
+                    if n==2:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(2)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
