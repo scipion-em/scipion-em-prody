@@ -51,7 +51,7 @@ class TestProDy_1(TestWorkflow):
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                          pdbId="4ake")
-        protImportPdb1.setObjLabel('4ake')
+        protImportPdb1.setObjLabel('pwem import 4ake')
         self.launchProtocol(protImportPdb1)
 
         # Select Chain A
@@ -140,7 +140,7 @@ class TestProDy_1(TestWorkflow):
         # Import a PDB
         protImportPdb2 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                          pdbId="1ake")
-        protImportPdb2.setObjLabel('1ake')
+        protImportPdb2.setObjLabel('pwem import 1ake')
         self.launchProtocol(protImportPdb2)
 
         # Select Chain A
