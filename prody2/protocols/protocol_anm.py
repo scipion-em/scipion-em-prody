@@ -33,6 +33,7 @@ from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
+from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -60,7 +61,8 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        form.addParallelSection(threads=1, mpi=0)
+        cpus = cpu_count()//2 # don't use everything
+        form.addParallelSection(threads=cpus, mpi=0)
 
         # You need a params to belong to a section:
         form.addSection(label='ProDy ANM NMA')
