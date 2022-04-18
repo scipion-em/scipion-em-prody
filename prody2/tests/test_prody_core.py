@@ -30,13 +30,14 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, # ProDyRTB,
-                              ProDyDefvec, ProDyEdit, ProDyCompare)
+                              ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
+from prody2.protocols.protocol_import import NMD, NPZ, SCIPION, GROMACS
 
 class TestProDy_1(TestWorkflow):
-    """ Test protocol for HEMNMA (Hybrid Electron Microscopy Normal Mode Analysis). """
+    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
     def setUpClass(cls):
@@ -170,6 +171,38 @@ class TestProDy_1(TestWorkflow):
         protComp5.modes2.set(protDefvec1.outputModes)
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
+
+        # ------------------------------------------------
+        # Step 8. Import ANM & compare scipion vs prody npz
+        # -> import -> import -> compare
+        # ------------------------------------------------
+        # Define path
+        modes = protANM2.outputModes
+        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+
+        # Import modes from prody npz
+        protImportModes1 = self.newProtocol(ProDyImportModes)
+        protImportModes1.importType.set(NPZ)
+        protImportModes1.filesPath.set(modes_path)
+        protImportModes1.filesPattern.set("modes.anm.npz")
+        protImportModes1.inputStructure.set(protSel2.outputStructure)
+        protImportModes1.setObjLabel('import_npz_ANM_CA')
+        self.launchProtocol(protImportModes1)   
+
+        # Import scipion modes
+        protImportModes2 = self.newProtocol(ProDyImportModes)
+        protImportModes2.importType.set(SCIPION)
+        protImportModes2.filesPath.set(modes_path)
+        protImportModes2.inputStructure.set(protSel2.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_ANM_CA')
+        self.launchProtocol(protImportModes2)  
+
+        # Compare two imported ANMs
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.modes1.set(protImportModes1.outputModes)
+        protComp6.modes2.set(protImportModes2.outputModes)
+        protComp6.setObjLabel('Compare_imported_ANMs')
+        self.launchProtocol(protComp6)  
 
         # -------------------------------------------------------
         # Step 8. RTB in 2 ways -> Compare to each other and ANM
