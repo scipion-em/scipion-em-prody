@@ -29,9 +29,9 @@ def getProDyEnvName(version):
     return "prody-%s" % version
 
 DEVEL = 'github'
-V210 = '2.1.0'
-VERSIONS = [DEVEL, V210]
-PRODY_DEFAULT_VER_NUM = V210
+V211 = '2.1.1'
+VERSIONS = [DEVEL, V211]
+PRODY_DEFAULT_VER_NUM = V211
 
 DEFAULT_ENV_NAME = getProDyEnvName(PRODY_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
