@@ -59,11 +59,6 @@ class ProDyGNMViewer(ProtocolViewer):
     _label = 'viewer gnm'
     _targets = [ProDyGNM]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
-
-#     def setProtocol(self, protocol):
-#         ProtocolViewer.setProtocol(self, protocol)
-#         inputPdb = protocol.inputStructure.get()
-#         self.isEm.set(inputPdb.getPseudoAtoms())
         
     def _defineParams(self, form):
 
@@ -89,11 +84,9 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot RMSF from all the computed modes?",
                       help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
-                      #condition=have_matrix == True,
                       label='Display Covariance matrix?',
                       help='Covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
-                      #condition=have_matrix == True,
                       label='Display Cross Correlation matrix?',
                       help='Cross Correlation matrices are shown as heatmaps.')
         
@@ -104,6 +97,11 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot mode shape?",
                       help="Shows the mode shape for a single GNM mode. Residues with positive and negative "
                             "values move in opposite directions.")
+        group.addParam('overlaychains', BooleanParam, default=True,
+                      label="Show overlay chains",
+                      help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
+                        "indicate them. Different options may be better for different data.")
+        
 
         group = form.addGroup('Modes range')  
         group.addParam('modeNumber1', IntParam, default=2,
@@ -118,7 +116,7 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot range root mean square fluctuation?",
                       help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected. To calculate the Root Square fluctuations "
                       "of a single mode, just put the same number in the range boxes.")
-        
+
         form.addParam('displayVmd2', LabelParam,
                       condition=os.path.isfile(nmdFile),
                       label="Display mode color structures with VMD NMWiz?",
@@ -126,6 +124,10 @@ class ProDyGNMViewer(ProtocolViewer):
                            "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
         
     def _getVisualizeDict(self):
+        modes =  self.protocol.outputModes
+        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+        self.modes = prody.parseScipionModes(modes_path, pdb=glob(modes_path+"/*atoms.pdb"))
+        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
@@ -152,35 +154,21 @@ class ProDyGNMViewer(ProtocolViewer):
             title = 'Cross Correlation matrix'
 
         plotter = EmPlotter(mainTitle=title)
-        plot = prody.showMatrix(matrix, origin='lower')
+        plot = prody.showAtomicMatrix(matrix, origin='lower', atoms=self.atoms)
         
         return [plotter] 
 
     def _viewParam(self, paramName):
         if paramName == 'displayModes':
-            # The following two lines display modes.sqlite file
-            # modes =  self.protocol.outputModes
-            # return [ObjectView(self._project, modes.strId(), modes.getFileName())]
-            # The following two lines display modes.xmd file
-            if isinstance(self.protocol, SetOfNormalModes):
-                modes = os.path.dirname(self.protocol[1].getModeFile()) + ".xmd"
-            else:
-                modes =  self.protocol._getPath("modes.xmd")
+            modes = os.path.dirname(self.protocol[1].getModeFile()) + ".xmd"
             return [DataView(modes)]
 
         elif paramName == 'displayMaxDistanceProfile':
-            if isinstance(self.protocol, SetOfNormalModes):
-                fn = os.path.dirname(os.path.dirname(self.protocol[1].getModeFile())) + "/extra/maxAtomShifts.xmd"
-            else:
-                fn = self.protocol._getExtraPath("maxAtomShifts.xmd")
+            fn = self.protocol._getExtraPath("maxAtomShifts.xmd")
             return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
 
     def _viewSQF(self, paramName):
         """ visualization of square fluctuation for all the modes or the range of modes selected. """   
-        modes_path = self.protocol._getPath("modes.gnm.npz")
-        modes = prody.loadModel(modes_path)
-        
-        # Adapt mode numbers from scipion to python
         modeNumber1 = self.modeNumber1.get()-1
         modeNumber2 = self.modeNumber2.get() # no subtraction as end of range
 
@@ -199,14 +187,14 @@ class ProDyGNMViewer(ProtocolViewer):
                                       "smaller than 2.", title="Invalid input")]
         
         try:
-            mode1 = modes[modeNumber1] 
+            mode1 = self.modes[modeNumber1] 
         except IndexError:
             return [self.errorMessage("Invalid initial mode number *%d*\n"
                                     "Display the output Normal Modes to see "
                                     "the availables ones." % modeNumber1+1,
                                     title="Invalid input")] 
         try:
-            mode2 = modes[modeNumber2-1] 
+            mode2 = self.modes[modeNumber2-1] 
         except IndexError:
             return [self.errorMessage("Invalid final mode number *%d*\n"
                                     "Display the output Normal Modes to see "
@@ -216,20 +204,20 @@ class ProDyGNMViewer(ProtocolViewer):
         plotter = EmPlotter()
 
         if paramName == 'displaySqFlucts':
-            plot = prody.showSqFlucts(modes[1:])
+            plot = prody.showSqFlucts(self.modes[1:], atoms=self.atoms)
         elif paramName == 'displayRMSFlucts':
-            plot = prody.showRMSFlucts(modes[1:])
+            plot = prody.showRMSFlucts(self.modes[1:], atoms=self.atoms)
         else:            
             if modeNumber1 == modeNumber2:
                 if paramName == 'displayRangeSqFluct':
-                    plot = prody.showSqFlucts(modes[modeNumber1])
+                    plot = prody.showSqFlucts(self.modes[modeNumber1], atoms=self.atoms)
                 elif paramName == 'displayRangeRMSFluct':
-                    plot = prody.showRMSFlucts(modes[modeNumber1])
+                    plot = prody.showRMSFlucts(self.modes[modeNumber1], atoms=self.atoms)
             else:
                 if paramName == 'displayRangeSqFluct':
-                    plot = prody.showSqFlucts(modes[modeNumber1:modeNumber2])
+                    plot = prody.showSqFlucts(self.modes[modeNumber1:modeNumber2], atoms=self.atoms)
                 elif paramName == 'displayRangeRMSFluct':
-                    plot = prody.showRMSFlucts(modes[modeNumber1:modeNumber2])
+                    plot = prody.showRMSFlucts(self.modes[modeNumber1:modeNumber2], atoms=self.atoms)
 
         return [plotter]
     
@@ -250,12 +238,10 @@ class ProDyGNMViewer(ProtocolViewer):
                                       title="Invalid input")]
         
         if paramName == 'displaySingleMode':
-            modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
-            modes = prody.parseScipionModes(modes_path, pdb=glob(modes_path+"/*atoms.pdb"))
-            mode = modes[modeNumber-1]
+            mode = self.modes[modeNumber-1]
 
             plotter = EmPlotter()
-            plot = prody.showMode(mode)        
+            plot = prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)        
             return [plotter]
 
 def createShiftPlot(mdFn, title, ylabel):
