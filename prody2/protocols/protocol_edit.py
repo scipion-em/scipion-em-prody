@@ -45,7 +45,6 @@ from prody.utilities import ZERO
 NMA_SLICE = 0
 NMA_REDUCE = 1
 NMA_EXTEND = 2
-NMA_INTERP = 3
 
 class ProDyEdit(EMProtocol):
     """
@@ -62,14 +61,14 @@ class ProDyEdit(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy compare')
 
-        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
+        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend'],
                       default=NMA_SLICE,
                       label='Type of edit',
                       help='Modes can have the number of nodes decreased using either eigenvector slicing '
                       'or Hessian reduction (aka vibrational subsystem analysis; Hinsen et al., Chem Phys 2000; '
-                      'Woodcock et al., J Chem Phys 2008). \nThe number of nodes can be increased by extending '
-                      '(copying) eigenvector values from nodes of the same residue or by through-space '
-                      'interpolation')
+                      'Woodcock et al., J Chem Phys 2008) in the case of modes from ProDy. \n'
+                      'The number of nodes can be increased by extending (copying) eigenvector values '
+                      'from nodes of the same residue')
 
         form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
                       pointerClass='SetOfNormalModes',
@@ -101,15 +100,14 @@ class ProDyEdit(EMProtocol):
         structureEM = self.inputStructure.getPseudoAtoms()
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
-
-        new_nodes = prody.parsePDB(self.newNodes.get().getFileName())
+        new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
 
         nodes_list = [old_nodes, new_nodes]
         n_atoms_arr = np.array([nodes.numAtoms() for nodes in nodes_list])
         smaller = nodes_list[np.argmin(n_atoms_arr)]
         bigger = nodes_list[np.argmax(n_atoms_arr)]
 
-        amap = prody.alignChains(bigger, smaller)[0]
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
             self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
@@ -126,9 +124,6 @@ class ProDyEdit(EMProtocol):
         elif self.edit == NMA_EXTEND:
             self.outModes, self.outAtoms = prody.extendModel(modes, amap, bigger, norm=True)
 
-        else:
-            self.outModes, self.outAtoms = prody.interpolateModel(modes, amap, bigger, norm=True)
-
         prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.outAtoms)
@@ -137,10 +132,7 @@ class ProDyEdit(EMProtocol):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet.setPdb(self.newNodes.get())
 
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self._getPath('atoms.pdb'))
-        nmSet.setPdb(outputPdb.get())
-
-        self._defineOutputs(outputModes=nmSet, outputStructure=outputPdb)
-        self._defineSourceRelation(outputPdb, nmSet)
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.newNodes, nmSet)
