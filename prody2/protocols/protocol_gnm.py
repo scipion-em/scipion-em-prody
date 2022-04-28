@@ -39,7 +39,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -162,10 +162,10 @@ class ProDyGNM(EMProtocol):
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
         covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
-        prody.writeArray(self._getPath('modes_covariance.txt'), covariances)
+        prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
         crossCorr = prody.calcCrossCorr(self.gnm[1:])
-        prody.writeArray(self._getPath('modes_crossCorr.txt'), crossCorr)
+        prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
@@ -191,7 +191,7 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
+            if n >= 1:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -234,7 +234,7 @@ class ProDyGNM(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
+        for n in range(2, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
@@ -242,9 +242,9 @@ class ProDyGNM(EMProtocol):
                 atomCounter = 0
                 for line in fhIn:
                     d = abs(float(line))
-                    if n==7:
+                    if n==2:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(2)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
@@ -263,6 +263,9 @@ class ProDyGNM(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
+        outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
+        outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
+
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
@@ -270,6 +273,6 @@ class ProDyGNM(EMProtocol):
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet)
+        self._defineOutputs(outputModes=nmSet, matrixFileCC=outputMatrixCrosCor, matrixFileCV=outputMatrixCov)
         self._defineSourceRelation(self.inputStructure, nmSet)
 
