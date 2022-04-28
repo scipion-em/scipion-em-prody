@@ -160,7 +160,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
     def _viewParam(self, paramName):
         if paramName == 'displayModes':
-            modes = os.path.dirname(self.protocol[1].getModeFile()) + ".xmd"
+            modes =  self.protocol._getPath("modes.xmd")
             return [DataView(modes)]
 
         elif paramName == 'displayMaxDistanceProfile':
