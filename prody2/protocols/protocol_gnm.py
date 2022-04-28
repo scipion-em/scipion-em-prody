@@ -39,9 +39,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-
 from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
-
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -163,14 +161,12 @@ class ProDyGNM(EMProtocol):
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
-        
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)        
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
         crossCorr = prody.calcCrossCorr(self.gnm[1:])
         prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
         
-
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
 
@@ -196,7 +192,6 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
             if n >= 1:
-
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -250,7 +245,6 @@ class ProDyGNM(EMProtocol):
                     if n==2:
                         maxShift.append(d)
                         maxShiftMode.append(2)
-
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
