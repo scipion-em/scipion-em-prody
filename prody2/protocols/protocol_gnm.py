@@ -161,12 +161,12 @@ class ProDyGNM(EMProtocol):
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)        
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
         crossCorr = prody.calcCrossCorr(self.gnm[1:])
         prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
-        
+
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
 
