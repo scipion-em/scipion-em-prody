@@ -21,7 +21,7 @@ Developer's version
 
     .. code-block::
 
-       scipion3 installp -p path_to_scipion-em-prody --devel
+       scipion3 installp -p ./scipion-em-prody --devel
 
 ProDy software will be installed automatically with the plugin but you can also use an existing installation by providing *PRODY_ENV_ACTIVATION* (see below).
 
@@ -36,13 +36,31 @@ depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
 *PRODY_ENV_ACTIVATION* (default = conda activate prody-github):
-Command to activate the ProDy environment.
+Command to activate the ProDy environment if you have your own one. 
+Otherwise, it will use ProDy installed in the default scipion3 environment.
 
 
 Protocols
 ----------
 
-* ProDy ANM for anisotropic network model normal mode analysis
+* ProDyANM for anisotropic network model normal mode analysis
+* ProDyRTB for rotation and translation blocks normal mode analysis
+* ProDyDefvec for calculating deformation vectors between two structures
+
+* ProDyEdit to edit normal modes to different nodes/atoms, including slice and extend
+* ProDyCompare for comparing motions between different calculations including from continuousflex
+
+* ProDySelect for atom selection
+* ProDyAlign for alignment two structures, including atom matching and superposition
+
+* ProDyImportModes for importing modes calculated outside Scipion, including from Gromacs
+
+Viewers
+----------
+
+* ProDyComparisonsViewer for viewing matrices and bar graphs quantifying motion similarities
+* ProDyModeViewer for viewing modes of motion in the VMD plugin NMWiz
+
 
 References
 -----------
