@@ -29,8 +29,6 @@ from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-
-
 from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, # ProDyRTB,
                               ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
@@ -54,7 +52,6 @@ class TestProDy_1(TestWorkflow):
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                          pdbId="4ake")
-
         protImportPdb1.setObjLabel('pwem import 4ake')
         self.launchProtocol(protImportPdb1)
 
@@ -143,7 +140,7 @@ class TestProDy_1(TestWorkflow):
         # ------------------------------------------------
         # Import a PDB
         protImportPdb2 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                         pdbId="1ake")                                         
+                                         pdbId="1ake")
         protImportPdb2.setObjLabel('pwem import 1ake')
         self.launchProtocol(protImportPdb2)
 
@@ -175,9 +172,8 @@ class TestProDy_1(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
 
-
         # ------------------------------------------------
-        # Step 8. Import ANM & compare scipion vs prody npz
+        # Step 7. Import ANM & compare scipion vs prody npz
         # -> import -> import -> compare
         # ------------------------------------------------
         # Define path
@@ -213,7 +209,6 @@ class TestProDy_1(TestWorkflow):
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block
-
         # protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
         # protRTB1.inputStructure.set(protSel2.outputStructure)
         # protRTB1.setObjLabel('RTB_CA_10_res')
@@ -245,5 +240,4 @@ class TestProDy_1(TestWorkflow):
         # protComp8.modes2.set(protRTB2.outputModes)
         # protComp8.setObjLabel('Compare_ANM_to_RTB2')
         # self.launchProtocol(protComp8)
-
         
