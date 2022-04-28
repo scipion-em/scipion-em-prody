@@ -39,7 +39,9 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
+
 from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
+
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -162,6 +164,7 @@ class ProDyGNM(EMProtocol):
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
         covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
+        
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
         crossCorr = prody.calcCrossCorr(self.gnm[1:])
@@ -193,6 +196,7 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
             if n >= 1:
+
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -246,6 +250,7 @@ class ProDyGNM(EMProtocol):
                     if n==2:
                         maxShift.append(d)
                         maxShiftMode.append(2)
+
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
@@ -266,7 +271,7 @@ class ProDyGNM(EMProtocol):
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
         outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
-        
+
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))

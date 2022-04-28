@@ -48,7 +48,8 @@ class ProDyModeViewer(Viewer):
     """    
     _label = 'ProDy mode viewer'
     _targets = [SetOfNormalModes, ProDyANM, ProDyRTB,
-                ProDyDefvec, ProDyEdit, ProDyImportModes]
+                ProDyDefvec, ProDyEdit, ProDyImportModes,
+                ProDyGNM]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
