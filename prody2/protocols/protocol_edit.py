@@ -65,8 +65,8 @@ class ProDyEdit(EMProtocol):
                       default=NMA_SLICE,
                       label='Type of edit',
                       help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                      'or Hessian reduction (aka vibrational subsystem analysis; Hinsen et al., Chem Phys 2000; '
-                      'Woodcock et al., J Chem Phys 2008) in the case of modes from ProDy. \n'
+                      'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                      'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
                       'The number of nodes can be increased by extending (copying) eigenvector values '
                       'from nodes of the same residue')
 
