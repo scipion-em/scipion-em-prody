@@ -37,16 +37,19 @@ from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
+from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
+                                        FloatParam, IntParam, LEVEL_ADVANCED)
 
 import prody
 from prody.utilities import ZERO
+
+from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
 NMA_EXTEND = 2
 
-class ProDyEdit(EMProtocol):
+class ProDyEdit(ProDyModesBase):
     """
     This protocol will edit a SetOfNormalModes object to have more or fewer nodes
     """
@@ -59,14 +62,14 @@ class ProDyEdit(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy compare')
+        form.addSection(label='ProDy edit')
 
         form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend'],
                       default=NMA_SLICE,
                       label='Type of edit',
                       help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                      'or Hessian reduction (aka vibrational subsystem analysis; Hinsen et al., Chem Phys 2000; '
-                      'Woodcock et al., J Chem Phys 2008) in the case of modes from ProDy. \n'
+                      'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                      'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
                       'The number of nodes can be increased by extending (copying) eigenvector values '
                       'from nodes of the same residue')
 
@@ -81,13 +84,40 @@ class ProDyEdit(EMProtocol):
                       pointerClass='AtomStruct',
                       help='Atoms or pseudoatoms to use as new nodes.')   
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep('editModesStep')
-        self._insertFunctionStep('createOutputStep')
+        form.addParam('norm', BooleanParam, default=True, 
+                      condition='edit==%d' % NMA_SLICE,
+                      label='Normalise sliced vectors',
+                      help='Elect whether to normalise vectors.')
+                      
+        form.addSection(label='Animation')        
+        form.addParam('rmsd', FloatParam, default=5,
+                      label='RMSD Amplitude (A)',
+                      help='Used only for animations of computed normal modes. '
+                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
+                      'along normal modes in the animations. \n')
+        form.addParam('n_steps', IntParam, default=10,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Number of frames',
+                      help='Number of frames used in each direction of animations.')
+        form.addParam('pos', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include positive direction",
+                      help='Elect whether to animate in the positive mode direction.')
+        form.addParam('neg', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include negative direction",
+                      help='Elect whether to animate in the negative mode direction.')
 
-    def editModesStep(self):
+    # --------------------------- STEPS functions ------------------------------
+    # This is inherited from NMA base protocol
+    def _insertAllSteps(self):
+        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
+        
+    #     # Insert processing steps
+    #     self._insertFunctionStep('editModesStep')
+    #     self._insertFunctionStep('createOutputStep')
+
+    def computeModesStep(self):
         modes_path = os.path.dirname(os.path.dirname(self.modes.get()[1].getModeFile()))
         
         from_prody = len(glob(modes_path+"/*npz"))
@@ -110,7 +140,7 @@ class ProDyEdit(EMProtocol):
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
-            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
+            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
             if from_prody:
@@ -119,14 +149,14 @@ class ProDyEdit(EMProtocol):
                 self.outModes.calcModes(zeros=zeros)
             else:
                 prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
+                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_EXTEND:
-            self.outModes, self.outAtoms = prody.extendModel(modes, amap, bigger, norm=True)
+            self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
 
         prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.outAtoms)
+        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

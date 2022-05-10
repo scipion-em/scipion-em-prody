@@ -97,6 +97,11 @@ class ProDyCompare(EMProtocol):
                       label='Match modes',
                       help='Elect whether to match modes.')     
 
+        form.addParam('norm', BooleanParam, default=True, 
+                      condition='metric==%d' % NMA_METRIC_OVERLAP,
+                      label='Normalise overlaps',
+                      help='Elect whether to normalise vectors for overlaps or calculate raw dot products.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
@@ -143,7 +148,12 @@ class ProDyCompare(EMProtocol):
             mode_ens = [modes1, modes2]
         
         if self.metric == NMA_METRIC_OVERLAP:
-            self.matrix = prody.calcOverlap(mode_ens[0], mode_ens[1], diag=self.diag)
+            if self.norm:
+                self.matrix = prody.calcOverlap(mode_ens[0], mode_ens[1], diag=self.diag)
+            else:
+                # Calculate direct dot product without vector normalisation found in calcOverlap
+                self.matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
+
             if self.matrix.ndim == 1:
                 self.matrix.reshape(-1, 1)
 
@@ -155,7 +165,10 @@ class ProDyCompare(EMProtocol):
                 else:
                     self.matrix[i-6, 0] = prody.calcRWSIP(mode_ens[0, 6:i+1], mode_ens[1, 6:i+1])
 
-        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix)
+        pre_dec_len = max([len(str(int(np.max(self.matrix)))), len(str(int(np.min(self.matrix))))])
+        format_str = '%' + str(pre_dec_len + 4) + '.2f'
+
+        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix, format=format_str)
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
