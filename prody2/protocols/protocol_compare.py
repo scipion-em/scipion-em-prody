@@ -97,7 +97,7 @@ class ProDyCompare(EMProtocol):
                       label='Match modes',
                       help='Elect whether to match modes.')     
 
-        form.addParam('norm', BooleanParam, default=False, 
+        form.addParam('norm', BooleanParam, default=True, 
                       condition='metric==%d' % NMA_METRIC_OVERLAP,
                       label='Normalise overlaps',
                       help='Elect whether to normalise vectors for overlaps or calculate raw dot products.')
