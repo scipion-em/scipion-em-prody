@@ -48,6 +48,7 @@ from prody2.protocols.protocol_modes_base import ProDyModesBase
 NMA_SLICE = 0
 NMA_REDUCE = 1
 NMA_EXTEND = 2
+NMA_INTERP = 3
 
 class ProDyEdit(ProDyModesBase):
     """
