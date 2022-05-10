@@ -125,8 +125,8 @@ class ProDyCompare(EMProtocol):
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
         if modes1.numModes() != modes2.numModes() and min_n_modes != 1:
-            raise ValueError('The two sets should have the same number of nodes '
-                           'unless one of them has exactly 1 mode in it.')
+            raise ValueError('The two sets should have the same number of modes '
+                             'unless one of them has exactly 1 mode in it.')
 
         if min_n_modes != 1:
             mode_ens = prody.ModeEnsemble()
