@@ -85,10 +85,10 @@ class ProDyGNMViewer(ProtocolViewer):
                       help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
                       label='Display Covariance matrix?',
-                      help='Covariance matrices are shown as heatmaps.')
+                      help='Raw covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
-                      label='Display Cross Correlation matrix?',
-                      help='Cross Correlation matrices are shown as heatmaps.')
+                      label='Display Cross-Correlation matrix?',
+                      help='Normalised, orientational cross-correlation matrices are shown as heatmaps.')
         
         group = form.addGroup('Single mode')  
         group.addParam('modeNumber', IntParam, default=2,
