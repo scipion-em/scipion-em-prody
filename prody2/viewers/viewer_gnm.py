@@ -70,7 +70,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
         form.addSection(label='Visualization')
 
-        group = form.addGroup('All non zero modes')
+        group = form.addGroup('All non-zero modes')
         group.addParam('displayModes', LabelParam,
                       label="Display output Normal Modes?", important=True)
         group.addParam('displayMaxDistanceProfile', LabelParam,
@@ -98,11 +98,10 @@ class ProDyGNMViewer(ProtocolViewer):
                       help="Shows the mode shape for a single GNM mode. Residues with positive and negative "
                             "values move in opposite directions.")
         group.addParam('overlaychains', BooleanParam, default=True,
-                      label="Show overlay chains",
+                      label="Show overlaid chains",
                       help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
                         "indicate them. Different options may be better for different data.")
         
-
         group = form.addGroup('Modes range')  
         group.addParam('modeNumber1', IntParam, default=2,
                       label='Initial mode number')
@@ -141,7 +140,7 @@ class ProDyGNMViewer(ProtocolViewer):
                 } 
 
     def _viewAllModes(self, paramName):
-        """ visualisation for 2D covariance and Cross correlation matrices""" 
+        """ visualisation for 2D covariance and cross-correlation matrices"""
         if paramName == 'displayVmd2':
             return [createVmdNmwizView(self.protocol)]
         
@@ -151,7 +150,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
         else:
             matrix = prody.parseArray(self.protocol.matrixFileCC.getFileName())
-            title = 'Cross Correlation matrix'
+            title = 'Cross-Correlation matrix'
 
         plotter = EmPlotter(mainTitle=title)
         plot = prody.showAtomicMatrix(matrix, origin='lower', atoms=self.atoms)

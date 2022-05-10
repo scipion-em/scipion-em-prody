@@ -163,8 +163,7 @@ class ProDyGNM(EMProtocol):
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
-        
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)        
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
         crossCorr = prody.calcCrossCorr(self.gnm[1:])
@@ -196,7 +195,6 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
             if n >= 1:
-
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -221,6 +219,7 @@ class ProDyGNM(EMProtocol):
 
         for i in range(len(fnVec)):
             score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
+
         i = 0
         for objId in mdOut:
             score[i] = float(score[i]) / (2.0 * l)
@@ -250,7 +249,6 @@ class ProDyGNM(EMProtocol):
                     if n==2:
                         maxShift.append(d)
                         maxShiftMode.append(2)
-
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
@@ -259,6 +257,7 @@ class ProDyGNM(EMProtocol):
                     md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
                 md.write(join(fnOutDir,"vec%d.xmd" % n))
                 fhIn.close()
+                
         md = MetaData()
         for i, _ in enumerate(maxShift):
             fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
