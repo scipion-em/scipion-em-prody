@@ -187,19 +187,6 @@ class ProDyANM(EMProtocol):
         if self.kdtree.get():
             args += ' --use-kdtree'
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
-
         if self.zeros.get():
             args += ' --zero-modes'
 
