@@ -97,6 +97,11 @@ class ProDyCompare(EMProtocol):
                       label='Match modes',
                       help='Elect whether to match modes.')     
 
+        form.addParam('norm', BooleanParam, default=False, 
+                      condition='metric==%d' % NMA_METRIC_OVERLAP,
+                      label='Normalise overlaps',
+                      help='Elect whether to normalise vectors for overlaps or calculate raw dot products.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
@@ -143,7 +148,12 @@ class ProDyCompare(EMProtocol):
             mode_ens = [modes1, modes2]
         
         if self.metric == NMA_METRIC_OVERLAP:
-            self.matrix = prody.calcOverlap(mode_ens[0], mode_ens[1], diag=self.diag)
+            if self.norm:
+                self.matrix = prody.calcOverlap(mode_ens[0], mode_ens[1], diag=self.diag)
+            else:
+                # Calculate direct dot product without vector normalisation found in calcOverlap
+                self.matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
+
             if self.matrix.ndim == 1:
                 self.matrix.reshape(-1, 1)
 
