@@ -33,6 +33,7 @@ from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
+from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -60,6 +61,9 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
+        cpus = cpu_count()//2 # don't use everything
+        form.addParallelSection(threads=cpus, mpi=0)
+
         # You need a params to belong to a section:
         form.addSection(label='ProDy ANM NMA')
 
@@ -84,7 +88,6 @@ class ProDyANM(EMProtocol):
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
                            'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
-
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
@@ -92,6 +95,14 @@ class ProDyANM(EMProtocol):
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+        form.addParam('sparse', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use sparse matrices?",
+                      help='This saves memory at the expense of computational time.')
+        form.addParam('kdtree', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use KDTree for building Hessian matrix?",
+                      help='This takes more computational time.')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -108,6 +119,10 @@ class ProDyANM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
+        form.addParam('turbo', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use turbo mode",
+                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
@@ -159,18 +174,26 @@ class ProDyANM(EMProtocol):
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
+        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
+            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+                                                                       self._getPath(), n,
+                                                                       self.gamma.get(),
+                                                                       self.cutoff.get(),
+                                                                       self.numberOfThreads.get())
+
+        if self.sparse.get():
+            args += ' --sparse-hessian'
+
+        if self.kdtree.get():
+            args += ' --use-kdtree'
+
         if self.zeros.get():
-            self.runJob('prody', 'anm {0} -s "all" --altloc "all" --zero-modes --hessian '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
-        else:
-            self.runJob('prody', 'anm {0} -s "all" --altloc "all" --hessian '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
+            args += ' --zero-modes'
+
+        if self.turbo.get():
+            args += ' --turbo'
+
+        self.runJob('prody', args)
         
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
         
