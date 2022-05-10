@@ -81,6 +81,11 @@ class ProDyEdit(EMProtocol):
                       pointerClass='AtomStruct',
                       help='Atoms or pseudoatoms to use as new nodes.')   
 
+        form.addParam('norm', BooleanParam, default=True, 
+                      condition='edit==%d' % NMA_SLICE,
+                      label='Normalise sliced vectors',
+                      help='Elect whether to normalise vectors.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
@@ -110,7 +115,7 @@ class ProDyEdit(EMProtocol):
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
-            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
+            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
             if from_prody:
@@ -119,7 +124,7 @@ class ProDyEdit(EMProtocol):
                 self.outModes.calcModes(zeros=zeros)
             else:
                 prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
+                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_EXTEND:
             self.outModes, self.outAtoms = prody.extendModel(modes, amap, bigger, norm=True)
