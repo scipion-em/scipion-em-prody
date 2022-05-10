@@ -28,7 +28,7 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the gaussian network model (GNM).
+This module will provide ProDy normal mode analysis (NMA) using the Gaussian network model (GNM).
 """
 from pyworkflow.protocol import params
 
