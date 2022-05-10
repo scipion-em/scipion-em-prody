@@ -36,6 +36,8 @@ from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import NMD, NPZ, SCIPION, GROMACS
 
+import prody
+
 class TestProDy_1(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
@@ -51,7 +53,7 @@ class TestProDy_1(TestWorkflow):
         # ------------------------------------------------
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                         pdbId="4ake")
+                                          pdbId="4ake")
         protImportPdb1.setObjLabel('pwem import 4ake')
         self.launchProtocol(protImportPdb1)
 
@@ -165,12 +167,26 @@ class TestProDy_1(TestWorkflow):
         protDefvec1.setObjLabel('Defvec_4akeA_1akeA_CA')
         self.launchProtocol(protDefvec1) 
 
-        # Compare original CA NMA to defvec
+        # Compare original CA NMA to defvec with default overlaps
         protComp5 = self.newProtocol(ProDyCompare)
         protComp5.modes1.set(protANM2.outputModes)
         protComp5.modes2.set(protDefvec1.outputModes)
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
+
+        comp5_matrix = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
+        self.assertTrue(max(comp5_matrix) <= 1, "Default defvec comparison didn't normalise")
+
+        # Compare original CA NMA to defvec with raw overlaps
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.norm.set(False)
+        protComp6.modes1.set(protANM2.outputModes)
+        protComp6.modes2.set(protDefvec1.outputModes)
+        protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
+        self.launchProtocol(protComp6)  
+
+        comp6_matrix = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
+        self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
         # Step 8. Import ANM & compare scipion vs prody npz
