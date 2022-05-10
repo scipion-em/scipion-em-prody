@@ -68,8 +68,8 @@ class ProDyEdit(ProDyModesBase):
                       default=NMA_SLICE,
                       label='Type of edit',
                       help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                      'or Hessian reduction (aka vibrational subsystem analysis; Hinsen et al., Chem Phys 2000; '
-                      'Woodcock et al., J Chem Phys 2008) in the case of modes from ProDy. \n'
+                      'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                      'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
                       'The number of nodes can be increased by extending (copying) eigenvector values '
                       'from nodes of the same residue')
 
@@ -84,6 +84,11 @@ class ProDyEdit(ProDyModesBase):
                       pointerClass='AtomStruct',
                       help='Atoms or pseudoatoms to use as new nodes.')   
 
+        form.addParam('norm', BooleanParam, default=True, 
+                      condition='edit==%d' % NMA_SLICE,
+                      label='Normalise sliced vectors',
+                      help='Elect whether to normalise vectors.')
+                      
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
                       label='RMSD Amplitude (A)',
@@ -135,7 +140,7 @@ class ProDyEdit(ProDyModesBase):
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
-            self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap)
+            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
             if from_prody:
@@ -144,7 +149,7 @@ class ProDyEdit(ProDyModesBase):
                 self.outModes.calcModes(zeros=zeros)
             else:
                 prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap)
+                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
