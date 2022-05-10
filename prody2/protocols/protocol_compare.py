@@ -165,7 +165,10 @@ class ProDyCompare(EMProtocol):
                 else:
                     self.matrix[i-6, 0] = prody.calcRWSIP(mode_ens[0, 6:i+1], mode_ens[1, 6:i+1])
 
-        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix)
+        pre_dec_len = max([len(str(int(np.max(self.matrix)))), len(str(int(np.min(self.matrix))))])
+        format_str = '%' + str(pre_dec_len + 4) + '.2f'
+
+        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix, format=format_str)
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
