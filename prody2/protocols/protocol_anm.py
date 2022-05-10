@@ -212,10 +212,11 @@ class ProDyANM(EMProtocol):
             modenum = i+7
             fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
-            prody.writePDB(fnAnimation+".pdb", 
-                           prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
-                                              pos=pos, neg=neg)
-                           )
+             
+            self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
+                                               n_steps=n_steps,
+                                               pos=pos, neg=neg)
+            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
 
             fhCmd=open(fnAnimation+".vmd",'w')
             fhCmd.write("mol new %s.pdb\n" % fnAnimation)
