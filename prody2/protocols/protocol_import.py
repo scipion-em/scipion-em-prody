@@ -40,7 +40,6 @@ from pyworkflow.utils import *
 import pyworkflow.protocol.params as params
 
 import prody
-from prody.utilities import ZERO
 
 NMD = 0
 NPZ = 1
@@ -69,7 +68,8 @@ class ProDyImportModes(ProtImportFiles):
                       label='Import from',
                       help='Select the type of import.')
 
-        form.addParam('importType', params.EnumParam, choices=['nmd', 'npz', 'scipion', 'gromacs'],
+        form.addParam('importType', params.EnumParam, choices=['prody nmd file', 'prody npz file',
+                                                               'scipion', 'gromacs'],
                       default=NMD,
                       label='Type of modes to import',
                       help='ProDy can support import of modes in various file formats: \n'
@@ -94,7 +94,7 @@ class ProDyImportModes(ProtImportFiles):
                            "cannot appear in the actual path.)")
 
         form.addParam('filesPattern', params.StringParam,
-                      label='Pattern',
+                      label='File pattern',
                       condition="importType!=%d" % SCIPION,
                       help="Pattern of the files to be imported.\n\n"
                            "The pattern can contain standard wildcards such as\n"
@@ -106,7 +106,7 @@ class ProDyImportModes(ProtImportFiles):
                            "For gromacs modes, the first is for values and this is for vectors")
 
         form.addParam('filesPattern2', params.StringParam,
-                      label='Pattern2',
+                      label='File pattern for eigenvalues',
                       condition="importType==%d" % GROMACS,
                       help="Pattern of the files to be imported.\n\n"
                            "The pattern can contain standard wildcards such as\n"
@@ -118,7 +118,7 @@ class ProDyImportModes(ProtImportFiles):
                            "For gromacs modes, the first is for values and this is for vectors")
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
-                      pointerClass='AtomStruct',
+                      pointerClass='AtomStruct', condition="importType!=%d" % NMD,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
@@ -131,8 +131,12 @@ class ProDyImportModes(ProtImportFiles):
 
     def importModesStep(self):
         files_paths = self.getMatchFiles()
-        folder_path = os.path.split(files_paths[0])[0]
-        self.pattern1 = os.path.split(files_paths[0])[1]
+
+        if self.importType == SCIPION:
+            folder_path = files_paths[0]
+        else:
+            folder_path = os.path.split(files_paths[0])[0]
+            self.pattern1 = os.path.split(files_paths[0])[1]
 
         pdb_filename = self.inputStructure.get().getFileName()
         
@@ -147,12 +151,13 @@ class ProDyImportModes(ProtImportFiles):
             self.outModes = prody.loadModel(os.path.join(folder_path, self.pattern1))
 
         elif self.importType == SCIPION:
-            self.outModes = prody.parseScipionModes(folder_path)
+            self.outModes = prody.parseScipionModes(folder_path, pdb=pdb_filename)
 
         else:
             pattern2 = self.filesPattern2.get()
-            self.outModes = prody.parseGromacsModes(folder_path, eigval_fname=pattern1,
-                                                    eigvec_fname=pattern2, average_pdb=pdb_filename)
+            self.outModes = prody.parseGromacsModes(folder_path, eigvec_fname=pattern1, 
+                                                    eigval_fname=pattern2,
+                                                    average_pdb=pdb_filename)
 
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         
