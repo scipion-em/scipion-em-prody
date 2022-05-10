@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = "3.0.1"
+__version__ = "3.0.7"
 _logo = "icon.png"
 _references = ['Zhang2021']
 
@@ -147,5 +147,10 @@ class Plugin(pwem.Plugin):
         return envVar.split()[-1]
 
     @classmethod
+<<<<<<< HEAD
     def IS_V210(cls):
         return cls.getActiveVersion().startswith(getProDyEnvName('2.1.0'))
+=======
+    def IS_V211(cls):
+        return cls.getActiveVersion().startswith(getProDyEnvName('2.1.1'))
+>>>>>>> master

@@ -33,7 +33,6 @@ from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
-from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -49,11 +48,13 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 
-class ProDyANM(EMProtocol):
+class ProDyModesBase(EMProtocol):
     """
-    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
+    This protocol acts as a base class for various kinds of mode analysis,
+    providing easier access to the qualify and animate steps.
+    Currently, the only child class is ProDyEdit.
     """
-    _label = 'ANM analysis'
+    _label = 'Modes base'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -61,11 +62,8 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
-
         # You need a params to belong to a section:
-        form.addSection(label='ProDy ANM NMA')
+        form.addSection(label='ProDy modes base')
 
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
@@ -88,6 +86,7 @@ class ProDyANM(EMProtocol):
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
                            'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
@@ -95,14 +94,6 @@ class ProDyANM(EMProtocol):
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -119,10 +110,6 @@ class ProDyANM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
@@ -144,114 +131,54 @@ class ProDyANM(EMProtocol):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n):
         # Insert processing steps
+        #n = self.numberOfModes.get()
 
-        # Link the input
-        inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
-
-        self.model_type = 'anm'
-        n = self.numberOfModes.get()
-
-        self._insertFunctionStep('computeModesStep', inputFn, n)
+        self._insertFunctionStep('computeModesStep')
         self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
+                                 collectivityThreshold=0.15,
+                                 structureEM=False, suffix='')
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn, n):
-        
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
-
-        self.atoms = prody.parsePDB(inputFn, alt='all')
-        prody.writePDB(self.pdbFileName, self.atoms)
-
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
-
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
-
-        if self.zeros.get():
-            args += ' --zero-modes'
-
-        if self.turbo.get():
-            args += ' --turbo'
-
-        self.runJob('prody', args)
-        
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
-        
-        eigvecs = self.anm.getEigvecs()
-        eigvals = self.anm.getEigvals()
-        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
-
-        self.anm.setHessian(hessian)
-        self.anm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrices=True)
+    def computeModesStep(self):
+        # This gets defined in each child protocol
+        pass
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')
         makePath(animations_dir)
-        for i, mode in enumerate(self.anm[6:]):
+        for i, mode in enumerate(self.outModes[6:]):
             modenum = i+7
             fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
-             
-            self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
-                                               n_steps=n_steps,
-                                               pos=pos, neg=neg)
-            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
+            prody.writePDB(fnAnimation+".pdb", 
+                           prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                                              pos=pos, neg=neg)
+                           )
 
             fhCmd=open(fnAnimation+".vmd",'w')
             fhCmd.write("mol new %s.pdb\n" % fnAnimation)
             fhCmd.write("animate style Rock\n")
             fhCmd.write("display projection Orthographic\n")
-            if self.structureEM:
-                fhCmd.write("mol modcolor 0 0 Beta\n")
-                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
+            fhCmd.write("mol modcolor 0 0 Index\n")
+            if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
+                fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+                # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
+                #         "2.600000 0\n")
             else:
-                fhCmd.write("mol modcolor 0 0 Index\n")
-                if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
+                fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
+                        "2.600000 0\n")
             fhCmd.write("animate speed 0.5\n")
             fhCmd.write("animate forward\n")
             fhCmd.close()    
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
+                         structureEM=False, suffix=''):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -264,8 +191,8 @@ class ProDyANM(EMProtocol):
             self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.anm))
-        eigvals = self.anm.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.outModes))
+        eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -309,7 +236,7 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
