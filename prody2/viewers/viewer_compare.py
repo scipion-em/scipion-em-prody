@@ -246,10 +246,11 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
         ax = plotter.figure.gca()
 
-        if self.abs:
-            ax.set_ylim([0, 1])
-        else:
-            ax.set_ylim([-1, 1])
+        if max(matrix) <= 1:
+            if self.abs:
+                ax.set_ylim([0, 1])
+            else:
+                ax.set_ylim([-1, 1])
 
         if cumulOverlap:
             cum_overlaps = np.sqrt(np.power(row, 2).cumsum(axis=row.ndim-1))
