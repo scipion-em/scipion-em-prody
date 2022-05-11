@@ -33,7 +33,8 @@ import os
 import numpy as np
 
 from pwem import *
-from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
+from pwem.objects import (AtomStruct, SetOfNormalModes, SetOfPrincipalComponents,
+                          String, EMFile)
 from pwem.protocols import EMProtocol, ProtImportFiles
 
 from pyworkflow.utils import *
@@ -169,7 +170,12 @@ class ProDyImportModes(ProtImportFiles):
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
+
+        if self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1]:
+            nmSet = SetOfNormalModes(filename=fnSqlite)
+        else:
+            nmSet = SetOfPrincipalComponents(filename=fnSqlite)
+
         nmSet._nmdFileName = String(self.nmdFileName)
 
         inputPdb = self.inputStructure.get()
