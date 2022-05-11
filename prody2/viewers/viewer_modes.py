@@ -36,7 +36,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes)#, ProDyRTB)
+                              ProDyImportModes, ProDyPCA)#, ProDyRTB)
 
 import os
 import prody
