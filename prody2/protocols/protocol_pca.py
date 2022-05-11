@@ -33,12 +33,13 @@ from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
+from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfPrincipalComponents, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -46,15 +47,12 @@ from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
+from prody2.protocols.protocol_modes_base import ProDyModesBase
+
 import prody
-prody.confProDy(auto_secondary=True)
-
-class SetOfPrincipalComponents(SetOfNormalModes):
-    "Set of Principal Components is a SetOfNormalModes with a new name"
-    pass
 
 
-class ProDyPCA(EMProtocol):
+class ProDyPCA(ProDyModesBase):
     """
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
@@ -67,20 +65,20 @@ class ProDyPCA(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy PCA')
+        cpus = cpu_count()//2 # don't use everything
+        form.addParallelSection(threads=cpus, mpi=0)
 
+        form.addSection(label='ProDy PCA')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
                       pointerClass='EMFile', # may want to make a new class for this
                       help='The input ensemble should be an ens.npz file built by ProDy')
-
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
-
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
+        form.addParam('collectivityThreshold', FloatParam, default=0, # important modes may well not be collective
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
                       help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
@@ -90,6 +88,25 @@ class ProDyPCA(EMProtocol):
                       'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
                       'The modes metadata file can be used to see which modes are more collective '
                       'in order to decide which modes to use at the image analysis step.')
+
+        form.addSection(label='Animation')        
+        form.addParam('rmsd', FloatParam, default=5,
+                      label='RMSD Amplitude (A)',
+                      help='Used only for animations of computed normal modes. '
+                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
+                      'along normal modes in the animations. \n')
+        form.addParam('n_steps', IntParam, default=10,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Number of frames',
+                      help='Number of frames used in each direction of animations.')
+        form.addParam('pos', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include positive direction",
+                      help='Elect whether to animate in the positive mode direction.')
+        form.addParam('neg', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include negative direction",
+                      help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -105,6 +122,9 @@ class ProDyPCA(EMProtocol):
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('animateModesStep', n,
+                                 self.rmsd.get(), self.n_steps.get(),
+                                 self.neg.get(), self.pos.get())
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
@@ -116,8 +136,9 @@ class ProDyPCA(EMProtocol):
         prody.writePDB(self.pdbFileName, ens)
         prody.writeDCD(self.dcdFileName, ens)
 
-        self.runJob('prody', 'pca {0} --outcov --outcc --export-scipion'
-                    ' --npz -o {1} -p modes -n {2}'.format(self.dcdFileName, self._getPath(), n))
+        self.runJob('prody', 'pca {0} --covariance --export-scipion'
+                    ' --npz -o {1} -p modes -n {2} -P {3}'.format(self.dcdFileName, self._getPath(), n,
+                                                                  self.numberOfThreads.get()))
         
         self.pca = prody.loadModel(self._getPath('modes.pca.npz'))
         
@@ -125,9 +146,15 @@ class ProDyPCA(EMProtocol):
         eigvals = self.pca.getEigvals()
         cov = prody.parseArray(self._getPath('modes_covariance.txt'))
 
-        self.pca.setCovariance(hessian)
+        self.pca.setCovariance(cov)
         self.pca.setEigens(eigvecs, eigvals)
         prody.saveModel(self.pca, self._getPath('modes.pca.npz'), matrices=True)
+
+        self.outModes = self.pca
+
+        self.atoms = ens.getAtoms()
+        if self.atoms is None:
+            self.atoms = prody.parsePDB(self.pdbFileName)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
         self._enterWorkingDir()
@@ -159,7 +186,7 @@ class ProDyPCA(EMProtocol):
                 mdOut.setValue(MDL_ENABLED, -1, objId)
 
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
+            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
 
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
