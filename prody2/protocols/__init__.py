@@ -5,7 +5,6 @@
 # **************************************************************************
 from .protocol_anm import ProDyANM
 # from .protocol_rtb import ProDyRTB
-from .protocol_pca import ProDyPCA
 
 from .protocol_atoms import ProDySelect, ProDyAlign
 from .protocol_compare import ProDyCompare
@@ -14,3 +13,5 @@ from .protocol_defvec import ProDyDefvec
 from .protocol_import import ProDyImportModes
 
 #from .protocol_ensemble import ProDyBuildPDBEnsemble
+from .protocol_import import ProDyImportEnsemble
+from .protocol_pca import ProDyPCA
