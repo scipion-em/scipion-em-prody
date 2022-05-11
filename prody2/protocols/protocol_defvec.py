@@ -35,7 +35,9 @@ from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import PointerParam, StringParam
+from pyworkflow.protocol.params import (PointerParam, StringParam,
+                                        FloatParam, IntParam, 
+                                        BooleanParam, LEVEL_ADVANCED)
 
 import prody
 
@@ -55,7 +57,6 @@ class ProDyDefvec(EMProtocol):
         """
         # You need a params to belong to a section:
         form.addSection(label='ProDy Defvec')
-
         form.addParam('mobStructure', PointerParam, label="Mobile structure",
                       important=True,
                       pointerClass='AtomStruct',
@@ -63,7 +64,6 @@ class ProDyDefvec(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms).'
                            'The two structures should have the same number of nodes.')
-
         form.addParam('tarStructure', PointerParam, label="Target structure",
                       important=True,
                       pointerClass='AtomStruct',
@@ -72,29 +72,80 @@ class ProDyDefvec(EMProtocol):
                            '(an EM volume converted into pseudoatoms)'
                            'The two structures should have the same number of nodes.')
 
+        form.addSection(label='Animation')        
+        form.addParam('rmsd', FloatParam, default=0,
+                      label='RMSD Amplitude (A)',
+                      help='Used only for animations of computed normal modes. '
+                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
+                      'along the deformation vector in the animations. \n'
+                      'The default value of 0 means use the actual RMSD between the structures.')
+        form.addParam('n_steps', IntParam, default=10,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Number of frames',
+                      help='Number of frames used in each direction of animations.')
+        form.addParam('pos', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include positive direction",
+                      help='Elect whether to animate in the positive direction '
+                           'from mobile to target.')
+        form.addParam('neg', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include negative direction",
+                      help='Elect whether to animate in the negative direction, '
+                           'extrapolating from mobile further away from target.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         self.mobFn = self.mobStructure.get().getFileName()
         self.tarFn = self.tarStructure.get().getFileName()
         self._insertFunctionStep('defvecStep', self.mobFn, self.tarFn)
+        self._insertFunctionStep('animateModesStep', self.n_steps.get(),
+                                 self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep')
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self, mobFn, tarFn):
-        mob = prody.parsePDB(mobFn, alt='all')
-        tar = prody.parsePDB(tarFn, alt='all')
+        self.mob = prody.parsePDB(mobFn, alt='all')
+        self.tar = prody.parsePDB(tarFn, alt='all')
 
-        rmsd = prody.calcRMSD(mob, tar)
-        defvec = prody.calcDeformVector(mob, tar)
+        if self.rmsd.get() == 0:
+            self.rmsd = prody.calcRMSD(self.mob, self.tar)
+        else:
+            self.rmsd = self.rmsd.get()
 
-        self.outAtoms = prody.traverseMode(defvec, mob, rmsd=rmsd, neg=False) # morph
-        
+        self.defvec = prody.calcDeformVector(self.mob, self.tar)
+
         self.outModes = prody.NMA('defvec')
-        self.outModes.setEigens(defvec.getArray().reshape(-1, 1))
-
-        prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
+        self.outModes.setEigens(self.defvec.getArray().reshape(-1, 1))
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, mob)
+        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.mob)
+
+    def animateModesStep(self, n_steps, pos, neg):
+        animations_dir = self._getExtraPath('animations')
+        makePath(animations_dir)
+
+        fnAnimation = join(animations_dir, "animated_mode_001")
+
+        self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=self.rmsd,
+                                           n_steps=self.n_steps.get(),
+                                           pos=self.pos.get(), neg=self.neg.get())
+        prody.writePDB(fnAnimation+".pdb", self.outAtoms)
+
+        fhCmd=open(fnAnimation+".vmd",'w')
+        fhCmd.write("mol new %s.pdb\n" % fnAnimation)
+        fhCmd.write("animate style Rock\n")
+        fhCmd.write("display projection Orthographic\n")
+        fhCmd.write("mol modcolor 0 0 Index\n")
+        if self.mob.ca.numAtoms() == self.mob.numAtoms():
+            fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+            # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
+            #         "2.600000 0\n")
+        else:
+            fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
+                    "2.600000 0\n")
+        fhCmd.write("animate speed 0.5\n")
+        fhCmd.write("animate forward\n")
+        fhCmd.close()   
 
     def computeAtomShiftsStep(self):
         fnOutDir = self._getExtraPath("distanceProfiles")
@@ -126,14 +177,8 @@ class ProDyDefvec(EMProtocol):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet.setPdb(self.mobStructure.get())
 
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self._getPath('atoms.pdb'))
-
-        inputPdb = AtomStruct()
-        inputPdb.setFileName(self.mobFn)
-        nmSet.setPdb(inputPdb.get())
-
-        self._defineOutputs(outputModes=nmSet, outputMorph=outputPdb)
-        self._defineSourceRelation(outputPdb, nmSet)
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.mobStructure, nmSet)
 
