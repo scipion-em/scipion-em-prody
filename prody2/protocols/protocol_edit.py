@@ -109,7 +109,7 @@ class ProDyEdit(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    # This is inherited from NMA base protocol
+    # This is inherited from modes base protocol
     def _insertAllSteps(self):
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
         
