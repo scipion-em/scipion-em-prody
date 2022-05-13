@@ -134,10 +134,10 @@ class ProDyPCA(ProDyModesBase):
         prody.writeDCD(self.dcdFileName, ens)
 
         self.runJob('prody', 'pca {0} --covariance --export-scipion'
-                    ' --npz -o {1} -p modes -n {2} -P {3}'.format(self.dcdFileName, self._getPath(), n,
-                                                                  self.numberOfThreads.get()))
+                    ' -o {1} -p modes -n {2} -P {3}'.format(self.dcdFileName, self._getPath(), n,
+                                                            self.numberOfThreads.get()))
         
-        self.pca = prody.loadModel(self._getPath('modes.pca.npz'))
+        self.pca, self.atoms = prody.parseNMD(self._getPath('modes.nmd'))
         
         eigvecs = self.pca.getEigvecs()
         eigvals = self.pca.getEigvals()
@@ -148,10 +148,6 @@ class ProDyPCA(ProDyModesBase):
         prody.saveModel(self.pca, self._getPath('modes.pca.npz'), matrices=True)
 
         self.outModes = self.pca
-
-        self.atoms = ens.getAtoms()
-        if self.atoms is None:
-            self.atoms = prody.parsePDB(self.pdbFileName)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
         self._enterWorkingDir()
@@ -177,11 +173,7 @@ class ProDyPCA(ProDyModesBase):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
+            mdOut.setValue(MDL_ENABLED, 1, objId)
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
             mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
 
