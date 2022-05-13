@@ -84,10 +84,7 @@ class ProDyPCA(ProDyModesBase):
                       help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
+                      'For no deselection, this parameter should be set to 0 . \n')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
@@ -124,7 +121,7 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
+                                 self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
