@@ -32,19 +32,20 @@ This module will provide ProDy ensemble tools.
 from pyworkflow.protocol import params
 
 from pwem import *
-from pwem.objects import AtomStruct, Transform, String
+from pwem.objects import AtomStruct, Transform, String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
+from pyworkflow.protocol.params import (PointerParam, StringParam, IntParam, FloatParam,
                                         EnumParam, LEVEL_ADVANCED)
 
 import prody
-prody.confProDy(auto_secondary=True)
+
+STRUCTURE = 0
+INDEX = 1
 
 BEST_MATCH = 0
 SAME_CHID = 1
-
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
@@ -61,29 +62,40 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy buildPDBEnsemble')
 
-        form.addParam('structures', PointerParam, label="set of structures",
+        form.addParam('structures', PointerParam, label="Set of structures",
                       important=True,
                       pointerClass='SetOfAtomStructs',
                       help='The structures to be aligned must be atomic models.')
 
-        form.addParam('refStructure', PointerParam, label="Target structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The reference structure must be an atomic model.')
+        form.addParam('refType', EnumParam, choices=['structure', 'index'], 
+                      default=STRUCTURE,
+                      label="Reference structure selection type",
+                      help='The reference structure can be a separate structure or indexed from the set')
 
-        form.addParam('seqid', FloatParam, default=1.,
+        form.addParam('refStructure', PointerParam, label="Reference structure",
+                      condition="refType == %d" % STRUCTURE,
+                      pointerClass='AtomStruct',
+                      help='Select an atomic model as the reference structure')
+
+        form.addParam('refIndex', IntParam, label="Reference structure index",
+                      condition="refType == %d" % INDEX,
+                      pointerClass='AtomStruct',
+                      help='Select the index of the reference structure in the set, starting from 1')
+
+        form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Sequence Identity Cut-off (%)",
-                      help='Alignment mapping with lower sequence identity will not be accepted.')
+                      help='Alignment mapping with lower sequence identity will not be accepted.\n'
+                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
 
-        form.addParam('overlap', FloatParam, default=1.,
+        form.addParam('overlap', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Overlap Cut-off (%)",
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1') 
 
         form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
-                      default=BEST_MATCH,
+                      default=SAME_CHID,
                       expertLevel=LEVEL_ADVANCED,
                       label="Chain matching function",
                       help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
@@ -91,56 +103,56 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        mobFn = self.mobStructure.get().getFileName()
-        tarFn = self.tarStructure.get().getFileName()
-        self._insertFunctionStep('alignStep', mobFn, tarFn)
+        # handle inputs
+        if self.refType.get() == STRUCTURE:
+            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
+        else:
+            ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
+
+        tars = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.structures.get()], alt='all')
+
+        # actual steps
+        self._insertFunctionStep('alignStep', ref, tars)
         self._insertFunctionStep('createOutputStep')
 
-    def alignStep(self, mobFn, tarFn):
+    def alignStep(self, ref, tars):
         """This step includes alignment mapping and superposition"""
-
-        mob = prody.parsePDB(mobFn, alt='all')
-        tar = prody.parsePDB(tarFn, alt='all')
 
         if self.matchFunc.get() == BEST_MATCH:
             match_func = prody.bestMatch
         else:
             match_func = prody.sameChid
 
-        mob_amap = prody.alignChains(mob, tar,
+        ens = prody.buildPDBEnsemble(tars, ref=ref,
                                      seqid=self.seqid.get(),
                                      overlap=self.overlap.get(),
-                                     match_func=match_func)[0]
-        mob_sel = mob.select(mob_amap.getSelstr())
+                                     match_func=match_func)
 
-        tar_amap = prody.alignChains(tar, mob_sel,
-                                     seqid=self.seqid.get(),
-                                     overlap=self.overlap.get(),
-                                     match_func=match_func)[0]
-        tar_sel = tar.select(tar_amap.getSelstr())
+        ens = prody.trimPDBEnsemble(ens, occupancy=1)
 
-        alg, self.T = prody.superpose(mob_sel, tar_sel)
+        self.T = [T.getMatrix() for T in ens.getTransformations()]
 
-        self.pdbFileNameMob = self._getPath('mobile.pdb')
-        prody.writePDB(self.pdbFileNameMob, alg)
+        self.pdbFileName = self._getPath('ensemble.pdb')
+        prody.writePDB(self.pdbFileName, ens)
 
-        self.pdbFileNameTar = self._getPath('target.pdb')
-        prody.writePDB(self.pdbFileNameTar, tar_sel)
+        self.dcdFileName = self._getPath('ensemble.dcd')
+        prody.writeDCD(self.dcdFileName, ens)
 
-        self.matrixFileName = self._getPath('transformation.txt')
-        prody.writeArray(self.matrixFileName, self.T.getMatrix())
+        self.npzFileName = self._getPath('ensemble.ens.npz')
+        prody.saveEnsemble(ens, self.npzFileName)
+
+        self.matrixFileName = self._getPath('transformation_%05d.txt')
+        [prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
 
     def createOutputStep(self):
-        outputPdbMob = AtomStruct()
-        outputPdbMob.setFileName(self.pdbFileNameMob)
+        outputPdb = AtomStruct(filename=self.pdbFileName)
 
-        outputPdbTar = AtomStruct()
-        outputPdbTar.setFileName(self.pdbFileNameTar)
+        outputDcd = EMFile(filename=self.dcdFileName)
+        outputNpz = EMFile(filename=self.npzFileName)
+        #outputTrans = [Transform(matrix=T) for T in self.T]
 
-        outputTrans = Transform()
-        outputTrans.setMatrix(self.T.getMatrix())
-
-        self._defineOutputs(outputStructureMob=outputPdbMob,
-                            outputStructureTar=outputPdbTar,
-                            outputTransformation=outputTrans)
+        self._defineOutputs(outputPdb=outputPdb,
+                            outputDcd=outputDcd,
+                            outputNpz=outputNpz)
+                            #outputTransformations=outputTrans)
 
