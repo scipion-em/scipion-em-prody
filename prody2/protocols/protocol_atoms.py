@@ -29,6 +29,8 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
+from os.path import basename, splitext
+
 from pyworkflow.protocol import params
 
 from pwem import *
@@ -93,7 +95,7 @@ class ProDySelect(EMProtocol):
         LOGGER.info("%d atoms selected from %d" % (selection.numAtoms(), 
                                                           ag.numAtoms()))
 
-        self.pdbFileName = self._getPath('atoms.pdb')
+        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)
 
     def createOutputStep(self):
