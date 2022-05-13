@@ -298,13 +298,6 @@ class ProDyImportEnsemble(ProtImportFiles):
 
 
     def createOutputStep(self):
-        # fnSqlite = self._getPath('modes.sqlite')
-        # nmSet = SetOfNormalModes(filename=fnSqlite)
-        # nmSet._nmdFileName = String(self.nmdFileName)
-
-        # inputPdb = self.inputStructure.get()
-        # nmSet.setPdb(inputPdb)
-
         outFile = EMFile(filename=self.filename)
-        self._defineOutputs(outputEns=self.outEns, outputFile=outFile)
+        self._defineOutputs(outputNpz=outFile)
         #self._defineSourceRelation(self.inputStructure, nmSet)
