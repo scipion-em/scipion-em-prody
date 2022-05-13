@@ -126,18 +126,22 @@ class ProDyPCA(ProDyModesBase):
 
     def computeModesStep(self, inputFn, n):
         
-        self.pdbFileName = self._getPath('ensemble.pdb')
+        self.pdbFileName = self._getPath('atoms.pdb')
         self.dcdFileName = self._getPath('ensemble.dcd')
 
         ens = prody.loadEnsemble(inputFn)
-        prody.writePDB(self.pdbFileName, ens)
         prody.writeDCD(self.dcdFileName, ens)
 
-        self.runJob('prody', 'pca {0} --covariance --export-scipion'
-                    ' -o {1} -p modes -n {2} -P {3}'.format(self.dcdFileName, self._getPath(), n,
+        self.atoms = ens.getAtoms()
+        prody.writePDB(self.pdbFileName, self.atoms)
+
+        self.runJob('prody', 'pca {0} --pdb {1} --covariance --export-scipion'
+                    ' -o {2} -p modes -n {3} -P {4}'.format(self.dcdFileName,
+                                                            self.pdbFileName,
+                                                            self._getPath(), n,
                                                             self.numberOfThreads.get()))
         
-        self.pca, self.atoms = prody.parseNMD(self._getPath('modes.nmd'))
+        self.pca, _ = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
         eigvecs = self.pca.getEigvecs()
         eigvals = self.pca.getEigvals()
