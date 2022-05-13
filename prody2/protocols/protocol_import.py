@@ -271,7 +271,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         self.pattern1 = os.path.split(files_paths[0])[1]
         
         if self.importType == PDB:
-            if not self.pattern1.endswith('.pdb'):
+            if not (self.pattern1.endswith('.pdb') or self.pattern1.endswith('.cif')):
                 self.pattern1 += '.pdb'
             self.atoms = prody.parsePDB(os.path.join(folder_path, self.pattern1))
             self.outEns = prody.PDBEnsemble(self.atoms)
