@@ -25,13 +25,15 @@
 # *
 # **************************************************************************
 
+import numpy as np
 from os.path import basename, split
 
 from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import ProDySelect, ProDyBuildPDBEnsemble, ProDyPCA
+from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
+                              ProDyImportEnsemble, ProDyPCA, ProDyCompare)
 
 import prody
 
@@ -49,50 +51,39 @@ class TestProDy_pca(TestWorkflow):
         # Step 1. Import some structures -> Select CA 
         # ---------------------------------------------------
         
-        # Import PDB 7kec
+        # Import PDB 3o21
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="7kec")
-        protImportPdb1.setObjLabel('pwem import 7kec')
+                                          pdbId="3o21")
+        protImportPdb1.setObjLabel('pwem import 3o21')
         self.launchProtocol(protImportPdb1)
 
-        # Import PDB 7bnm
+        # Import PDB 6fpj
         protImportPdb2 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="7bnm")
-        protImportPdb2.setObjLabel('pwem import 7bnm')
+                                          pdbId="6fpj")
+        protImportPdb2.setObjLabel('pwem import 6fpj')
         self.launchProtocol(protImportPdb2)
 
-        # Import PDB 7bnn
+        # Import PDB 6flr
         protImportPdb3 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="7bnn")
-        protImportPdb3.setObjLabel('pwem import 7bnn')
+                                          pdbId="6flr")
+        protImportPdb3.setObjLabel('pwem import 6flr')
         self.launchProtocol(protImportPdb3)
 
-        # Import PDB 7bno
-        protImportPdb4 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="7bno")
-        protImportPdb4.setObjLabel('pwem import 7bno')
-        self.launchProtocol(protImportPdb4)
-
-        # Select CA
-        protSel1 = self.newProtocol(ProDySelect, selection="name CA")
+        # Select dimer and CA
+        protSel1 = self.newProtocol(ProDySelect, selection="chain C D and name CA")
         protSel1.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1.setObjLabel('Sel 7kec_ca')
+        protSel1.setObjLabel('Sel 3o21_CD_ca') # parallel
         self.launchProtocol(protSel1)
 
-        protSel2 = self.newProtocol(ProDySelect, selection="name CA")
+        protSel2 = self.newProtocol(ProDySelect, selection="chain A C and name CA")
         protSel2.inputStructure.set(protImportPdb2.outputPdb)
-        protSel2.setObjLabel('Sel 7bnm_ca')
+        protSel2.setObjLabel('Sel 6fpj_AC_ca') # displaced
         self.launchProtocol(protSel2)
 
         protSel3 = self.newProtocol(ProDySelect, selection="name CA")
         protSel3.inputStructure.set(protImportPdb3.outputPdb)
-        protSel3.setObjLabel('Sel 7bnn_ca')
+        protSel3.setObjLabel('Sel 6flr_ca') # open
         self.launchProtocol(protSel3)
-
-        protSel4 = self.newProtocol(ProDySelect, selection="name CA")
-        protSel4.inputStructure.set(protImportPdb4.outputPdb)
-        protSel4.setObjLabel('Sel 7bno_ca')
-        self.launchProtocol(protSel4)
 
         # ------------------------------------------------
         # Step 2. Import set of structs
@@ -106,36 +97,65 @@ class TestProDy_pca(TestWorkflow):
         # --------------------------------------------------
         # Step 3a. buildPDBEns with atom struct ref -> PCA 1
         # --------------------------------------------------
-        protEns1 = self.newProtocol(ProDyBuildPDBEnsemble, refType=0)
+        protEns1 = self.newProtocol(ProDyBuildPDBEnsemble, refType=0,
+                                    matchFunc=0)
         protEns1.structures.set(protSetAS.outputAtomStructs)
-        protEns1.refStructure.set(protSel4.outputStructure)
-        protEns1.setObjLabel('buildPDBEns_ref_str_4')
+        protEns1.refStructure.set(protSel3.outputStructure)
+        protEns1.setObjLabel('buildPDBEns_ref_str_3')
         self.launchProtocol(protEns1)   
 
-        protPca1 = self.newProtocol(ProDyPCA, numberOfModes=3)
+        protPca1 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca1.inputEnsemble.set(protEns1.outputNpz)
-        protPca1.setObjLabel('PCA_ref_str_4')
+        protPca1.setObjLabel('PCA_ref_str_3')
         self.launchProtocol(protPca1)  
 
         # --------------------------------------------------
         # Step 3a. buildPDBEns with index ref -> PCA 2
         # --------------------------------------------------
-        protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1)
+        protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
+                                    matchFunc=0)
         protEns2.structures.set(protSetAS.outputAtomStructs)
-        protEns2.refIndex.set(4)
-        protEns2.setObjLabel('buildPDBEns_ref_idx_4')
+        protEns2.refIndex.set(3)
+        protEns2.setObjLabel('buildPDBEns_ref_idx_3')
         self.launchProtocol(protEns2)   
 
-        protPca2 = self.newProtocol(ProDyPCA, numberOfModes=3)
+        protPca2 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca2.inputEnsemble.set(protEns2.outputNpz)
-        protPca2.setObjLabel('PCA_ref_idx_4')
+        protPca2.setObjLabel('PCA_ref_idx_3')
         self.launchProtocol(protPca2)  
 
         # ------------------------------------------------
         # Step 4. Compare
         # ------------------------------------------------    
-        protComp1 = self.newProtocol(ProDyCompare)
+        protComp1 = self.newProtocol(ProDyCompare,
+                                     diag=True, match=True)
         protComp1.modes1.set(protPca1.outputModes)
         protComp1.modes2.set(protPca2.outputModes)
         protComp1.setObjLabel('Compare')
-        self.launchProtocol(protComp1)           
+        self.launchProtocol(protComp1)     
+
+        comp_matrix = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
+        self.assertTrue(np.allclose(comp_matrix, np.ones(2)), "The modes aren't identical")      
+
+        # ------------------------------------------------
+        # Step 5. Import 2k39 NMR ensemble -> select N+CA -> PCA
+        # ------------------------------------------------  
+        protImportPdb4 = self.newProtocol(ProtImportPdb, inputPdbData=0,
+                                          pdbId="2k39")
+        protImportPdb4.setObjLabel('pwem import 2k39')
+        self.launchProtocol(protImportPdb4)
+
+        protSel4 = self.newProtocol(ProDySelect, selection="name N CA")
+        protSel4.inputStructure.set(protImportPdb4.outputPdb)
+        protSel4.setObjLabel('Sel 2k39_n_ca')
+        self.launchProtocol(protSel4)        
+
+        protImportEns = self.newProtocol(ProDyImportEnsemble, superpose=2)
+        protImportEns.filesPath.set(protSel4._getPath("2k39_atoms.pdb"))
+        protImportEns.setObjLabel('prody import ens - 2k39_n_ca')
+        self.launchProtocol(protImportEns)
+
+        protPca3 = self.newProtocol(ProDyPCA)
+        protPca3.inputEnsemble.set(protImportEns.outputNpz)
+        protPca3.setObjLabel('PCA_2k39')
+        self.launchProtocol(protPca3)  
