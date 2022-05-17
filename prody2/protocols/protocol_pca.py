@@ -135,7 +135,7 @@ class ProDyPCA(ProDyModesBase):
         self.atoms = ens.getAtoms()
         prody.writePDB(self.pdbFileName, self.atoms)
 
-        self.runJob('prody', 'pca {0} --pdb {1} --covariance --export-scipion'
+        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
                     ' -o {2} -p modes -n {3} -P {4}'.format(self.dcdFileName,
                                                             self.pdbFileName,
                                                             self._getPath(), n,
