@@ -79,7 +79,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         form.addParam('refIndex', IntParam, label="Reference structure index",
                       condition="refType == %d" % INDEX,
-                      pointerClass='AtomStruct',
                       help='Select the index of the reference structure in the set, starting from 1')
 
         form.addParam('seqid', FloatParam, default=0.,
