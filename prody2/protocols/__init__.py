@@ -15,3 +15,4 @@ from .protocol_import import ProDyImportModes
 from .protocol_ensemble import ProDyBuildPDBEnsemble
 from .protocol_import import ProDyImportEnsemble
 from .protocol_pca import ProDyPCA
+from .protocol_project import ProDyProject
