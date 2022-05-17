@@ -143,7 +143,12 @@ class ProDyCompare(EMProtocol):
                                  np.array(match_inds, dtype=int)[1]+1,
                                  format='%3d')
 
-                atoms = prody.parsePDB(self.modes1.get().getPdb().getFileName())
+                pdb = self.modes1.get().getPdb()
+                if pdb is not None:
+                    atoms = prody.parsePDB(pdb.getFileName())
+                else:
+                    atoms = prody.parsePDB(pdb1)
+
                 prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
                 prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
