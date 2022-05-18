@@ -137,16 +137,16 @@ class ProDyEdit(ProDyModesBase):
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
         
         if self.edit == NMA_SLICE:
-            self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
+            self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
             if from_prody:
-                self.outModes, self.outAtoms = prody.reduceModel(modes, bigger, amap)
+                self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
             else:
                 prody.LOGGER.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
-                self.outModes, self.outAtoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
+                self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
@@ -154,7 +154,7 @@ class ProDyEdit(ProDyModesBase):
         else:
             self.outModes, self.atoms = prody.interpolateModel(modes, amap, bigger, norm=True)
 
-        prody.writePDB(self._getPath('atoms.pdb'), self.outAtoms)
+        prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
 
