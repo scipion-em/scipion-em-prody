@@ -36,7 +36,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes, ProDyPCA)#, ProDyRTB)
+                              ProDyImportModes, ProDyRTB, ProDyPCA)
 
 import os
 import prody
@@ -46,7 +46,7 @@ class ProDyModeViewer(Viewer):
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, #ProDyRTB,
+    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB,
                 ProDyDefvec, ProDyEdit, ProDyImportModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 

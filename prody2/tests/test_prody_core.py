@@ -29,10 +29,10 @@ from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, # ProDyRTB,
+from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, ProDyRTB,
                               ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
-from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
+from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import NMD, NPZ, SCIPION, GROMACS
 
@@ -137,6 +137,23 @@ class TestProDy_1(TestWorkflow):
         self.launchProtocol(protComp3)           
 
         # ------------------------------------------------
+        # Step 6. Interpolate -> Compare
+        # ------------------------------------------------
+        # Interpolate CA NMA to all-atoms
+        protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
+        protEdit4.modes.set(protANM2.outputModes)
+        protEdit4.newNodes.set(protSel1.outputStructure)
+        protEdit4.setObjLabel('Interp_to_AA')
+        self.launchProtocol(protEdit4)        
+
+        # Compare original AA ANM NMA and interpolated CA ANM NMA
+        protComp4 = self.newProtocol(ProDyCompare)
+        protComp4.modes1.set(protANM1.outputModes)
+        protComp4.modes2.set(protEdit4.outputModes)
+        protComp4.setObjLabel('Compare_AA_to_intCA')
+        self.launchProtocol(protComp4)
+
+        # ------------------------------------------------
         # Step 7. Import other Pdb -> Select chain A and CA
         # -> align -> defvec -> compare
         # ------------------------------------------------
@@ -221,39 +238,39 @@ class TestProDy_1(TestWorkflow):
         self.launchProtocol(protComp6)  
 
         # -------------------------------------------------------
-        # Step 8. RTB in 2 ways -> Compare to each other and ANM
+        # Step 9. RTB in 2 ways -> Compare to each other and ANM
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block
-        # protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
-        # protRTB1.inputStructure.set(protSel2.outputStructure)
-        # protRTB1.setObjLabel('RTB_CA_10_res')
-        # self.launchProtocol(protRTB1)
-        #
-        # # Launch RTB NMA for selected atoms (CA) with secstr block
-        # protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
-        # protRTB2.inputStructure.set(protSel2.outputStructure)
-        # protRTB2.setObjLabel('RTB_CA_secstr')
-        # self.launchProtocol(protRTB2)
-        #
-        # # Compare RTB1 and RTB2
-        # protComp6 = self.newProtocol(ProDyCompare)
-        # protComp6.modes1.set(protRTB1.outputModes)
-        # protComp6.modes2.set(protRTB2.outputModes)
-        # protComp6.setObjLabel('Compare_RTB1_to_RTB2')
-        # self.launchProtocol(protComp6)
-        #
-        # # Compare CA ANM and RTB1
-        # protComp7 = self.newProtocol(ProDyCompare)
-        # protComp7.modes1.set(protANM2.outputModes)
-        # protComp7.modes2.set(protRTB1.outputModes)
-        # protComp7.setObjLabel('Compare_ANM_to_RTB1')
-        # self.launchProtocol(protComp7)
-        #
-        # # Compare CA ANM and RTB2
-        # protComp8 = self.newProtocol(ProDyCompare)
-        # protComp8.modes1.set(protANM2.outputModes)
-        # protComp8.modes2.set(protRTB2.outputModes)
-        # protComp8.setObjLabel('Compare_ANM_to_RTB2')
-        # self.launchProtocol(protComp8)
+        protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
+        protRTB1.inputStructure.set(protSel2.outputStructure)
+        protRTB1.setObjLabel('RTB_CA_10_res')
+        self.launchProtocol(protRTB1)    
+
+        # Launch RTB NMA for selected atoms (CA) with secstr block
+        protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
+        protRTB2.inputStructure.set(protSel2.outputStructure)
+        protRTB2.setObjLabel('RTB_CA_secstr')
+        self.launchProtocol(protRTB2)    
+
+        # Compare RTB1 and RTB2
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.modes1.set(protRTB1.outputModes)
+        protComp6.modes2.set(protRTB2.outputModes)
+        protComp6.setObjLabel('Compare_RTB1_to_RTB2')
+        self.launchProtocol(protComp6)  
+
+        # Compare CA ANM and RTB1
+        protComp7 = self.newProtocol(ProDyCompare)
+        protComp7.modes1.set(protANM2.outputModes)
+        protComp7.modes2.set(protRTB1.outputModes)
+        protComp7.setObjLabel('Compare_ANM_to_RTB1')
+        self.launchProtocol(protComp7)  
+
+        # Compare CA ANM and RTB2
+        protComp8 = self.newProtocol(ProDyCompare)
+        protComp8.modes1.set(protANM2.outputModes)
+        protComp8.modes2.set(protRTB2.outputModes)
+        protComp8.setObjLabel('Compare_ANM_to_RTB2')
+        self.launchProtocol(protComp8) 
         
