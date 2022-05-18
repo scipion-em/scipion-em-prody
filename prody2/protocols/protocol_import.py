@@ -44,7 +44,7 @@ import prody
 from prody.dynamics.gnm import ZERO
 
 NMD = 0
-NPZ = 1
+modes_NPZ = 1
 SCIPION = 2
 GROMACS = 3
 
@@ -146,7 +146,7 @@ class ProDyImportModes(ProtImportFiles):
                 self.pattern1 += '.nmd'
             self.outModes, _ = prody.parseNMD(os.path.join(folder_path, self.pattern1))
 
-        elif self.importType == NPZ:
+        elif self.importType == modes_NPZ:
             if not self.pattern1.endswith('.npz'):
                 self.pattern1 += '.npz'
             self.outModes = prody.loadModel(os.path.join(folder_path, self.pattern1))
@@ -187,7 +187,7 @@ class ProDyImportModes(ProtImportFiles):
 
 PDB = 0
 DCD = 1
-NPZ = 2
+ens_NPZ = 2
 
 NO_SUP = 0
 YES_SUP = 1
@@ -283,7 +283,7 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.outEns = prody.parseDCD(os.path.join(folder_path, self.pattern1))
             self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
-        elif self.importType == NPZ:
+        elif self.importType == ens_NPZ:
             if not self.pattern1.endswith('.ens.npz'):
                 self.pattern1 += '.ens.npz'
             self.outEns = prody.loadEnsemble(os.path.join(folder_path, self.pattern1))
