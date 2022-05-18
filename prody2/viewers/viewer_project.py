@@ -85,7 +85,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         ensemble = prody.loadEnsemble(self.protocol.inputEnsemble.get().getFileName())
 
-        modes_path = os.path.dirname(os.path.dirname(self.protocol.inputModes.get()[1].getModeFile()))
+        modes_path = self.protocol.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
 
         plotter = EmPlotter()

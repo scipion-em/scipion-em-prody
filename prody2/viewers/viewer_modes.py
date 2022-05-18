@@ -60,10 +60,9 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
-
         if not os.path.isfile(self.protocol._getPath("modes.nmd")):
-            prody_modes = prody.parseScipionModes(modes_path)
+            prody_modes = prody.parseScipionModes(modes.getFileName())
+            modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
             atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
             prody.writeNMD(modes_path+"/modes.nmd", prody_modes, atoms)
 

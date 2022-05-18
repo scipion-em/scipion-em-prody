@@ -91,7 +91,7 @@ class ProDyProject(EMProtocol):
     def computeStep(self):
         ens = prody.loadEnsemble(self.inputEnsemble.get().getFileName())
 
-        modes_path = os.path.dirname(os.path.dirname(self.inputModes.get()[1].getModeFile()))
+        modes_path = self.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
 
         self.proj = prody.calcProjection(ens, modes[:self.numModes.get()+1])

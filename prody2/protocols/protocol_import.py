@@ -133,7 +133,7 @@ class ProDyImportModes(ProtImportFiles):
         files_paths = self.getMatchFiles()
 
         if self.importType == SCIPION:
-            folder_path = files_paths[0]
+            file_path = files_paths[0]
         else:
             folder_path = os.path.split(files_paths[0])[0]
             self.pattern1 = os.path.split(files_paths[0])[1]
@@ -151,7 +151,7 @@ class ProDyImportModes(ProtImportFiles):
             self.outModes = prody.loadModel(os.path.join(folder_path, self.pattern1))
 
         elif self.importType == SCIPION:
-            self.outModes = prody.parseScipionModes(folder_path, pdb=pdb_filename)
+            self.outModes = prody.parseScipionModes(file_path, pdb=pdb_filename)
 
         else:
             pattern2 = self.filesPattern2.get()
