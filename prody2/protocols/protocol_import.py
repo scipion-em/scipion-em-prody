@@ -171,7 +171,7 @@ class ProDyImportModes(ProtImportFiles):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
-        if self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1]:
+        if self.outModes.getEigvals()[7] <= self.outModes.getEigvals()[8]:
             nmSet = SetOfNormalModes(filename=fnSqlite)
         else:
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
