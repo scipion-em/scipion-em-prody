@@ -41,6 +41,7 @@ from pyworkflow.utils import *
 import pyworkflow.protocol.params as params
 
 import prody
+from prody.dynamics.gnm import ZERO
 
 NMD = 0
 NPZ = 1
@@ -171,7 +172,7 @@ class ProDyImportModes(ProtImportFiles):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
-        if self.outModes.getEigvals()[7] <= self.outModes.getEigvals()[8]:
+        if self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1] or self.outModes.getEigvals()[0] < ZERO:
             nmSet = SetOfNormalModes(filename=fnSqlite)
         else:
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
