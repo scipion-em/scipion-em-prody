@@ -144,13 +144,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         [prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
 
     def createOutputStep(self):
-        outputPdb = AtomStruct(filename=self.pdbFileName)
+        outputStructure = AtomStruct(filename=self.pdbFileName)
 
         outputDcd = EMFile(filename=self.dcdFileName)
         outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
-        self._defineOutputs(outputPdb=outputPdb,
+        self._defineOutputs(outputStructure=outputStructure,
                             outputDcd=outputDcd,
                             outputNpz=outputNpz)
                             #outputTransformations=outputTrans)
