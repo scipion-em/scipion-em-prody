@@ -149,7 +149,7 @@ class ProDyModesBase(EMProtocol):
         # This gets defined in each child protocol
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero):
+    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
         animations_dir = self._getExtraPath('animations')
         makePath(animations_dir)
         for i, mode in enumerate(self.outModes[nzero:]):
@@ -178,7 +178,7 @@ class ProDyModesBase(EMProtocol):
             fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix=''):
+                         structureEM=False, suffix='', nzero=6):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
