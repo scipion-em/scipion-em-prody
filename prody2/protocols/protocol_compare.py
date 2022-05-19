@@ -110,23 +110,31 @@ class ProDyCompare(EMProtocol):
 
     def compareModesStep(self):
 
-        modes1_path = os.path.dirname(os.path.dirname(self.modes1.get()[1].getModeFile()))
+        modes1_path = os.path.dirname(os.path.dirname(
+            self.modes1.get()._getMapper().selectFirst().getModeFile()))
+
         pdb1 = glob(modes1_path+"/*atoms.pdb")
         if len(pdb1) == 0:
             pdb1 = None
-        modes1 = prody.parseScipionModes(modes1_path, pdb=pdb1)
 
-        modes2_path = os.path.dirname(os.path.dirname(self.modes2.get()[1].getModeFile()))
+        modes1 = prody.parseScipionModes(self.modes1.get().getFileName(), pdb=pdb1)
+
+        modes2_path = os.path.dirname(os.path.dirname(
+            self.modes2.get()._getMapper().selectFirst().getModeFile()))
+            
         pdb2 = glob(modes1_path+"/*atoms.pdb")
         if len(pdb2) == 0:
             pdb2 = None
-        modes2 = prody.parseScipionModes(modes2_path, pdb=pdb2)
+
+        modes2 = prody.parseScipionModes(self.modes2.get().getFileName(), pdb=pdb2)
 
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
         if modes1.numModes() != modes2.numModes() and min_n_modes != 1:
-            raise ValueError('The two sets should have the same number of nodes '
-                           'unless one of them has exactly 1 mode in it.')
+            raise ValueError('The two sets should have the same number of modes '
+                             'unless one of them has exactly 1 mode in it.\n'
+                             'modes1 has {0} and modes2 has {1}'.format(modes1.numModes(),
+                                                                        modes2.numModes()))
 
         if min_n_modes != 1:
             mode_ens = prody.ModeEnsemble()
@@ -141,7 +149,12 @@ class ProDyCompare(EMProtocol):
                                  np.array(match_inds, dtype=int)[1]+1,
                                  format='%3d')
 
-                atoms = prody.parsePDB(self.modes1.get().getPdb().getFileName())
+                pdb = self.modes1.get().getPdb()
+                if pdb is not None:
+                    atoms = prody.parsePDB(pdb.getFileName())
+                else:
+                    atoms = prody.parsePDB(pdb1)
+
                 prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
                 prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
