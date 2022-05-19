@@ -28,15 +28,17 @@
 import numpy as np
 from os.path import basename, split
 
+from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
 from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
                               ProDyImportEnsemble, ProDyPCA, ProDyCompare,
-                              ProDyProject)
+                              ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit)
 
 from prody2.protocols.protocol_project import ONE, TWO, THREE
+from prody2.protocols.protocol_import import SCIPION
 
 import prody
 
@@ -145,7 +147,7 @@ class TestProDy_pca(TestWorkflow):
                                      diag=True, match=True)
         protComp1.modes1.set(protPca1.outputModes)
         protComp1.modes2.set(protPca2.outputModes)
-        protComp1.setObjLabel('Compare')
+        protComp1.setObjLabel('Compare_A3_PCAs')
         self.launchProtocol(protComp1)     
 
         comp_matrix = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
@@ -199,3 +201,49 @@ class TestProDy_pca(TestWorkflow):
         protPca3.inputEnsemble.set(protImportEns.outputNpz)
         protPca3.setObjLabel('PCA_2k39')
         self.launchProtocol(protPca3)  
+
+        # ------------------------------------------------
+        # Step 7. ANM -> Import ANM -> import PCA 
+        # -> check types -> compare
+        # ------------------------------------------------  
+
+        # Launch ANM NMA for selected atoms (2k39 CA)
+        protANM1 = self.newProtocol(ProDyANM)
+        protANM1.inputStructure.set(protSel4.outputStructure)
+        protANM1.setObjLabel('ANM_2k39_CA')
+        self.launchProtocol(protANM1)   
+
+        # Import scipion ANM modes
+        protImportModes1 = self.newProtocol(ProDyImportModes)
+        protImportModes1.importType.set(SCIPION)
+        protImportModes1.filesPath.set(protANM1.outputModes.getFileName())
+        protImportModes1.inputStructure.set(protSel4.outputStructure)
+        protImportModes1.setObjLabel('import_scipion_ANM_CA')
+        self.launchProtocol(protImportModes1)
+
+        # Import scipion PCA modes
+        protImportModes2 = self.newProtocol(ProDyImportModes)
+        protImportModes2.importType.set(SCIPION)
+        protImportModes2.filesPath.set(protPca3.outputModes.getFileName())
+        protImportModes2.inputStructure.set(protSel4.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_ANM_CA')
+        self.launchProtocol(protImportModes2)  
+
+        # Check types
+        self.assertTrue(isinstance(protImportModes1.outputModes, SetOfNormalModes), 
+                        "ANM modes should be parsed as a SetOfNormalModes, not {0}".format(
+                            type(protImportModes1.outputModes)
+                        )) 
+
+        self.assertTrue(isinstance(protImportModes2.outputModes, SetOfPrincipalComponents), 
+                        "ANM modes should be parsed as a SetOfPrincipalComponents, not {0}".format(
+                            type(protImportModes2.outputModes)
+                        )) 
+
+        # compare
+        protComp2 = self.newProtocol(ProDyCompare,
+                                     diag=True, match=True)
+        protComp2.modes1.set(protImportModes1.outputModes)
+        protComp2.modes2.set(protImportModes2.outputModes)
+        protComp2.setObjLabel('Compare_imported_2k39')
+        self.launchProtocol(protComp2)   
