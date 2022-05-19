@@ -29,7 +29,7 @@ def getProDyEnvName(version):
     return "prody-%s" % version
 
 DEVEL = 'github'
-V211 = '2.1.1'
+V220 = '2.2.0'
 VERSIONS = [DEVEL, V211]
 PRODY_DEFAULT_VER_NUM = V211
 

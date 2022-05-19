@@ -147,5 +147,5 @@ class Plugin(pwem.Plugin):
         return envVar.split()[-1]
 
     @classmethod
-    def IS_V211(cls):
-        return cls.getActiveVersion().startswith(getProDyEnvName('2.1.1'))
+    def IS_V220(cls):
+        return cls.getActiveVersion().startswith(getProDyEnvName('2.2.0'))
