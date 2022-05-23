@@ -5,5 +5,4 @@
 # **************************************************************************
 from .viewer_modes import ProDyModeViewer
 from .viewer_compare import ProDyComparisonsViewer
-from .viewer_project import ProDyProjectionsViewer
 from .viewer_gnm import ProDyGNMViewer

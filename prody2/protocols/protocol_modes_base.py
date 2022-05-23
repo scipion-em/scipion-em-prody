@@ -141,7 +141,7 @@ class ProDyModesBase(EMProtocol):
                                  structureEM=False, suffix='')
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 6)
+                                 self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
 
@@ -149,10 +149,10 @@ class ProDyModesBase(EMProtocol):
         # This gets defined in each child protocol
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
+    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')
         makePath(animations_dir)
-        for i, mode in enumerate(self.outModes[nzero:]):
+        for i, mode in enumerate(self.outModes[6:]):
             modenum = i+7
             fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
@@ -178,7 +178,7 @@ class ProDyModesBase(EMProtocol):
             fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=6):
+                         structureEM=False, suffix=''):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -202,7 +202,7 @@ class ProDyModesBase(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= nzero:
+            if n >= 6:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)

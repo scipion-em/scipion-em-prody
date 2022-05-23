@@ -110,19 +110,18 @@ class ProDyEdit(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    # This is inherited from modes base protocol
+    # This is inherited from NMA base protocol
     def _insertAllSteps(self):
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
 
     def computeModesStep(self):
-        modes_path = os.path.dirname(os.path.dirname(self.modes.get()._getMapper().selectFirst().getModeFile()))
+        modes_path = os.path.dirname(os.path.dirname(self.modes.get()[1].getModeFile()))
         
         from_prody = len(glob(modes_path+"/*npz"))
         if from_prody:
             modes = prody.loadModel(glob(modes_path+"/*npz")[0])
         else:
-            fn_sqlite = self.modes.get().getFileName()
-            modes = prody.parseScipionModes(fn_sqlite)
+            modes = prody.parseScipionModes(modes_path)
 
         self.inputStructure = self.modes.get().getPdb()
         structureEM = self.inputStructure.getPseudoAtoms()

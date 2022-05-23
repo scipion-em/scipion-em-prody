@@ -63,7 +63,7 @@ class ProDyGNMViewer(ProtocolViewer):
     def _defineParams(self, form):
 
         if isinstance(self.protocol, SetOfNormalModes):
-            protocol_path = os.path.dirname(os.path.dirname(self.protocol._getMapper().selectFirst().getModeFile()))
+            protocol_path = os.path.dirname(os.path.dirname(self.protocol[1].getModeFile()))
             nmdFile = protocol_path + "/modes.nmd"
         else:
             nmdFile = self.protocol._getPath("modes.nmd")
@@ -125,11 +125,9 @@ class ProDyGNMViewer(ProtocolViewer):
         
     def _getVisualizeDict(self):
         modes =  self.protocol.outputModes
-        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modes_path+"/*atoms.pdb"))
-
-        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+        self.modes = prody.parseScipionModes(modes_path, pdb=glob(modes_path+"/*atoms.pdb"))
         self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
-
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
@@ -264,7 +262,7 @@ def createShiftPlot(mdFn, title, ylabel):
 
 def createDistanceProfilePlot(protocol, modeNumber):
     if isinstance(protocol, SetOfNormalModes):
-        vectorMdFn = os.path.dirname(os.path.dirname(protocol._getMapper().selectFirst().getModeFile(
+        vectorMdFn = os.path.dirname(os.path.dirname(protocol[1].getModeFile(
         ))) + "/extra/distanceProfiles/vec%d.xmd" % modeNumber
     else:
         vectorMdFn = protocol._getExtraPath("distanceProfiles","vec%d.xmd"
@@ -276,7 +274,7 @@ def createDistanceProfilePlot(protocol, modeNumber):
 
 def createVmdNmwizView(protocol):
     if isinstance(protocol, SetOfNormalModes):
-        nmdFile = os.path.dirname(os.path.dirname(protocol._getMapper().selectFirst().getModeFile())) + "/modes.nmd"
+        nmdFile = os.path.dirname(os.path.dirname(protocol[1].getModeFile())) + "/modes.nmd"
     else:
         nmdFile = protocol._getPath("modes.nmd")
     return VmdView('-e %s' % nmdFile)
