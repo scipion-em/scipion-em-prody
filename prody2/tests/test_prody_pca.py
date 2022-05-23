@@ -128,10 +128,13 @@ class TestProDy_pca(TestWorkflow):
         # --------------------------------------------------
         # Step 3a. buildPDBEns with index ref -> PCA 2
         # --------------------------------------------------
+
+        ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
+        
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
         protEns2.structures.set(protSetAS.outputAtomStructs)
-        protEns2.refIndex.set(4)
+        protEns2.refIndex.set(ens1.getLabels().index("3o21_atoms")+1)
         protEns2.setObjLabel('buildPDBEns_ref_idx_4')
         self.launchProtocol(protEns2)   
 
