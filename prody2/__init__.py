@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = "3.0.8"
+__version__ = "3.1.0"
 _logo = "icon.png"
 _references = ['Zhang2021']
 
@@ -82,13 +82,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
         PRODY_INSTALLED = 'prody_%s_installed' % version
-        # ENV_NAME = 'scipion3'
-        # # try to get CONDA activation command
-        # installCmd = [cls.getCondaActivationCmd()]
         installCmd = []
-        #
-        # # Activate the new environment
-        # installCmd.append('conda activate %s;' % ENV_NAME)
 
         if version == DEVEL:
             # Use latest scipion branch of prody on my github
@@ -96,6 +90,7 @@ class Plugin(pwem.Plugin):
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
                 installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git  ProDy &&')
+                
             # Install downloaded code
             installCmd.append('cd ProDy && pip install -U -e . && python setup.py build_ext --inplace --force &&')
             installCmd.append('cd .. && cd prody-github &&')

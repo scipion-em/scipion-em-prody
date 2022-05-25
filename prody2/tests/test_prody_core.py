@@ -137,7 +137,7 @@ class TestProDy_1(TestWorkflow):
         self.launchProtocol(protComp3)           
 
         # ------------------------------------------------
-        # Step 7. Import other Pdb -> Select chain A and CA
+        # Step 6. Import other Pdb -> Select chain A and CA
         # -> align -> defvec -> compare
         # ------------------------------------------------
         # Import a PDB
@@ -189,7 +189,7 @@ class TestProDy_1(TestWorkflow):
         self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
-        # Step 8. Import ANM & compare scipion vs prody npz
+        # Step 7. Import ANM & compare scipion vs prody npz
         # -> import -> import -> compare
         # ------------------------------------------------
         # Define path
