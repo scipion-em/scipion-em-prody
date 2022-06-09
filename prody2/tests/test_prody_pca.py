@@ -226,7 +226,7 @@ class TestProDy_pca(TestWorkflow):
         protImportModes2.importType.set(SCIPION)
         protImportModes2.filesPath.set(protPca3.outputModes.getFileName())
         protImportModes2.inputStructure.set(protSel4.outputStructure)
-        protImportModes2.setObjLabel('import_scipion_ANM_CA')
+        protImportModes2.setObjLabel('import_scipion_PCA_CA')
         self.launchProtocol(protImportModes2)  
 
         # Check types
@@ -236,7 +236,7 @@ class TestProDy_pca(TestWorkflow):
                         )) 
 
         self.assertTrue(isinstance(protImportModes2.outputModes, SetOfPrincipalComponents), 
-                        "ANM modes should be parsed as a SetOfPrincipalComponents, not {0}".format(
+                        "PCA modes should be parsed as a SetOfPrincipalComponents, not {0}".format(
                             type(protImportModes2.outputModes)
                         )) 
 
