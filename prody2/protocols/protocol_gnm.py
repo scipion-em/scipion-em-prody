@@ -142,12 +142,14 @@ class ProDyGNM(EMProtocol):
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
                                                                                              self.cutoff.get()))
+            self.startMode = 1
         else:
             self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
                         '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
                                                                                              self.cutoff.get()))
+            self.startMode = 0
         
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
         
@@ -159,10 +161,10 @@ class ProDyGNM(EMProtocol):
         self.gnm.setEigens(eigvecs, eigvals)
         prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
+        covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
-        crossCorr = prody.calcCrossCorr(self.gnm[1:])
+        crossCorr = prody.calcCrossCorr(self.gnm[self.startMode:])
         prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
@@ -189,13 +191,15 @@ class ProDyGNM(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 1:
+            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
+
+            eigval = eigvals[n]
+            mdOut.setValue(MDL_NMA_EIGENVAL, eigval, objId)
+
+            if eigval > prody.utilities.ZERO:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
 
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -232,7 +236,7 @@ class ProDyGNM(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(2, numberOfModes+1):
+        for n in range(self.startMode+1, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
@@ -240,9 +244,9 @@ class ProDyGNM(EMProtocol):
                 atomCounter = 0
                 for line in fhIn:
                     d = abs(float(line))
-                    if n==2:
+                    if n==self.startMode+1:
                         maxShift.append(d)
-                        maxShiftMode.append(2)
+                        maxShiftMode.append(self.startMode+1)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
