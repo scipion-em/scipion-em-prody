@@ -25,7 +25,7 @@
 # *
 # **************************************************************************
 """
-This module implements wrappers around the Xmipp NMA protocol
+This module implements wrappers around the ProDy and Xmipp NMA protocol
 visualization program and the normal mode wizard NMWiz.
 """
 
