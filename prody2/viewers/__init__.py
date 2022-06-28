@@ -6,3 +6,4 @@
 from .viewer_modes import ProDyModeViewer
 from .viewer_compare import ProDyComparisonsViewer
 from .viewer_gnm import ProDyGNMViewer
+from .viewer_domdec import ProDyDomainViewer
