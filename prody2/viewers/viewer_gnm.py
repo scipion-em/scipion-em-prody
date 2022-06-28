@@ -88,7 +88,8 @@ class ProDyGNMViewer(ProtocolViewer):
                       help='Covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
                       label='Display Cross Correlation matrix?',
-                      help='Cross Correlation matrices are shown as heatmaps.')
+                      help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
+                        'Normalized Covariance matrix')
         
         group = form.addGroup('Single mode')  
         group.addParam('modeNumber', IntParam, default=2,
@@ -101,7 +102,13 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Show overlay chains",
                       help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
                         "indicate them. Different options may be better for different data.")
-        
+        group.addParam('displaySingleCov', LabelParam, default=False,
+                label="Plot single mode covariance?",
+                help="Covariance matrices are shown as heatmaps.")
+        group.addParam('displaySingleCC', LabelParam, default=False,
+                label="Plot single mode cross correlation?",
+                help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
+                    'Normalized Covariance matrix')
 
         group = form.addGroup('Modes range')  
         group.addParam('modeNumber1', IntParam, default=2,
@@ -137,7 +144,9 @@ class ProDyGNMViewer(ProtocolViewer):
                 'displayRangeRMSFluct': self._viewSQF,
                 'displayCovMatrix': self._viewAllModes,
                 'displayCrossCorrMatrix': self._viewAllModes,
-                'displaySingleMode': self._viewSingleMode
+                'displaySingleMode': self._viewSingleMode,
+                'displaySingleCov': self._viewSingleMode,
+                'displaySingleCC': self._viewSingleMode
                 } 
 
     def _viewAllModes(self, paramName):
@@ -223,6 +232,7 @@ class ProDyGNMViewer(ProtocolViewer):
     
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
+        
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
         else:
@@ -236,13 +246,21 @@ class ProDyGNMViewer(ProtocolViewer):
                                       "Display the output Normal Modes to see "
                                       "the availables ones." % modeNumber,
                                       title="Invalid input")]
-        
-        if paramName == 'displaySingleMode':
-            mode = self.modes[modeNumber-1]
 
-            plotter = EmPlotter()
+        mode = self.modes[modeNumber-1]
+        plotter = EmPlotter() 
+
+        if paramName == 'displaySingleMode':
             plot = prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)        
-            return [plotter]
+
+        elif paramName == 'displaySingleCov':
+            plot = prody.showCovarianceMatrix(mode, atoms=self.atoms)
+
+        elif paramName == 'displaySingleCC':   
+            plot = prody.showCrossCorr(mode, atoms=self.atoms) 
+
+        return [plotter]
+        
 
 def createShiftPlot(mdFn, title, ylabel):
     plotter = EmPlotter()
