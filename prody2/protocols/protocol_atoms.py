@@ -29,6 +29,8 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
+from os.path import basename, splitext
+
 from pyworkflow.protocol import params
 
 from pwem import *
@@ -40,6 +42,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         EnumParam, LEVEL_ADVANCED)
 
 import prody
+from prody import LOGGER
 
 # chain matching methods
 BEST_MATCH = 0
@@ -89,7 +92,10 @@ class ProDySelect(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         selection = ag.select(str(self.selection))
 
-        self.pdbFileName = self._getPath('atoms.pdb')
+        LOGGER.info("%d atoms selected from %d" % (selection.numAtoms(), 
+                                                          ag.numAtoms()))
+
+        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)
 
     def createOutputStep(self):
@@ -229,6 +235,9 @@ class ProDyAlign(EMProtocol):
                         tar_sel = tar.select(tar_amap.getSelstr())
 
                 alg, self.T = prody.superpose(mob_sel, tar_sel)
+
+                rmsd = prody.calcRMSD(mob_sel, tar_sel)
+                prody.LOGGER.info("RMSD = {:6.2f}".format(rmsd))
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)

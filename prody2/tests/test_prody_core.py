@@ -30,13 +30,16 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, ProDyRTB,
-                              ProDyDefvec, ProDyEdit, ProDyCompare)
+                              ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
+from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
 
-class TestProDy_1(TestWorkflow):
-    """ Test protocol for HEMNMA (Hybrid Electron Microscopy Normal Mode Analysis). """
+import prody
+
+class TestProDy_core(TestWorkflow):
+    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
     def setUpClass(cls):
@@ -50,8 +53,8 @@ class TestProDy_1(TestWorkflow):
         # ------------------------------------------------
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                         pdbId="4ake")
-        protImportPdb1.setObjLabel('4ake')
+                                          pdbId="4ake")
+        protImportPdb1.setObjLabel('pwem import 4ake')
         self.launchProtocol(protImportPdb1)
 
         # Select Chain A
@@ -157,7 +160,7 @@ class TestProDy_1(TestWorkflow):
         # Import a PDB
         protImportPdb2 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                          pdbId="1ake")
-        protImportPdb2.setObjLabel('1ake')
+        protImportPdb2.setObjLabel('pwem import 1ake')
         self.launchProtocol(protImportPdb2)
 
         # Select Chain A
@@ -181,15 +184,61 @@ class TestProDy_1(TestWorkflow):
         protDefvec1.setObjLabel('Defvec_4akeA_1akeA_CA')
         self.launchProtocol(protDefvec1) 
 
-        # Compare original CA NMA to defvec
+        # Compare original CA NMA to defvec with default overlaps
         protComp5 = self.newProtocol(ProDyCompare)
         protComp5.modes1.set(protANM2.outputModes)
         protComp5.modes2.set(protDefvec1.outputModes)
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
 
+        comp5_matrix = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
+        self.assertTrue(max(comp5_matrix) <= 1, "Default defvec comparison didn't normalise")
+
+        # Compare original CA NMA to defvec with raw overlaps
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.norm.set(False)
+        protComp6.modes1.set(protANM2.outputModes)
+        protComp6.modes2.set(protDefvec1.outputModes)
+        protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
+        self.launchProtocol(protComp6)  
+
+        comp6_matrix = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
+        self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
+
+        # ------------------------------------------------
+        # Step 8. Import ANM & compare scipion vs prody npz
+        # -> import -> import -> compare
+        # ------------------------------------------------
+        # Define path
+        modes = protANM2.outputModes
+        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+
+        # Import modes from prody npz
+        protImportModes1 = self.newProtocol(ProDyImportModes)
+        protImportModes1.importType.set(modes_NPZ)
+        protImportModes1.filesPath.set(modes_path)
+        protImportModes1.filesPattern.set("modes.anm.npz")
+        protImportModes1.inputStructure.set(protSel2.outputStructure)
+        protImportModes1.setObjLabel('import_npz_ANM_CA')
+        self.launchProtocol(protImportModes1)   
+
+        # Import scipion modes
+        protImportModes2 = self.newProtocol(ProDyImportModes)
+        protImportModes2.importType.set(SCIPION)
+        protImportModes2.filesPath.set(protANM2.outputModes.getFileName())
+        protImportModes2.inputStructure.set(protSel2.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_ANM_CA')
+        self.launchProtocol(protImportModes2)  
+
+        # Compare two imported ANMs
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.modes1.set(protImportModes1.outputModes)
+        protComp6.modes2.set(protImportModes2.outputModes)
+        protComp6.setObjLabel('Compare_imported_ANMs')
+        self.launchProtocol(protComp6)  
+
         # -------------------------------------------------------
-        # Step 8. RTB in 2 ways -> Compare to each other and ANM
+        # Step 9. RTB in 2 ways -> Compare to each other and ANM
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block

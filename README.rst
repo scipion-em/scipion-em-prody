@@ -23,7 +23,8 @@ Developer's version
 
        scipion3 installp -p ./scipion-em-prody --devel
 
-ProDy software will be installed automatically with the plugin but you can also use an existing installation by providing *PRODY_ENV_ACTIVATION* (see below).
+ProDy software will be installed automatically with the plugin but you can also use an another version 
+by installing that one in your scipion3 environment.
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
 
@@ -34,10 +35,6 @@ PATH (not recommended), which can lead to execution problems mixing scipion
 python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
-
-*PRODY_ENV_ACTIVATION* (default = conda activate prody-github):
-Command to activate the ProDy environment if you have your own one. 
-Otherwise, it will use ProDy installed in the default scipion3 environment.
 
 
 Protocols
