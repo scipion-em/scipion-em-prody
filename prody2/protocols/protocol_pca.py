@@ -27,18 +27,19 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
+This module will provide ProDy principal component analysis (PCA) using atomic structures
 """
 from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
+from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfPrincipalComponents, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -46,15 +47,16 @@ from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
+from prody2.protocols.protocol_modes_base import ProDyModesBase
+
 import prody
 
-class ProDyModesBase(EMProtocol):
+
+class ProDyPCA(ProDyModesBase):
     """
-    This protocol acts as a base class for various kinds of mode analysis,
-    providing easier access to the qualify and animate steps.
-    Currently, the only child class is ProDyEdit.
+    This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
-    _label = 'Modes base'
+    _label = 'PCA'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -63,53 +65,26 @@ class ProDyModesBase(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy modes base')
+        cpus = cpu_count()//2 # don't use everything
+        form.addParallelSection(threads=cpus, mpi=0)
 
-        form.addParam('inputStructure', PointerParam, label="Input structure",
+        form.addSection(label='ProDy PCA')
+        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
-
+                      pointerClass='EMFile', # may want to make a new class for this
+                      help='The input ensemble should be an ens.npz file built by ProDy')
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
-
-        form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
-
-        form.addParam('gamma', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
-
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
+        form.addParam('collectivityThreshold', FloatParam, default=0, # important modes may well not be collective
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
                       help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
-
-        form.addParam('zeros', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include zero eigvals",
-                      help='Elect whether modes with zero eigenvalues will be kept.')
+                      'For no deselection, this parameter should be set to 0 . \n')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
@@ -131,54 +106,54 @@ class ProDyModesBase(EMProtocol):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n):
+    def _insertAllSteps(self):
         # Insert processing steps
-        #n = self.numberOfModes.get()
 
-        self._insertFunctionStep('computeModesStep')
+        # Link the input
+        inputFn = self.inputEnsemble.get().getFileName()
+
+        self.model_type = 'pca'
+        n = self.numberOfModes.get()
+
+        self._insertFunctionStep('computeModesStep', inputFn, n)
         self._insertFunctionStep('qualifyModesStep', n,
-                                 collectivityThreshold=0.15,
-                                 structureEM=False, suffix='')
+                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 6)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+                                 self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self):
-        # This gets defined in each child protocol
-        pass
+    def computeModesStep(self, inputFn, n):
+        
+        self.pdbFileName = self._getPath('atoms.pdb')
+        self.dcdFileName = self._getPath('ensemble.dcd')
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
-        for i, mode in enumerate(self.outModes[nzero:]):
-            modenum = i+7
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
-                               % modenum)
-            prody.writePDB(fnAnimation+".pdb", 
-                           prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
-                                              pos=pos, neg=neg)
-                           )
+        ens = prody.loadEnsemble(inputFn)
+        prody.writeDCD(self.dcdFileName, ens)
 
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            fhCmd.write("mol modcolor 0 0 Index\n")
-            if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
-                fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
-                # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                #         "2.600000 0\n")
-            else:
-                fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                        "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
+        self.atoms = ens.getAtoms()
+        prody.writePDB(self.pdbFileName, self.atoms)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=6):
+        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
+                    ' -o {2} -p modes -n {3} -P {4}'.format(self.dcdFileName,
+                                                            self.pdbFileName,
+                                                            self._getPath(), n,
+                                                            self.numberOfThreads.get()))
+        
+        self.pca, _ = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        
+        eigvecs = self.pca.getEigvecs()
+        eigvals = self.pca.getEigvals()
+        cov = prody.parseArray(self._getPath('modes_covariance.txt'))
+
+        self.pca.setCovariance(cov)
+        self.pca.setEigens(eigvecs, eigvals)
+        prody.saveModel(self.pca, self._getPath('modes.pca.npz'), matrices=True)
+
+        self.outModes = self.pca
+
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -191,8 +166,8 @@ class ProDyModesBase(EMProtocol):
             self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
-        eigvals = self.outModes.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.pca))
+        eigvals = self.pca.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -202,13 +177,9 @@ class ProDyModesBase(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= nzero:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
+            mdOut.setValue(MDL_ENABLED, 1, objId)
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
+            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
 
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -236,7 +207,7 @@ class ProDyModesBase(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.pca, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
@@ -276,12 +247,8 @@ class ProDyModesBase(EMProtocol):
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
+        nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
-        inputPdb = self.inputStructure.get()
-        nmSet.setPdb(inputPdb)
-
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
 

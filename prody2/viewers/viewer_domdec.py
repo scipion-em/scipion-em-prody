@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 3 of the License, or
+# * the Free Software Foundation; either version 2 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,16 +26,30 @@
 # *
 # **************************************************************************
 
+"""
+This module implements the dynamical domains decomposition protocol
+visualization program using VMD.
+"""
 
-def getProDyEnvName(version):
-    return "prody-%s" % version
+from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
+from pyworkflow.utils import *
 
-DEVEL = 'github'
-V220 = '2.2.0'
-VERSIONS = [DEVEL, V220]
-PRODY_DEFAULT_VER_NUM = V220
+from pwem.viewers import VmdView
 
-DEFAULT_ENV_NAME = getProDyEnvName(PRODY_DEFAULT_VER_NUM)
-DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
-PRODY_ENV_ACTIVATION = DEFAULT_ACTIVATION_CMD
+from prody2.protocols import ProDyDomainDecomp
+
+import os
+import prody
+
+class ProDyDomainViewer(Viewer):
+    """ Visualization of domains from GNM domain decomposition
+    """    
+    _label = 'ProDy Dynamical domain viewer'
+    _targets = [ProDyDomainDecomp]
+    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+
+    def _visualize(self, obj, **kwargs):
+        """visualisation for mode dynamical domains"""
+
+        return [VmdView('-e "%s"' % self.protocol._getPath("domains.vmd"))]
 
