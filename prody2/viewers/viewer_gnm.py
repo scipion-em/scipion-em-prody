@@ -68,6 +68,18 @@ class ProDyGNMViewer(ProtocolViewer):
         else:
             nmdFile = self.protocol._getPath("modes.nmd")
 
+        modes =  self.protocol.outputModes
+
+        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
+
+        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modes_path+"/*atoms.pdb"))
+
+        if self.modes.getEigvals()[0] < prody.utilities.ZERO:
+            self.startMode = 1
+        else:
+            self.startMode = 0
+
         form.addSection(label='Visualization')
 
         group = form.addGroup('All non zero modes')
@@ -92,7 +104,7 @@ class ProDyGNMViewer(ProtocolViewer):
                         'Normalized Covariance matrix')
         
         group = form.addGroup('Single mode')  
-        group.addParam('modeNumber', IntParam, default=2,
+        group.addParam('modeNumber', IntParam, default=self.startMode+1,
                       label='Mode number')
         group.addParam('displaySingleMode', LabelParam, default=False,
                       label="Plot mode shape?",
@@ -111,9 +123,9 @@ class ProDyGNMViewer(ProtocolViewer):
                     'Normalized Covariance matrix')
 
         group = form.addGroup('Modes range')  
-        group.addParam('modeNumber1', IntParam, default=2,
+        group.addParam('modeNumber1', IntParam, default=self.startMode+1,
                       label='Initial mode number')
-        group.addParam('modeNumber2', IntParam, default=2,
+        group.addParam('modeNumber2', IntParam, default=self.startMode+1,
                       label='Final mode number')
         group.addParam('displayRangeSqFluct', LabelParam, default=False,
                       label="Plot range mean square fluctuation?",
@@ -131,12 +143,6 @@ class ProDyGNMViewer(ProtocolViewer):
                            "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
         
     def _getVisualizeDict(self):
-        modes =  self.protocol.outputModes
-        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modes_path+"/*atoms.pdb"))
-
-        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
-
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
@@ -187,15 +193,18 @@ class ProDyGNMViewer(ProtocolViewer):
             return [self.errorMessage("Invalid mode range\n"
                                       "Initial mode number can not be " 
                                       "bigger than the final one.", title="Invalid input")]
-        elif modeNumber1 < 1:
+
+        elif modeNumber1+1 < self.startMode+1:
             return [self.errorMessage("Invalid mode range\n"
                                       "Initial mode number can not be " 
-                                      "smaller than 2.", title="Invalid input")]
+                                      "smaller than {0}.".format(self.startMode+1), 
+                                      title="Invalid input")]
 
-        elif modeNumber2 < 2:
+        elif modeNumber2 < self.startMode+1:
             return [self.errorMessage("Invalid mode range\n"
                                       "Final mode number can not be " 
-                                      "smaller than 2.", title="Invalid input")]
+                                      "smaller than {0}.".format(self.startMode+1), 
+                                      title="Invalid input")]
         
         try:
             mode1 = self.modes[modeNumber1] 
@@ -215,9 +224,9 @@ class ProDyGNMViewer(ProtocolViewer):
         plotter = EmPlotter()
 
         if paramName == 'displaySqFlucts':
-            plot = prody.showSqFlucts(self.modes[1:], atoms=self.atoms)
+            plot = prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms)
         elif paramName == 'displayRMSFlucts':
-            plot = prody.showRMSFlucts(self.modes[1:], atoms=self.atoms)
+            plot = prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms)
         else:            
             if modeNumber1 == modeNumber2:
                 if paramName == 'displayRangeSqFluct':
