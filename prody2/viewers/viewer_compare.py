@@ -148,7 +148,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
         plotter = EmPlotter()
         plotter.createSubPlot('', 'mode index from set 2', 'mode index from set 1')
         ax = plotter.figure.gca()
-        plot = plotter.plotMatrix(ax, matrix, vmin, vmax, origin='lower')
+        plot = prody.showMatrix(matrix, vmin=vmin, vmax=vmax, origin='lower')
 
         y_ticklabels = np.arange(1, len(self.modes1)+1)
 
@@ -173,8 +173,6 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             ax.yaxis.set_major_locator(locator)
             ax.yaxis.set_minor_locator(minor_locator)
-
-        plotter.getColorBar(plot)
         
         return [plotter]
 
@@ -248,10 +246,11 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
         ax = plotter.figure.gca()
 
-        if self.abs:
-            ax.set_ylim([0, 1])
-        else:
-            ax.set_ylim([-1, 1])
+        if max(matrix) <= 1:
+            if self.abs:
+                ax.set_ylim([0, 1])
+            else:
+                ax.set_ylim([-1, 1])
 
         if cumulOverlap:
             cum_overlaps = np.sqrt(np.power(row, 2).cumsum(axis=row.ndim-1))

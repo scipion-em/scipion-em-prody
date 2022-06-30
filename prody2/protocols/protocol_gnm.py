@@ -2,6 +2,7 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -27,19 +28,18 @@
 
 
 """
-This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
+This module will provide ProDy normal mode analysis (NMA) using the gaussian network model (GNM).
 """
 from pyworkflow.protocol import params
 
 from os.path import basename, exists, join
 import math
-from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -49,11 +49,11 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 
-class ProDyANM(EMProtocol):
+class ProDyGNM(EMProtocol):
     """
-    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
+    This protocol will perform normal mode analysis (NMA) using the Gaussian network model (GNM)
     """
-    _label = 'ANM analysis'
+    _label = 'GNM analysis'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -61,11 +61,8 @@ class ProDyANM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
-
         # You need a params to belong to a section:
-        form.addSection(label='ProDy ANM NMA')
+        form.addSection(label='ProDy GNM NMA')
 
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
@@ -80,14 +77,15 @@ class ProDyANM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=15.,
+        form.addParam('cutoff', FloatParam, default=10,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
+                           'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
                            'For pseudoatoms, set this according to the level of coarse-graining '
                            '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                           'For all atoms, a shorter distance is recommended.')
+
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
@@ -95,14 +93,6 @@ class ProDyANM(EMProtocol):
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -119,29 +109,6 @@ class ProDyANM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
-
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=5,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive mode direction.')
-        form.addParam('neg', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -151,16 +118,13 @@ class ProDyANM(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
 
-        self.model_type = 'anm'
+        self.model_type = 'gnm'
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get(),
                                  self.structureEM)
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
 
@@ -171,72 +135,37 @@ class ProDyANM(EMProtocol):
         else:
             self.pdbFileName = self._getPath('atoms.pdb')
 
-        self.atoms = prody.parsePDB(inputFn, alt='all')
-        prody.writePDB(self.pdbFileName, self.atoms)
-
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
+        ag = prody.parsePDB(inputFn, alt='all')
+        prody.writePDB(self.pdbFileName, ag)
 
         if self.zeros.get():
-            args += ' --zero-modes'
-
-        if self.turbo.get():
-            args += ' --turbo'
-
-        self.runJob('prody', args)
+            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
+        else:
+            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
+                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
+                                                                                             self._getPath(), n,
+                                                                                             self.gamma.get(),
+                                                                                             self.cutoff.get()))
         
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
         
-        eigvecs = self.anm.getEigvecs()
-        eigvals = self.anm.getEigvals()
-        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
+        eigvecs = self.gnm.getEigvecs()
+        eigvals = self.gnm.getEigvals()
+        kirchhoff = prody.parseArray(self._getPath('modes_kirchhoff.txt'))
 
-        self.anm.setHessian(hessian)
-        self.anm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrices=True)
+        self.gnm.setKirchhoff(kirchhoff)
+        self.gnm.setEigens(eigvecs, eigvals)
+        prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
-        for i, mode in enumerate(self.anm[6:]):
-            modenum = i+7
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
-                               % modenum)
-             
-            self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
-                                               n_steps=n_steps,
-                                               pos=pos, neg=neg)
-            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
+        covariances = prody.calcCrossCorr(self.gnm[1:], norm=False)
+        prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            if self.structureEM:
-                fhCmd.write("mol modcolor 0 0 Beta\n")
-                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
-            else:
-                fhCmd.write("mol modcolor 0 0 Index\n")
-                if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
+        crossCorr = prody.calcCrossCorr(self.gnm[1:])
+        prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
         self._enterWorkingDir()
@@ -251,8 +180,8 @@ class ProDyANM(EMProtocol):
             self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.anm))
-        eigvals = self.anm.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.gnm))
+        eigvals = self.gnm.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -262,7 +191,7 @@ class ProDyANM(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
+            if n >= 1:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -296,7 +225,7 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.gnm, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
@@ -305,18 +234,17 @@ class ProDyANM(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
+        for n in range(2, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
+                    d = abs(float(line))
+                    if n==2:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(2)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
@@ -335,6 +263,9 @@ class ProDyANM(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
+        outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
+        outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
+
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
@@ -342,6 +273,6 @@ class ProDyANM(EMProtocol):
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet)
+        self._defineOutputs(outputModes=nmSet, matrixFileCC=outputMatrixCrosCor, matrixFileCV=outputMatrixCov)
         self._defineSourceRelation(self.inputStructure, nmSet)
 

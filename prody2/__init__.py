@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = 'devel'
+__version__ = "3.2.0"
 _logo = "icon.png"
 _references = ['Zhang2021']
 
@@ -82,21 +82,32 @@ class Plugin(pwem.Plugin):
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
         PRODY_INSTALLED = 'prody_%s_installed' % version
-        ENV_NAME = 'scipion3'
-        # try to get CONDA activation command
-        installCmd = [cls.getCondaActivationCmd()]
+        # ENV_NAME = 'scipion3'
+        # # try to get CONDA activation command
+        # installCmd = [cls.getCondaActivationCmd()]
+        installCmd = []
+        #
+        # # Activate the new environment
+        # installCmd.append('conda activate %s;' % ENV_NAME)
 
-        # Activate the new environment
-        installCmd.append('conda activate %s;' % ENV_NAME)
+        if version == DEVEL:
+            # Use latest scipion branch of prody on my github
+            installCmd.append('cd .. &&')
+            clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
+            if not os.path.exists(clonePath):
+                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git  ProDy &&')
+            # Install downloaded code
+            installCmd.append('cd ProDy && pip install -U -e . && python setup.py build_ext --inplace --force &&')
+            installCmd.append('cd .. && cd prody-github &&')
+        else:
+            installCmd.append('pip install -U ProDy==%s &&' % version)
 
-        # Replace with latest scipion branch of prody on my github
-        installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git; cd ProDy;')
-
-        # Install downloaded code
-        installCmd.append('pip install -U -e .; python setup.py build_ext --inplace --force; cd ..')
+        # configure ProDy to automatically handle secondary structure information
+        installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
+        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True)" &&')
 
         # Flag installation finished
-        installCmd.append('&& touch %s' % PRODY_INSTALLED)
+        installCmd.append('touch %s' % PRODY_INSTALLED)
 
         # Install PDBFixer and OpenMM for ClustENM
         OPEN_MM_INSTALLED = 'openmm_installed'
@@ -105,15 +116,25 @@ class Plugin(pwem.Plugin):
         prody_commands = [(" ".join(installCmd), PRODY_INSTALLED),
                           (installOpenMM, OPEN_MM_INSTALLED)]
 
+        envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
-        # keep path since conda likely in there
-        installEnvVars = {'PATH': envPath} if envPath else None
-        env.addPackage('ProDy', version=version,
-                        buildDir='prody2', tar='void.tgz',
-                        commands=prody_commands,
-                        neededProgs=cls.getDependencies(),
-                        default=default,
-                        vars=installEnvVars)
+        # keep path since conda likely in there, and home since prody needs it to configure
+        installEnvVars = {'PATH': envPath, 'HOME': envHome} if envPath else {'HOME': envHome}
+
+        if version == DEVEL:
+            env.addPackage('prody', version=version,
+                            tar='void.tgz',
+                            commands=prody_commands,
+                            neededProgs=cls.getDependencies(),
+                            default=default,
+                            vars=installEnvVars)
+        else:
+            env.addPackage('prody', version=version,
+                           tar='void.tgz',
+                           commands=prody_commands,
+                           neededProgs=cls.getDependencies(),
+                           default=default,
+                           vars=installEnvVars)            
 
     @classmethod
     def getProgram(cls, program):
@@ -130,3 +151,6 @@ class Plugin(pwem.Plugin):
         envVar = cls.getVar(PRODY_ENV_ACTIVATION)
         return envVar.split()[-1]
 
+    @classmethod
+    def IS_V220(cls):
+        return cls.getActiveVersion().startswith(getProDyEnvName('2.2.0'))
