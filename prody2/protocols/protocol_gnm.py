@@ -77,7 +77,7 @@ class ProDyGNM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=7.5,
+        form.addParam('cutoff', FloatParam, default=10,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
