@@ -2,6 +2,7 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -24,47 +25,31 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
 """
-This module implements wrappers around the ProDy and Xmipp NMA protocol
-visualization program and the normal mode wizard NMWiz.
+This module implements the dynamical domains decomposition protocol
+visualization program using VMD.
 """
 
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
 from pyworkflow.utils import *
 
-from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
-from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes, ProDyRTB, ProDyPCA)
+from prody2.protocols import ProDyDomainDecomp
 
 import os
 import prody
 
-class ProDyModeViewer(Viewer):
-    """ Visualization of a SetOfNormalModes from the ProDy ANM NMA protocol or elsewhere.    
-        Normally, modes with high collectivity and low NMA score are preferred.
+class ProDyDomainViewer(Viewer):
+    """ Visualization of domains from GNM domain decomposition
     """    
-    _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB,
-                ProDyDefvec, ProDyEdit, ProDyImportModes]
+    _label = 'ProDy Dynamical domain viewer'
+    _targets = [ProDyDomainDecomp]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
-        """visualisation for mode sets"""
+        """visualisation for mode dynamical domains"""
 
-        type_ = type(obj)
-
-        if isinstance(obj, SetOfNormalModes):
-            modes = obj
-        else:
-            modes = obj.outputModes
-
-        if not os.path.isfile(self.protocol._getPath("modes.nmd")):
-            prody_modes = prody.parseScipionModes(modes.getFileName())
-            modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-            atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
-            prody.writeNMD(modes_path+"/modes.nmd", prody_modes, atoms)
-
-        return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
+        return [VmdView('-e "%s"' % self.protocol._getPath("domains.vmd"))]
 
