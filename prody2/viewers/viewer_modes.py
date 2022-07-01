@@ -67,5 +67,5 @@ class ProDyModeViewer(Viewer):
             atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
             prody.writeNMD(modes_path+"/modes.nmd", prody_modes, atoms)
 
-        return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
+        return [VmdView('-e "%s"' % modes_path+"/modes.nmd")]
 
