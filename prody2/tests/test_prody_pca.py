@@ -141,7 +141,7 @@ class TestProDy_pca(TestWorkflow):
 
         protPca2 = self.newProtocol(ProDyPCA, numberOfModes=3)
         protPca2.inputEnsemble.set(protEns2.outputNpz)
-        protPca2.setObjLabel('PCA_ref_idx_4')
+        protPca2.setObjLabel('PCA_ref_idx')
         self.launchProtocol(protPca2)  
 
         # ------------------------------------------------
