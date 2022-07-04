@@ -42,7 +42,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         EnumParam, LEVEL_ADVANCED)
 
 import prody
-from prody import LOGGER
+import logging
 
 # chain matching methods
 BEST_MATCH = 0
@@ -92,8 +92,8 @@ class ProDySelect(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         selection = ag.select(str(self.selection))
 
-        LOGGER.info("%d atoms selected from %d" % (selection.numAtoms(), 
-                                                          ag.numAtoms()))
+        logging.info("%d atoms selected from %d" % (selection.numAtoms(),
+                                                           ag.numAtoms()))
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)
@@ -237,7 +237,7 @@ class ProDyAlign(EMProtocol):
                 alg, self.T = prody.superpose(mob_sel, tar_sel)
 
                 rmsd = prody.calcRMSD(mob_sel, tar_sel)
-                prody.LOGGER.info("RMSD = {:6.2f}".format(rmsd))
+                logging.info("RMSD = {:6.2f}".format(rmsd))
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
