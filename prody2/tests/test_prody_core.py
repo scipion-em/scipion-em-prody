@@ -37,6 +37,11 @@ from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
 
 import prody
+try:
+    from prody import interpolateModel
+    have_interp = True
+except:
+    have_interp = False
 
 class TestProDy_core(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -136,22 +141,23 @@ class TestProDy_core(TestWorkflow):
         protComp3.setObjLabel('Compare_AA_to_extCA')
         self.launchProtocol(protComp3)           
 
-        # ------------------------------------------------
-        # Step 6. Interpolate -> Compare
-        # ------------------------------------------------
-        # Interpolate CA NMA to all-atoms
-        protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
-        protEdit4.modes.set(protANM2.outputModes)
-        protEdit4.newNodes.set(protSel1.outputStructure)
-        protEdit4.setObjLabel('Interp_to_AA')
-        self.launchProtocol(protEdit4)        
+        if have_interp:
+            # ------------------------------------------------
+            # Step 6. Interpolate -> Compare
+            # ------------------------------------------------
+            # Interpolate CA NMA to all-atoms
+            protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
+            protEdit4.modes.set(protANM2.outputModes)
+            protEdit4.newNodes.set(protSel1.outputStructure)
+            protEdit4.setObjLabel('Interp_to_AA')
+            self.launchProtocol(protEdit4)        
 
-        # Compare original AA ANM NMA and interpolated CA ANM NMA
-        protComp4 = self.newProtocol(ProDyCompare)
-        protComp4.modes1.set(protANM1.outputModes)
-        protComp4.modes2.set(protEdit4.outputModes)
-        protComp4.setObjLabel('Compare_AA_to_intCA')
-        self.launchProtocol(protComp4)
+            # Compare original AA ANM NMA and interpolated CA ANM NMA
+            protComp4 = self.newProtocol(ProDyCompare)
+            protComp4.modes1.set(protANM1.outputModes)
+            protComp4.modes2.set(protEdit4.outputModes)
+            protComp4.setObjLabel('Compare_AA_to_intCA')
+            self.launchProtocol(protComp4)
 
         # ------------------------------------------------
         # Step 7. Import other Pdb -> Select chain A and CA
