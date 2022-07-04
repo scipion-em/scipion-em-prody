@@ -123,7 +123,7 @@ class ProDyRTB(EMProtocol):
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
                       'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
+                      'Zero modes 1-6 are always deselected as they are related to rigid-body movements. \n'
                       'The modes metadata file can be used to see which modes are more collective '
                       'in order to decide which modes to use at the image analysis step.')
 
@@ -200,6 +200,11 @@ class ProDyRTB(EMProtocol):
         self.rtb = prody.RTB()
         self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(), gamma=self.gamma.get())
         self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+
+        if self.zeros.get():
+            self.startMode = 6
+        else:
+            self.startMode = 0
         
         prody.writeScipionModes(self._getPath(), self.rtb)
         prody.writeNMD(self._getPath('modes.nmd'), self.rtb, self.amap)
@@ -209,8 +214,8 @@ class ProDyRTB(EMProtocol):
 
         animations_dir = self._getExtraPath('animations')
         makePath(animations_dir)
-        for i, mode in enumerate(self.rtb[6:]):
-            modenum = i+7
+        for i, mode in enumerate(self.rtb[self.startMode:]):
+            modenum = i+self.startMode+1
             fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
              
@@ -263,7 +268,7 @@ class ProDyRTB(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
+            if n >= self.startMode:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
@@ -306,7 +311,7 @@ class ProDyRTB(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
+        for n in range(self.startMode+1, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
@@ -315,9 +320,9 @@ class ProDyRTB(EMProtocol):
                 for line in fhIn:
                     x, y, z = map(float, line.split())
                     d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
+                    if n==self.startMode+1:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(self.startMode+1)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
