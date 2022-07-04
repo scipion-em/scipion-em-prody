@@ -206,7 +206,7 @@ class TestProDy_core(TestWorkflow):
         self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
-        # Step 7. Import ANM & compare scipion vs prody npz
+        # Step 8. Import ANM & compare scipion vs prody npz
         # -> import -> import -> compare
         # ------------------------------------------------
         # Define path
