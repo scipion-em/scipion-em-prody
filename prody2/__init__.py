@@ -95,12 +95,13 @@ class Plugin(pwem.Plugin):
             installCmd.append('cd .. &&')
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
-                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git  ProDy &&')
-            # Install downloaded code
-            installCmd.append('cd ProDy && pip install -U -e . && python setup.py build_ext --inplace --force &&')
+                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy && cd ProDy &&')
+
+        # Install downloaded code
+        installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')
+
+        if version == DEVEL:
             installCmd.append('cd .. && cd prody-github &&')
-        else:
-            installCmd.append('pip install -U ProDy==%s &&' % version)
 
         # configure ProDy to automatically handle secondary structure information
         installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
@@ -125,7 +126,7 @@ class Plugin(pwem.Plugin):
                             vars=installEnvVars)
         else:
             env.addPackage('prody', version=version,
-                           tar='void.tgz',
+                           url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
                            commands=prody_commands,
                            neededProgs=cls.getDependencies(),
                            default=default,
