@@ -104,7 +104,7 @@ class Plugin(pwem.Plugin):
 
         # configure ProDy to automatically handle secondary structure information
         installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
-        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True)" &&')
+        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True, verbosity=\'none\')" &&')
 
         # Flag installation finished
         installCmd.append('touch %s' % PRODY_INSTALLED)
