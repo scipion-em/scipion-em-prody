@@ -127,7 +127,7 @@ class Plugin(pwem.Plugin):
         else:
             env.addPackage('prody', version=version,
                            url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
-                           buildDir='ProDy-2.2.0',
+                           buildDir='ProDy-{0}'.format(version),
                            commands=prody_commands,
                            neededProgs=cls.getDependencies(),
                            default=default,
