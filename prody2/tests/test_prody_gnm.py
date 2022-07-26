@@ -142,6 +142,6 @@ class TestProDy_GNM(TestWorkflow):
         # ------------------------------------------------
         # Domain Decomposition on CA GNM
         protDomDec1 =  self.newProtocol(ProDyDomainDecomp)
-        protDomDec1.inputStructure.set(protGNM2.outputStructure)
+        protDomDec1.modesGNM.set(protGNM2.outputModes)
         protDomDec1.setObjLabel('DomainDecomp_CA')
         self.launchProtocol(protDomDec1)
