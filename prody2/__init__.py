@@ -82,13 +82,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
         PRODY_INSTALLED = 'prody_%s_installed' % version
-        # ENV_NAME = 'scipion3'
-        # # try to get CONDA activation command
-        # installCmd = [cls.getCondaActivationCmd()]
         installCmd = []
-        #
-        # # Activate the new environment
-        # installCmd.append('conda activate %s;' % ENV_NAME)
 
         if version == DEVEL:
             # Use latest scipion branch of prody on my github
