@@ -135,6 +135,8 @@ class ProDyModesBase(EMProtocol):
         # Insert processing steps
         #n = self.numberOfModes.get()
 
+        self.gnm = False
+
         self._insertFunctionStep('computeModesStep')
         self._insertFunctionStep('qualifyModesStep', n,
                                  collectivityThreshold=0.15,
@@ -150,35 +152,49 @@ class ProDyModesBase(EMProtocol):
         pass
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
-        for i, mode in enumerate(self.outModes[nzero:]):
-            modenum = i+7
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
-                               % modenum)
-            prody.writePDB(fnAnimation+".pdb", 
-                           prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
-                                              pos=pos, neg=neg)
-                           )
+        self.nzero = nzero
+        
+        try:
+            prody.traverseMode(self.outModes[nzero], self.atoms, rmsd=rmsd, n_steps=n_steps,
+                               pos=pos, neg=neg)
+        except ValueError:
+            self.gnm = True
+            if nzero > 0:
+                self.nzero = 1
+        else:
+            animations_dir = self._getExtraPath('animations')
+            makePath(animations_dir)
+            for i, mode in enumerate(self.outModes[nzero:]):
+                modenum = i+7
+                fnAnimation = join(animations_dir, "animated_mode_%03d"
+                                % modenum)
+                prody.writePDB(fnAnimation+".pdb", 
+                            prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                                                pos=pos, neg=neg)
+                            )
 
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            fhCmd.write("mol modcolor 0 0 Index\n")
-            if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
-                fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
-                # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                #         "2.600000 0\n")
-            else:
-                fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                        "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
+                fhCmd=open(fnAnimation+".vmd",'w')
+                fhCmd.write("mol new %s.pdb\n" % fnAnimation)
+                fhCmd.write("animate style Rock\n")
+                fhCmd.write("display projection Orthographic\n")
+                fhCmd.write("mol modcolor 0 0 Index\n")
+                if self.atoms.ca.numAtoms() == self.atoms.numAtoms():
+                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
+                    #         "2.600000 0\n")
+                else:
+                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
+                            "2.600000 0\n")
+                fhCmd.write("animate speed 0.5\n")
+                fhCmd.write("animate forward\n")
+                fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=6):
+                         structureEM=False, suffix='', nzero=None):
+
+        if nzero is None:
+            nzero = self.nzero
+
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -244,19 +260,26 @@ class ProDyModesBase(EMProtocol):
         makePath(fnOutDir)
         maxShift=[]
         maxShiftMode=[]
+
+        nzero = 1 if self.gnm else 6
+        nzp1 = nzero + 1
         
-        for n in range(7, numberOfModes+1):
+        for n in range(nzp1, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
+                    if self.gnm:
+                        d = abs(float(line))
+                    else:
+                        x, y, z = map(float, line.split())
+                        d = math.sqrt(x*x+y*y+z*z)
+
+                    if n==nzp1:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(nzp1)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d

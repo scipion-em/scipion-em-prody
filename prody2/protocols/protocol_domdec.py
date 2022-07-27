@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import PointerParam, IntParam
 import prody
 
 
-class  ProDyDomainDecomp (EMProtocol):
+class  ProDyDomainDecomp(EMProtocol):
     """
     This protocol will perform dynamical domain decomposition
     """
@@ -75,7 +75,9 @@ class  ProDyDomainDecomp (EMProtocol):
 
     def computeGNMstep(self):
         modes_GNM_path = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
-        modes_GNM = prody.parseScipionModes(modes_GNM_path, pdb=glob(modes_GNM_path+"/*atoms.pdb"))
+
+        modes_GNM = prody.parseScipionModes(self.modesGNM.get().getFileName(),
+                                            pdb=glob(modes_GNM_path+"/*atoms.pdb"))
 
         n_modes = self.modeNumber.get()
         

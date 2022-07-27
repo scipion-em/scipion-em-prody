@@ -112,6 +112,7 @@ class ProDyEdit(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
+        self.nzero = 6
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
 
     def computeModesStep(self):
