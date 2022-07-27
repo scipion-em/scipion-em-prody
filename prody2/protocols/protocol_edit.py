@@ -42,6 +42,11 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 
 import prody
 from prody.utilities import ZERO
+try:
+    from prody import interpolateModel
+    have_interp = True
+except:
+    have_interp = False
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
@@ -65,14 +70,25 @@ class ProDyEdit(ProDyModesBase):
         # You need a params to belong to a section:
         form.addSection(label='ProDy edit')
 
-        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
-                      default=NMA_SLICE,
-                      label='Type of edit',
-                      help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                      'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
-                      'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
-                      'The number of nodes can be increased by extending (copying) eigenvector values '
-                      'from nodes of the same residue or by through-space thin plate splines interpolation')
+        if have_interp:
+            form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
+                        default=NMA_SLICE,
+                        label='Type of edit',
+                        help='Modes can have the number of nodes decreased using either eigenvector slicing '
+                        'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                        'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
+                        'The number of nodes can be increased by extending (copying) eigenvector values '
+                        'from nodes of the same residue or by through-space thin plate splines interpolation')
+        else:
+            form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend'],
+                        default=NMA_SLICE,
+                        label='Type of edit',
+                        help='Modes can have the number of nodes decreased using either eigenvector slicing '
+                        'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                        'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
+                        'The number of nodes can be increased by extending (copying) eigenvector values '
+                        'from nodes of the same residue')
+
 
         form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
                       pointerClass='SetOfNormalModes',
@@ -153,7 +169,7 @@ class ProDyEdit(ProDyModesBase):
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
 
-        else:
+        elif have_interp:
             self.outModes, self.atoms = prody.interpolateModel(modes, amap, bigger, norm=True)
 
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
