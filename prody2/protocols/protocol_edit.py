@@ -44,6 +44,7 @@ import prody
 from prody.utilities import ZERO
 
 import logging
+logger = logging.getLogger(__name__)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
@@ -148,7 +149,7 @@ class ProDyEdit(ProDyModesBase):
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
             else:
-                logging.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
+                logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
                 self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_EXTEND:
