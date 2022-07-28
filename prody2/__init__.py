@@ -102,9 +102,11 @@ class Plugin(pwem.Plugin):
         else:
             installCmd.append('pip install -U ProDy==%s &&' % version)
 
-        # configure ProDy to automatically handle secondary structure information
+        # configure ProDy to automatically handle secondary structure information and verbosity
         installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
-        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True, verbosity=\'none\')" &&')
+
+        prodyVerbosity =  "'none'" if not Config.debugOn() else "'debug'"
+        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True, verbosity={0})" &&'.format(prodyVerbosity))
 
         # Flag installation finished
         installCmd.append('touch %s' % PRODY_INSTALLED)
