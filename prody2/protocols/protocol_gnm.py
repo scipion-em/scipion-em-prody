@@ -143,18 +143,18 @@ class ProDyGNM(EMProtocol):
         prody.writePDB(self.pdbFileName, ag)
 
         if self.zeros.get():
-            args = 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
+            args = ('gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
                         '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
-                                                                                             self.cutoff.get())
+                                                                                             self.cutoff.get()))
             self.startMode = 1
         else:
-            args = 'gnm {0} -s "all" --altloc "all" --kirchhoff '
+            args = ('gnm {0} -s "all" --altloc "all" --kirchhoff '
                         '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
-                                                                                             self.cutoff.get())
+                                                                                             self.cutoff.get()))
             self.startMode = 0
 
         if self.membrane.get():
