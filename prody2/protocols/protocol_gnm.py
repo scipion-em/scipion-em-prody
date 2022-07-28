@@ -92,6 +92,12 @@ class ProDyGNM(EMProtocol):
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
 
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
+
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
@@ -137,19 +143,24 @@ class ProDyGNM(EMProtocol):
         prody.writePDB(self.pdbFileName, ag)
 
         if self.zeros.get():
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
+            args = 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
                         '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
-                                                                                             self.cutoff.get()))
+                                                                                             self.cutoff.get())
             self.startMode = 1
         else:
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
+            args = 'gnm {0} -s "all" --altloc "all" --kirchhoff '
                         '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
                                                                                              self._getPath(), n,
                                                                                              self.gamma.get(),
-                                                                                             self.cutoff.get()))
+                                                                                             self.cutoff.get())
             self.startMode = 0
+
+        if self.membrane.get():
+            args += ' --membrane'
+
+        self.runJob('prody', args)
         
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
         

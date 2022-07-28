@@ -104,6 +104,12 @@ class ProDyANM(EMProtocol):
                       label="Use KDTree for building Hessian matrix?",
                       help='This takes more computational time.')
 
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
+
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
@@ -195,6 +201,9 @@ class ProDyANM(EMProtocol):
 
         if self.turbo.get():
             args += ' --turbo'
+
+        if self.membrane.get():
+            args += ' --membrane'
 
         self.runJob('prody', args)
         
