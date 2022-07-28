@@ -82,7 +82,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
         form.addSection(label='Visualization')
 
-        group = form.addGroup('All non zero modes')
+        group = form.addGroup('All non-zero modes')
         group.addParam('displayModes', LabelParam,
                       label="Display output Normal Modes?", important=True)
         group.addParam('displayMaxDistanceProfile', LabelParam,
@@ -97,7 +97,7 @@ class ProDyGNMViewer(ProtocolViewer):
                       help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
                       label='Display Covariance matrix?',
-                      help='Covariance matrices are shown as heatmaps.')
+                      help='Raw covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
                       label='Display Cross Correlation matrix?',
                       help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
@@ -111,7 +111,7 @@ class ProDyGNMViewer(ProtocolViewer):
                       help="Shows the mode shape for a single GNM mode. Residues with positive and negative "
                             "values move in opposite directions.")
         group.addParam('overlaychains', BooleanParam, default=True,
-                      label="Show overlay chains",
+                      label="Show overlaid chains",
                       help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
                         "indicate them. Different options may be better for different data.")
         group.addParam('displaySingleCov', LabelParam, default=False,
@@ -158,7 +158,7 @@ class ProDyGNMViewer(ProtocolViewer):
                 } 
 
     def _viewAllModes(self, paramName):
-        """ visualisation for 2D covariance and Cross correlation matrices""" 
+        """ visualisation for 2D covariance and cross-correlation matrices"""
         if paramName == 'displayVmd2':
             return [createVmdNmwizView(self.protocol)]
         
@@ -168,7 +168,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
         else:
             matrix = prody.parseArray(self.protocol.matrixFileCC.getFileName())
-            title = 'Cross Correlation matrix'
+            title = 'Cross-Correlation matrix'
 
         plotter = EmPlotter(mainTitle=title)
         plot = prody.showAtomicMatrix(matrix, origin='lower', atoms=self.atoms)
