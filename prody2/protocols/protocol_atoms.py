@@ -201,7 +201,8 @@ class ProDyAlign(EMProtocol):
                                           rmsd_reject=self.rmsd_reject.get())
         if len(mob_amap_list):
             mob_amap = mob_amap_list[0]
-            mob_sel = mob.select(mob_amap.getSelstr())
+            mob_sel = mob_amap.select("not dummy").copy()
+            mob_sel.setTitle(mob.getTitle())
 
             tar_amap_list = prody.alignChains(tar, mob_sel,
                                               seqid=self.seqid.get(),
@@ -211,7 +212,8 @@ class ProDyAlign(EMProtocol):
                                               rmsd_reject=self.rmsd_reject.get())
             if len(tar_amap_list):
                 tar_amap = tar_amap_list[0]
-                tar_sel = tar.select(tar_amap.getSelstr())
+                tar_sel = tar_amap.select("not dummy").copy()
+                tar_sel.setTitle(tar.getTitle())
 
                 if mob_sel.numAtoms != tar_sel.numAtoms():
                     mob_amap_list = prody.alignChains(mob_sel, tar_sel,
@@ -222,7 +224,8 @@ class ProDyAlign(EMProtocol):
                                                       rmsd_reject=self.rmsd_reject.get())
                     if len(mob_amap_list):
                         mob_amap = mob_amap_list[0]
-                        mob_sel = mob.select(mob_amap.getSelstr())
+                        mob_sel = mob_amap.select("not dummy").copy()
+                        mob_sel.setTitle(mob.getTitle())
 
                     tar_amap_list = prody.alignChains(tar_sel, mob_sel,
                                                       seqid=self.seqid.get(),
@@ -232,7 +235,8 @@ class ProDyAlign(EMProtocol):
                                                       rmsd_reject=self.rmsd_reject.get())
                     if len(tar_amap_list):
                         tar_amap = tar_amap_list[0]
-                        tar_sel = tar.select(tar_amap.getSelstr())
+                        tar_sel = tar_amap.select("not dummy").copy()
+                        tar_sel.setTitle(tar.getTitle())
 
                 alg, self.T = prody.superpose(mob_sel, tar_sel)
 
