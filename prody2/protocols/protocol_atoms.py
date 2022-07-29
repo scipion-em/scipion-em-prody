@@ -94,7 +94,7 @@ class ProDySelect(EMProtocol):
         selection = ag.select(str(self.selection))
 
         logger.info("%d atoms selected from %d" % (selection.numAtoms(),
-                                                           ag.numAtoms()))
+                                                          ag.numAtoms()))
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)

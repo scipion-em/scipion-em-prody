@@ -154,4 +154,3 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                             outputDcd=outputDcd,
                             outputNpz=outputNpz)
                             #outputTransformations=outputTrans)
-

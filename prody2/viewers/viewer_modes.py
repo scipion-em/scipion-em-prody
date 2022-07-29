@@ -46,7 +46,7 @@ class ProDyModeViewer(Viewer):
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB,
+    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB, ProDyPCA,
                 ProDyDefvec, ProDyEdit, ProDyImportModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 

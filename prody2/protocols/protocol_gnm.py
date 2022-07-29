@@ -218,6 +218,7 @@ class ProDyGNM(EMProtocol):
 
         for i in range(len(fnVec)):
             score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
+            
         i = 0
         for objId in mdOut:
             score[i] = float(score[i]) / (2.0 * l)
@@ -255,6 +256,7 @@ class ProDyGNM(EMProtocol):
                     md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
                 md.write(join(fnOutDir,"vec%d.xmd" % n))
                 fhIn.close()
+                
         md = MetaData()
         for i, _ in enumerate(maxShift):
             fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))

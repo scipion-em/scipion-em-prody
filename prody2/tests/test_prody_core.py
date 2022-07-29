@@ -251,32 +251,31 @@ class TestProDy_core(TestWorkflow):
         protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
         protRTB1.inputStructure.set(protSel2.outputStructure)
         protRTB1.setObjLabel('RTB_CA_10_res')
-        self.launchProtocol(protRTB1)    
+        self.launchProtocol(protRTB1)
 
         # Launch RTB NMA for selected atoms (CA) with secstr block
         protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
         protRTB2.inputStructure.set(protSel2.outputStructure)
         protRTB2.setObjLabel('RTB_CA_secstr')
-        self.launchProtocol(protRTB2)    
+        self.launchProtocol(protRTB2)
 
         # Compare RTB1 and RTB2
         protComp6 = self.newProtocol(ProDyCompare)
         protComp6.modes1.set(protRTB1.outputModes)
         protComp6.modes2.set(protRTB2.outputModes)
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
-        self.launchProtocol(protComp6)  
+        self.launchProtocol(protComp6)
 
         # Compare CA ANM and RTB1
         protComp7 = self.newProtocol(ProDyCompare)
         protComp7.modes1.set(protANM2.outputModes)
         protComp7.modes2.set(protRTB1.outputModes)
         protComp7.setObjLabel('Compare_ANM_to_RTB1')
-        self.launchProtocol(protComp7)  
+        self.launchProtocol(protComp7)
 
         # Compare CA ANM and RTB2
         protComp8 = self.newProtocol(ProDyCompare)
         protComp8.modes1.set(protANM2.outputModes)
         protComp8.modes2.set(protRTB2.outputModes)
         protComp8.setObjLabel('Compare_ANM_to_RTB2')
-        self.launchProtocol(protComp8) 
-        
+        self.launchProtocol(protComp8)

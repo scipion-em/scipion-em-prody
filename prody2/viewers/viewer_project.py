@@ -102,5 +102,3 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                         rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())            
         
         return [plotter]
-
-
