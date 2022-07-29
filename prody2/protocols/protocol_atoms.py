@@ -39,7 +39,7 @@ from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
-                                        EnumParam, LEVEL_ADVANCED)
+                                        BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
 from prody import LOGGER
@@ -164,7 +164,18 @@ class ProDyAlign(EMProtocol):
         form.addParam('rmsd_reject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Rejection RMSD (A)",
-                      help='Alignments with worse RMSDs than this will be rejected.')    
+                      help='Alignments with worse RMSDs than this will be rejected.')
+
+        form.addParam('use_trans', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use existing transformation?",
+                      help='Select to True to select a previously-calculated transformation.')
+        form.addParam('transformation', PointerParam,
+                      pointerClass='Transform',
+                      expertLevel=LEVEL_ADVANCED,
+                      condition="use_trans==True",
+                      label="Existing transformation",
+                      help='Previously-calculated transformations can be applied instead.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -238,7 +249,12 @@ class ProDyAlign(EMProtocol):
                         tar_sel = tar_amap.select("not dummy").copy()
                         tar_sel.setTitle(tar.getTitle())
 
-                alg, self.T = prody.superpose(mob_sel, tar_sel)
+                if self.transformation.get() is None:
+                    self.T = prody.calcTransformation(mob_sel, tar_sel)
+                else:
+                    self.T = prody.Transformation(self.transformation.get().getMatrix())
+
+                alg = prody.applyTransformation(self.T, mob_sel)
 
                 rmsd = prody.calcRMSD(mob_sel, tar_sel)
                 prody.LOGGER.info("RMSD = {:6.2f}".format(rmsd))
