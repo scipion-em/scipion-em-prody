@@ -1,42 +1,42 @@
-1-October-2019 - (tagged with 1.skeleton)
-    Just a python package, should work with "scipion installp -p /home/you/scipion-em-prody/ --devel
+29 July 2022 - major release v3.1.0
+    Many new features including two new pipelines:
+    1. Gaussian network model analysis and dynamical domain decomposition
+    2. Atomic structure ensemble analysis with principal component analysis
 
-3-October-2019 - (tagged with 2.scipion-plugin-skeleton)
-    prody/__init__.py added, with its own Plugin instance and the registering call:
+11 May 2022 - more releases with small improvements
 
-    Inspecting the plugin should work:
+13-18 April 2022 - first releases up to v3.0.3
+    Core pipeline working well with ProDy 2.1.1
 
-    scipion python pyworkflow/install/inspect-plugins.py prody
+1 April 2022
+    Added tests for core pipeline
 
-    Scipion v2.0 (2019-04-23) Diocletian
+25 February 2022
+    Added protocol for importing modes calculated outside the project.
+    Can support modes calculated in another Scipion project, ProDy itself,
+    or Gromacs.
 
-    >>>>> python  "pyworkflow/install/inspect-plugins.py" "prody"
-    Plugin: prody
-    >>> constants:  missing
-    >>> convert:  missing
-    >>> protocols:  missing
-    >>> wizards:  missing
-    >>> viewers:  missing
-    >>> tests:  missing
+21 February 2022
+    Added protocol for deformation vector analysis
 
-3 October-2019 - 12:40 - (tagged with 3.basic-hello-world-protocol)
-    protocols.py added with a functional helloworld protocol
+18 February 2022
+    Added protocol for editing modes using slice, extend, reduce 
+    and interpolate operations.
 
-3 October-2019 - 13:45 - (tagged with 4.icon-protocols.conf-reference)
-    Icon for the plugin added (icon.png)
-    protocols.conf added so protocol is shown on the left tree
-    reference added
+9 February 2022
+    Added protocol for mode comparison
 
-3 October-2019 - 14:22 - (tagged with 5.adding-scalar-parameters)
-    Hello world protocol has 2 parameter:
-        1.- message: to enter the message to print
-        2.- times: to print them message that number ot times.
+3 February 2022
+    Added atomic structure manipulation protocols:
+        1. Selection
+        2. Superposition
 
-3 October-2019 - 15:06 - (tagged with 6.generating-output)
-    The Hello world protocol generates a scalar output
+18 January 2022
+    First working plugin with:
+        1. installation of ProDy from GitHub 
+        2. protocol for anisotropic network model (ANM)
+           normal mode analysis (NMA)
+        3. viewer for normal modes from itself or continuousflex
 
-3 October-2019 - 15:32 - (tagged with 7.connecting-protocols)
-    Now, Hello world protocol, can receive the output of another protocol
-
-4 October-2019 - 12:22 - (tagged with 8.adding-a-wizard)
-    The wizzard will suggest some common greetings in different lenguages
+22 December 2021
+    Started making scipion-em-prody from template
