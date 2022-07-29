@@ -1,15 +1,32 @@
-29 July 2022 - major release v3.1.0
-    Many new features including two new pipelines:
-    1. Gaussian network model analysis and dynamical domain decomposition
-    2. Atomic structure ensemble analysis with principal component analysis
+29 July 2022 - major release v3.2.0
+    Whole new working pipelines with tests:
+        1. GNM analysis and dynamical domain decomposition
+        2. Ensemble analysis with PCA and projections
+
+28 June 2022
+    New protocol and viewer for dynamical domain decomposition
+
+25 May 2022 - major release v3.1.0
+    New protocol and viewer for Gaussian network model (GNM) analysis 
+
+17 May 2022
+    New viewer for projecting ensembles onto modes
 
 11 May 2022 - more releases with small improvements
 
 13-18 April 2022 - first releases up to v3.0.3
     Core pipeline working well with ProDy 2.1.1
 
+8 April 2022
+    First protocols for ensemble building and principal component analysis
+    (PCA) added to devel 
+
 1 April 2022
     Added tests for core pipeline
+
+17 March 2022
+    Added animate and qualify modes features from continuousflex to new 
+    modes base protocol and used it to add these to the mode editing protocol  
 
 25 February 2022
     Added protocol for importing modes calculated outside the project.
