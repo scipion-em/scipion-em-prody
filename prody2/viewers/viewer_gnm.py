@@ -45,6 +45,9 @@ from prody2.protocols import ProDyGNM
 import os
 
 import prody
+old_secondary = prody.confProDy("auto_secondary")
+old_verbosity = prody.confProDy("verbosity")
+
 from prody.utilities.drawtools import IndexFormatter
 from matplotlib.pyplot import *
 
@@ -61,6 +64,11 @@ class ProDyGNMViewer(ProtocolViewer):
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
         
     def _defineParams(self, form):
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         if isinstance(self.protocol, SetOfNormalModes):
             protocol_path = os.path.dirname(os.path.dirname(self.protocol._getMapper().selectFirst().getModeFile()))
@@ -269,6 +277,9 @@ class ProDyGNMViewer(ProtocolViewer):
 
         elif paramName == 'displaySingleCC':   
             plot = prody.showCrossCorr(mode, atoms=self.atoms) 
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
         return [plotter]
         

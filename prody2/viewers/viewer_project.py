@@ -51,6 +51,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
+                
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        from pyworkflow import Config
+        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
+        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         self.numModes = self.protocol.numModes.get()
 
         form.addSection(label='Visualization')
@@ -101,4 +109,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                         text=ensemble.getLabels(), 
                                         rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())            
         
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+
         return [plotter]
