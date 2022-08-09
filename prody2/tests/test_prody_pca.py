@@ -52,6 +52,10 @@ class TestProDy_pca(TestWorkflow):
 
     def test_ProDy_pca(self):
         """ Run PCA simple workflow for two ways of building ensembles. """
+        
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
         # ----------------------------------------------------
         # Step 1. Import some structures -> Select CA 
         # ---------------------------------------------------
@@ -251,3 +255,9 @@ class TestProDy_pca(TestWorkflow):
         protComp2.modes2.set(protImportModes2.outputModes)
         protComp2.setObjLabel('Compare_imported_2k39')
         self.launchProtocol(protComp2)   
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
+
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")

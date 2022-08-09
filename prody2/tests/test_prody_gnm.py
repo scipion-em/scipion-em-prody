@@ -49,6 +49,10 @@ class TestProDy_GNM(TestWorkflow):
 
     def test_ProDy_core(self):
         """ Run GNM simple workflow for two Atomic structures. """
+        
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
         # ------------------------------------------------
         # Step 1. Import a Pdb -> Select chain A -> GNM
         # ------------------------------------------------
@@ -145,3 +149,9 @@ class TestProDy_GNM(TestWorkflow):
         protDomDec1.modesGNM.set(protGNM2.outputModes)
         protDomDec1.setObjLabel('DomainDecomp_CA')
         self.launchProtocol(protDomDec1)
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
+
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")

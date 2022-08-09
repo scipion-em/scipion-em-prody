@@ -53,6 +53,10 @@ class TestProDy_core(TestWorkflow):
 
     def test_ProDy_core(self):
         """ Run NMA simple workflow for two Atomic structures. """
+
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
         # ------------------------------------------------
         # Step 1. Import a Pdb -> Select chain A -> NMA
         # ------------------------------------------------
@@ -279,3 +283,9 @@ class TestProDy_core(TestWorkflow):
         protComp8.modes2.set(protRTB2.outputModes)
         protComp8.setObjLabel('Compare_ANM_to_RTB2')
         self.launchProtocol(protComp8)
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
+        
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")
