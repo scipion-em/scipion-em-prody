@@ -135,6 +135,15 @@ class ProDyEdit(ProDyModesBase):
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
 
     def computeModesStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        print('protocol edit, old_verbosity: ' + self.old_verbosity)
+
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         modes_path = os.path.dirname(os.path.dirname(self.modes.get()._getMapper().selectFirst().getModeFile()))
         
         from_prody = len(glob(modes_path+"/*npz"))

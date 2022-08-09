@@ -90,6 +90,14 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         ag = prody.parsePDB(inputFn, alt='all')
         selection = ag.select(str(self.selection))
 
@@ -98,6 +106,9 @@ class ProDySelect(EMProtocol):
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputPdb = AtomStruct()
@@ -185,6 +196,14 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
 
@@ -257,8 +276,8 @@ class ProDyAlign(EMProtocol):
 
                 alg = prody.applyTransformation(self.T, mob_sel)
 
-                rmsd = prody.calcRMSD(mob_sel, tar_sel)
-                logger.info("RMSD = {:6.2f}".format(rmsd))
+                self.rmsd = prody.calcRMSD(mob_sel, tar_sel)
+                logger.info("RMSD = {:6.2f}".format(self.rmsd))
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
@@ -268,6 +287,9 @@ class ProDyAlign(EMProtocol):
 
                 self.matrixFileName = self._getPath('transformation.txt')
                 prody.writeArray(self.matrixFileName, self.T.getMatrix())
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):

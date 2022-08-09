@@ -117,6 +117,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def alignStep(self, ref, tars):
         """This step includes alignment mapping and superposition"""
 
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         if self.matchFunc.get() == BEST_MATCH:
             match_func = prody.bestMatch
         else:
@@ -142,6 +150,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         self.matrixFileName = self._getPath('transformation_%05d.txt')
         [prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputStructure = AtomStruct(filename=self.pdbFileName)

@@ -89,6 +89,13 @@ class ProDyProject(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         ens = prody.loadEnsemble(self.inputEnsemble.get().getFileName())
 
         modes_path = self.inputModes.get().getFileName()
@@ -96,6 +103,9 @@ class ProDyProject(EMProtocol):
 
         self.proj = prody.calcProjection(ens, modes[:self.numModes.get()+1])
         prody.writeArray(self._getExtraPath('projection.txt'), self.proj)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
