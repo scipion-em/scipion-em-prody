@@ -109,24 +109,38 @@ class ProDyCompare(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def compareModesStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        modes1_path = os.path.dirname(os.path.dirname(self.modes1.get()[1].getModeFile()))
+        modes1_path = os.path.dirname(os.path.dirname(
+            self.modes1.get()._getMapper().selectFirst().getModeFile()))
+
         pdb1 = glob(modes1_path+"/*atoms.pdb")
         if len(pdb1) == 0:
             pdb1 = None
-        modes1 = prody.parseScipionModes(modes1_path, pdb=pdb1)
 
-        modes2_path = os.path.dirname(os.path.dirname(self.modes2.get()[1].getModeFile()))
+        modes1 = prody.parseScipionModes(self.modes1.get().getFileName(), pdb=pdb1)
+
+        modes2_path = os.path.dirname(os.path.dirname(
+            self.modes2.get()._getMapper().selectFirst().getModeFile()))
+            
         pdb2 = glob(modes1_path+"/*atoms.pdb")
         if len(pdb2) == 0:
             pdb2 = None
-        modes2 = prody.parseScipionModes(modes2_path, pdb=pdb2)
+
+        modes2 = prody.parseScipionModes(self.modes2.get().getFileName(), pdb=pdb2)
 
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
         if modes1.numModes() != modes2.numModes() and min_n_modes != 1:
-            raise ValueError('The two sets should have the same number of nodes '
-                           'unless one of them has exactly 1 mode in it.')
+            raise ValueError('The two sets should have the same number of modes '
+                             'unless one of them has exactly 1 mode in it.\n'
+                             'modes1 has {0} and modes2 has {1}'.format(modes1.numModes(),
+                                                                        modes2.numModes()))
 
         if min_n_modes != 1:
             mode_ens = prody.ModeEnsemble()
@@ -141,7 +155,12 @@ class ProDyCompare(EMProtocol):
                                  np.array(match_inds, dtype=int)[1]+1,
                                  format='%3d')
 
-                atoms = prody.parsePDB(self.modes1.get().getPdb().getFileName())
+                pdb = self.modes1.get().getPdb()
+                if pdb is not None:
+                    atoms = prody.parsePDB(pdb.getFileName())
+                else:
+                    atoms = prody.parsePDB(pdb1)
+
                 prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
                 prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
@@ -169,6 +188,9 @@ class ProDyCompare(EMProtocol):
         format_str = '%' + str(pre_dec_len + 4) + '.2f'
 
         prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix, format=format_str)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))

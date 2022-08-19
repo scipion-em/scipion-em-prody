@@ -29,6 +29,8 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
+from os.path import basename, splitext
+
 from pyworkflow.protocol import params
 
 from pwem import *
@@ -37,10 +39,11 @@ from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
-                                        EnumParam, LEVEL_ADVANCED)
+                                        BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
-from prody import LOGGER
+import logging
+logger = logging.getLogger(__name__)
 
 # chain matching methods
 BEST_MATCH = 0
@@ -87,14 +90,25 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         ag = prody.parsePDB(inputFn, alt='all')
         selection = ag.select(str(self.selection))
 
-        LOGGER.info("%d atoms selected from %d" % (selection.numAtoms(), 
+        logger.info("%d atoms selected from %d" % (selection.numAtoms(),
                                                           ag.numAtoms()))
 
-        self.pdbFileName = self._getPath('atoms.pdb')
+        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         prody.writePDB(self.pdbFileName, selection)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputPdb = AtomStruct()
@@ -162,7 +176,18 @@ class ProDyAlign(EMProtocol):
         form.addParam('rmsd_reject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Rejection RMSD (A)",
-                      help='Alignments with worse RMSDs than this will be rejected.')    
+                      help='Alignments with worse RMSDs than this will be rejected.')
+
+        form.addParam('use_trans', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use existing transformation?",
+                      help='Select to True to select a previously-calculated transformation.')
+        form.addParam('transformation', PointerParam,
+                      pointerClass='Transform',
+                      expertLevel=LEVEL_ADVANCED,
+                      condition="use_trans==True",
+                      label="Existing transformation",
+                      help='Previously-calculated transformations can be applied instead.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -171,6 +196,14 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
 
@@ -199,7 +232,8 @@ class ProDyAlign(EMProtocol):
                                           rmsd_reject=self.rmsd_reject.get())
         if len(mob_amap_list):
             mob_amap = mob_amap_list[0]
-            mob_sel = mob.select(mob_amap.getSelstr())
+            mob_sel = mob_amap.select("not dummy").copy()
+            mob_sel.setTitle(mob.getTitle())
 
             tar_amap_list = prody.alignChains(tar, mob_sel,
                                               seqid=self.seqid.get(),
@@ -209,7 +243,8 @@ class ProDyAlign(EMProtocol):
                                               rmsd_reject=self.rmsd_reject.get())
             if len(tar_amap_list):
                 tar_amap = tar_amap_list[0]
-                tar_sel = tar.select(tar_amap.getSelstr())
+                tar_sel = tar_amap.select("not dummy").copy()
+                tar_sel.setTitle(tar.getTitle())
 
                 if mob_sel.numAtoms != tar_sel.numAtoms():
                     mob_amap_list = prody.alignChains(mob_sel, tar_sel,
@@ -220,7 +255,8 @@ class ProDyAlign(EMProtocol):
                                                       rmsd_reject=self.rmsd_reject.get())
                     if len(mob_amap_list):
                         mob_amap = mob_amap_list[0]
-                        mob_sel = mob.select(mob_amap.getSelstr())
+                        mob_sel = mob_amap.select("not dummy").copy()
+                        mob_sel.setTitle(mob.getTitle())
 
                     tar_amap_list = prody.alignChains(tar_sel, mob_sel,
                                                       seqid=self.seqid.get(),
@@ -230,12 +266,18 @@ class ProDyAlign(EMProtocol):
                                                       rmsd_reject=self.rmsd_reject.get())
                     if len(tar_amap_list):
                         tar_amap = tar_amap_list[0]
-                        tar_sel = tar.select(tar_amap.getSelstr())
+                        tar_sel = tar_amap.select("not dummy").copy()
+                        tar_sel.setTitle(tar.getTitle())
 
-                alg, self.T = prody.superpose(mob_sel, tar_sel)
+                if self.transformation.get() is None:
+                    self.T = prody.calcTransformation(mob_sel, tar_sel)
+                else:
+                    self.T = prody.Transformation(self.transformation.get().getMatrix())
 
-                rmsd = prody.calcRMSD(mob_sel, tar_sel)
-                prody.LOGGER.info("RMSD = {:6.2f}".format(rmsd))
+                alg = prody.applyTransformation(self.T, mob_sel)
+
+                self.rmsd = prody.calcRMSD(mob_sel, tar_sel)
+                logger.info("RMSD = {:6.2f}".format(self.rmsd))
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
@@ -245,6 +287,9 @@ class ProDyAlign(EMProtocol):
 
                 self.matrixFileName = self._getPath('transformation.txt')
                 prody.writeArray(self.matrixFileName, self.T.getMatrix())
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):

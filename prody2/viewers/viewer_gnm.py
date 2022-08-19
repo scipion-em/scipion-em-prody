@@ -45,6 +45,9 @@ from prody2.protocols import ProDyGNM
 import os
 
 import prody
+old_secondary = prody.confProDy("auto_secondary")
+old_verbosity = prody.confProDy("verbosity")
+
 from prody.utilities.drawtools import IndexFormatter
 from matplotlib.pyplot import *
 
@@ -62,11 +65,28 @@ class ProDyGNMViewer(ProtocolViewer):
         
     def _defineParams(self, form):
 
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         if isinstance(self.protocol, SetOfNormalModes):
-            protocol_path = os.path.dirname(os.path.dirname(self.protocol[1].getModeFile()))
+            protocol_path = os.path.dirname(os.path.dirname(self.protocol._getMapper().selectFirst().getModeFile()))
             nmdFile = protocol_path + "/modes.nmd"
         else:
             nmdFile = self.protocol._getPath("modes.nmd")
+
+        modes =  self.protocol.outputModes
+
+        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
+
+        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modes_path+"/*atoms.pdb"))
+
+        if self.modes.getEigvals()[0] < prody.utilities.ZERO:
+            self.startMode = 1
+        else:
+            self.startMode = 0
 
         form.addSection(label='Visualization')
 
@@ -87,11 +107,12 @@ class ProDyGNMViewer(ProtocolViewer):
                       label='Display Covariance matrix?',
                       help='Raw covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
-                      label='Display Cross-Correlation matrix?',
-                      help='Normalised, orientational cross-correlation matrices are shown as heatmaps.')
+                      label='Display Cross Correlation matrix?',
+                      help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
+                        'Normalized Covariance matrix')
         
         group = form.addGroup('Single mode')  
-        group.addParam('modeNumber', IntParam, default=2,
+        group.addParam('modeNumber', IntParam, default=self.startMode+1,
                       label='Mode number')
         group.addParam('displaySingleMode', LabelParam, default=False,
                       label="Plot mode shape?",
@@ -101,11 +122,18 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Show overlaid chains",
                       help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
                         "indicate them. Different options may be better for different data.")
-        
+        group.addParam('displaySingleCov', LabelParam, default=False,
+                label="Plot single mode covariance?",
+                help="Covariance matrices are shown as heatmaps.")
+        group.addParam('displaySingleCC', LabelParam, default=False,
+                label="Plot single mode cross correlation?",
+                help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
+                    'Normalized Covariance matrix')
+
         group = form.addGroup('Modes range')  
-        group.addParam('modeNumber1', IntParam, default=2,
+        group.addParam('modeNumber1', IntParam, default=self.startMode+1,
                       label='Initial mode number')
-        group.addParam('modeNumber2', IntParam, default=2,
+        group.addParam('modeNumber2', IntParam, default=self.startMode+1,
                       label='Final mode number')
         group.addParam('displayRangeSqFluct', LabelParam, default=False,
                       label="Plot range mean square fluctuation?",
@@ -123,10 +151,6 @@ class ProDyGNMViewer(ProtocolViewer):
                            "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
         
     def _getVisualizeDict(self):
-        modes =  self.protocol.outputModes
-        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
-        self.modes = prody.parseScipionModes(modes_path, pdb=glob(modes_path+"/*atoms.pdb"))
-        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
@@ -136,7 +160,9 @@ class ProDyGNMViewer(ProtocolViewer):
                 'displayRangeRMSFluct': self._viewSQF,
                 'displayCovMatrix': self._viewAllModes,
                 'displayCrossCorrMatrix': self._viewAllModes,
-                'displaySingleMode': self._viewSingleMode
+                'displaySingleMode': self._viewSingleMode,
+                'displaySingleCov': self._viewSingleMode,
+                'displaySingleCC': self._viewSingleMode
                 } 
 
     def _viewAllModes(self, paramName):
@@ -175,15 +201,18 @@ class ProDyGNMViewer(ProtocolViewer):
             return [self.errorMessage("Invalid mode range\n"
                                       "Initial mode number can not be " 
                                       "bigger than the final one.", title="Invalid input")]
-        elif modeNumber1 < 1:
+
+        elif modeNumber1+1 < self.startMode+1:
             return [self.errorMessage("Invalid mode range\n"
                                       "Initial mode number can not be " 
-                                      "smaller than 2.", title="Invalid input")]
+                                      "smaller than {0}.".format(self.startMode+1), 
+                                      title="Invalid input")]
 
-        elif modeNumber2 < 2:
+        elif modeNumber2 < self.startMode+1:
             return [self.errorMessage("Invalid mode range\n"
                                       "Final mode number can not be " 
-                                      "smaller than 2.", title="Invalid input")]
+                                      "smaller than {0}.".format(self.startMode+1), 
+                                      title="Invalid input")]
         
         try:
             mode1 = self.modes[modeNumber1] 
@@ -203,9 +232,9 @@ class ProDyGNMViewer(ProtocolViewer):
         plotter = EmPlotter()
 
         if paramName == 'displaySqFlucts':
-            plot = prody.showSqFlucts(self.modes[1:], atoms=self.atoms)
+            plot = prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms)
         elif paramName == 'displayRMSFlucts':
-            plot = prody.showRMSFlucts(self.modes[1:], atoms=self.atoms)
+            plot = prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms)
         else:            
             if modeNumber1 == modeNumber2:
                 if paramName == 'displayRangeSqFluct':
@@ -222,6 +251,7 @@ class ProDyGNMViewer(ProtocolViewer):
     
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
+        
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
         else:
@@ -235,13 +265,24 @@ class ProDyGNMViewer(ProtocolViewer):
                                       "Display the output Normal Modes to see "
                                       "the availables ones." % modeNumber,
                                       title="Invalid input")]
-        
-        if paramName == 'displaySingleMode':
-            mode = self.modes[modeNumber-1]
 
-            plotter = EmPlotter()
+        mode = self.modes[modeNumber-1]
+        plotter = EmPlotter() 
+
+        if paramName == 'displaySingleMode':
             plot = prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)        
-            return [plotter]
+
+        elif paramName == 'displaySingleCov':
+            plot = prody.showCovarianceMatrix(mode, atoms=self.atoms)
+
+        elif paramName == 'displaySingleCC':   
+            plot = prody.showCrossCorr(mode, atoms=self.atoms) 
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+
+        return [plotter]
+        
 
 def createShiftPlot(mdFn, title, ylabel):
     plotter = EmPlotter()
@@ -261,7 +302,7 @@ def createShiftPlot(mdFn, title, ylabel):
 
 def createDistanceProfilePlot(protocol, modeNumber):
     if isinstance(protocol, SetOfNormalModes):
-        vectorMdFn = os.path.dirname(os.path.dirname(protocol[1].getModeFile(
+        vectorMdFn = os.path.dirname(os.path.dirname(protocol._getMapper().selectFirst().getModeFile(
         ))) + "/extra/distanceProfiles/vec%d.xmd" % modeNumber
     else:
         vectorMdFn = protocol._getExtraPath("distanceProfiles","vec%d.xmd"
@@ -273,7 +314,7 @@ def createDistanceProfilePlot(protocol, modeNumber):
 
 def createVmdNmwizView(protocol):
     if isinstance(protocol, SetOfNormalModes):
-        nmdFile = os.path.dirname(os.path.dirname(protocol[1].getModeFile())) + "/modes.nmd"
+        nmdFile = os.path.dirname(os.path.dirname(protocol._getMapper().selectFirst().getModeFile())) + "/modes.nmd"
     else:
         nmdFile = protocol._getPath("modes.nmd")
     return VmdView('-e %s' % nmdFile)

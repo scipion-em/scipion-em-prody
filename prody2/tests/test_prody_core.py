@@ -29,16 +29,21 @@ from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, # ProDyRTB,
+from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, ProDyRTB,
                               ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
-from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
+from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import NMD, NPZ, SCIPION, GROMACS
+from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
 
 import prody
+try:
+    from prody import interpolateModel
+    have_interp = True
+except:
+    have_interp = False
 
-class TestProDy_1(TestWorkflow):
+class TestProDy_core(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
@@ -48,6 +53,10 @@ class TestProDy_1(TestWorkflow):
 
     def test_ProDy_core(self):
         """ Run NMA simple workflow for two Atomic structures. """
+
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
         # ------------------------------------------------
         # Step 1. Import a Pdb -> Select chain A -> NMA
         # ------------------------------------------------
@@ -136,8 +145,26 @@ class TestProDy_1(TestWorkflow):
         protComp3.setObjLabel('Compare_AA_to_extCA')
         self.launchProtocol(protComp3)           
 
+        if have_interp:
+            # ------------------------------------------------
+            # Step 6. Interpolate -> Compare
+            # ------------------------------------------------
+            # Interpolate CA NMA to all-atoms
+            protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
+            protEdit4.modes.set(protANM2.outputModes)
+            protEdit4.newNodes.set(protSel1.outputStructure)
+            protEdit4.setObjLabel('Interp_to_AA')
+            self.launchProtocol(protEdit4)        
+
+            # Compare original AA ANM NMA and interpolated CA ANM NMA
+            protComp4 = self.newProtocol(ProDyCompare)
+            protComp4.modes1.set(protANM1.outputModes)
+            protComp4.modes2.set(protEdit4.outputModes)
+            protComp4.setObjLabel('Compare_AA_to_intCA')
+            self.launchProtocol(protComp4)
+
         # ------------------------------------------------
-        # Step 6. Import other Pdb -> Select chain A and CA
+        # Step 7. Import other Pdb -> Select chain A and CA
         # -> align -> defvec -> compare
         # ------------------------------------------------
         # Import a PDB
@@ -189,16 +216,16 @@ class TestProDy_1(TestWorkflow):
         self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
-        # Step 7. Import ANM & compare scipion vs prody npz
+        # Step 8. Import ANM & compare scipion vs prody npz
         # -> import -> import -> compare
         # ------------------------------------------------
         # Define path
         modes = protANM2.outputModes
-        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
 
         # Import modes from prody npz
         protImportModes1 = self.newProtocol(ProDyImportModes)
-        protImportModes1.importType.set(NPZ)
+        protImportModes1.importType.set(modes_NPZ)
         protImportModes1.filesPath.set(modes_path)
         protImportModes1.filesPattern.set("modes.anm.npz")
         protImportModes1.inputStructure.set(protSel2.outputStructure)
@@ -208,7 +235,7 @@ class TestProDy_1(TestWorkflow):
         # Import scipion modes
         protImportModes2 = self.newProtocol(ProDyImportModes)
         protImportModes2.importType.set(SCIPION)
-        protImportModes2.filesPath.set(modes_path)
+        protImportModes2.filesPath.set(protANM2.outputModes.getFileName())
         protImportModes2.inputStructure.set(protSel2.outputStructure)
         protImportModes2.setObjLabel('import_scipion_ANM_CA')
         self.launchProtocol(protImportModes2)  
@@ -221,39 +248,44 @@ class TestProDy_1(TestWorkflow):
         self.launchProtocol(protComp6)  
 
         # -------------------------------------------------------
-        # Step 8. RTB in 2 ways -> Compare to each other and ANM
+        # Step 9. RTB in 2 ways -> Compare to each other and ANM
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block
-        # protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
-        # protRTB1.inputStructure.set(protSel2.outputStructure)
-        # protRTB1.setObjLabel('RTB_CA_10_res')
-        # self.launchProtocol(protRTB1)
-        #
-        # # Launch RTB NMA for selected atoms (CA) with secstr block
-        # protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
-        # protRTB2.inputStructure.set(protSel2.outputStructure)
-        # protRTB2.setObjLabel('RTB_CA_secstr')
-        # self.launchProtocol(protRTB2)
-        #
-        # # Compare RTB1 and RTB2
-        # protComp6 = self.newProtocol(ProDyCompare)
-        # protComp6.modes1.set(protRTB1.outputModes)
-        # protComp6.modes2.set(protRTB2.outputModes)
-        # protComp6.setObjLabel('Compare_RTB1_to_RTB2')
-        # self.launchProtocol(protComp6)
-        #
-        # # Compare CA ANM and RTB1
-        # protComp7 = self.newProtocol(ProDyCompare)
-        # protComp7.modes1.set(protANM2.outputModes)
-        # protComp7.modes2.set(protRTB1.outputModes)
-        # protComp7.setObjLabel('Compare_ANM_to_RTB1')
-        # self.launchProtocol(protComp7)
-        #
-        # # Compare CA ANM and RTB2
-        # protComp8 = self.newProtocol(ProDyCompare)
-        # protComp8.modes1.set(protANM2.outputModes)
-        # protComp8.modes2.set(protRTB2.outputModes)
-        # protComp8.setObjLabel('Compare_ANM_to_RTB2')
-        # self.launchProtocol(protComp8)
+        protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
+        protRTB1.inputStructure.set(protSel2.outputStructure)
+        protRTB1.setObjLabel('RTB_CA_10_res')
+        self.launchProtocol(protRTB1)
+
+        # Launch RTB NMA for selected atoms (CA) with secstr block
+        protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
+        protRTB2.inputStructure.set(protSel2.outputStructure)
+        protRTB2.setObjLabel('RTB_CA_secstr')
+        self.launchProtocol(protRTB2)
+
+        # Compare RTB1 and RTB2
+        protComp6 = self.newProtocol(ProDyCompare)
+        protComp6.modes1.set(protRTB1.outputModes)
+        protComp6.modes2.set(protRTB2.outputModes)
+        protComp6.setObjLabel('Compare_RTB1_to_RTB2')
+        self.launchProtocol(protComp6)
+
+        # Compare CA ANM and RTB1
+        protComp7 = self.newProtocol(ProDyCompare)
+        protComp7.modes1.set(protANM2.outputModes)
+        protComp7.modes2.set(protRTB1.outputModes)
+        protComp7.setObjLabel('Compare_ANM_to_RTB1')
+        self.launchProtocol(protComp7)
+
+        # Compare CA ANM and RTB2
+        protComp8 = self.newProtocol(ProDyCompare)
+        protComp8.modes1.set(protANM2.outputModes)
+        protComp8.modes2.set(protRTB2.outputModes)
+        protComp8.setObjLabel('Compare_ANM_to_RTB2')
+        self.launchProtocol(protComp8)
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
         
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")

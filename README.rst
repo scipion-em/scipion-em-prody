@@ -40,7 +40,8 @@ CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 Protocols
 ----------
 
-* ProDyANM for anisotropic network model normal mode analysis
+* ProDyANM for anisotropic network model (ANM) normal mode analysis
+* ProDyRTB for rotation and translation blocks (RTB) normal mode analysis
 * ProDyDefvec for calculating deformation vectors between two structures
 
 * ProDyEdit to edit normal modes to different nodes/atoms, including slice and extend
@@ -51,12 +52,25 @@ Protocols
 
 * ProDyImportModes for importing modes calculated outside Scipion, including from Gromacs
 
+* ProDyBuildPDBEnsemble for building ensembles from heterogeneous atomic structures
+* ProDyImportEnsemble for importing ensembles calculated outside Scipion
+
+* ProDyPCA for principal component analysis based on ensembles of atomic structures
+* ProDyProject for projecting ensembles of structures onto principal components or normal modes
+
+* ProDyGNM for Gaussian network model (GNM) analysis
+* ProDyDomainDecomp for dynamical domain decomposition based on GNM modes
+
 Viewers
 ----------
 
 * ProDyComparisonsViewer for viewing matrices and bar graphs quantifying motion similarities
 * ProDyModeViewer for viewing modes of motion in the VMD plugin NMWiz
 
+* ProDyGNMViewer for viewing GNM mode shapes and covariance or cross-correlation matrices
+* ProDyDomainViewer for viewing dynamical domains
+
+* ProDyProjectionsViewer for viewing conformational landscapes from projecting ensembles onto modes
 
 References
 -----------

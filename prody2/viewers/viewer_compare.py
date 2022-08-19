@@ -135,6 +135,14 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
     def _viewMatrix(self, paramName):
         """ visualisation for 2D mode comparisons""" 
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
         if self.abs:
@@ -173,11 +181,23 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             ax.yaxis.set_major_locator(locator)
             ax.yaxis.set_minor_locator(minor_locator)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
         
         return [plotter]
 
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
         if paramName == 'displayBarsSet1':
@@ -246,7 +266,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
         ax = plotter.figure.gca()
 
-        if max(matrix) <= 1:
+        if np.max(matrix) <= 1:
             if self.abs:
                 ax.set_ylim([0, 1])
             else:
@@ -267,6 +287,10 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_minor_locator(minor_locator)
-            
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
+
         return [plotter]
 

@@ -25,7 +25,7 @@
 # *
 # **************************************************************************
 """
-This module implements wrappers around the Xmipp NMA protocol
+This module implements wrappers around the ProDy and Xmipp NMA protocol
 visualization program and the normal mode wizard NMWiz.
 """
 
@@ -36,7 +36,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes)#, ProDyRTB)
+                              ProDyImportModes, ProDyRTB, ProDyPCA)
 
 import os
 import prody
@@ -46,12 +46,18 @@ class ProDyModeViewer(Viewer):
         Normally, modes with high collectivity and low NMA score are preferred.
     """    
     _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, #ProDyRTB,
+    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB, ProDyPCA,
                 ProDyDefvec, ProDyEdit, ProDyImportModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
         """visualisation for mode sets"""
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         type_ = type(obj)
 
@@ -60,12 +66,14 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        modes_path = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
-
         if not os.path.isfile(self.protocol._getPath("modes.nmd")):
-            prody_modes = prody.parseScipionModes(modes_path)
+            prody_modes = prody.parseScipionModes(modes.getFileName())
+            modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
             atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
             prody.writeNMD(modes_path+"/modes.nmd", prody_modes, atoms)
 
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        
         return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
 
