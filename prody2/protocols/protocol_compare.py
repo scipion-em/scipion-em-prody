@@ -109,6 +109,12 @@ class ProDyCompare(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def compareModesStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         modes1_path = os.path.dirname(os.path.dirname(
             self.modes1.get()._getMapper().selectFirst().getModeFile()))
@@ -182,6 +188,9 @@ class ProDyCompare(EMProtocol):
         format_str = '%' + str(pre_dec_len + 4) + '.2f'
 
         prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix, format=format_str)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
