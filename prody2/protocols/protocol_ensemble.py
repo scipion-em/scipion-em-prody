@@ -272,12 +272,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
         outputDcd = EMFile(filename=self.dcdFileName)
-        outputNpz = EMFile(filename=self.npzFileName)
+        #outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
         self._defineOutputs(outputStructures=outputStructures,
                             outputDcd=outputDcd,
-                            outputNpz=outputNpz,
+                            #outputNpz=outputNpz,
                             outSequences=outputSeqs#,
                             #outputTransformations=outputTrans
                             )
