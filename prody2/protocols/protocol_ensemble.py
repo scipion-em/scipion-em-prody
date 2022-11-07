@@ -228,6 +228,21 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         ens = prody.trimPDBEnsemble(ens, occupancy=self.occupancy.get())
 
+        msa = ens.getMSA()
+        prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
+
+        pos_aligned = prody.alignByEnsemble(self.tars, ens)
+
+        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+        for i, ag in enumerate(pos_aligned):
+            sele = prody.trimAtomsUsingMSA(ag, msa, mismatch=-1.0, chain=" ".join(list(set(ag.getChids()))))
+            amap = prody.alignChains(sele, ens.getAtoms(), mapping=msa[[0, i]], seqid=0, overlap=0)[0]
+            filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i, ag.getTitle()))
+            prody.writePDB(filename, amap)
+            pdb = AtomStruct(filename)
+            self.pdbs.append(pdb)
+
+
         self.pdbFileName = self._getPath('ensemble.pdb')
         prody.writePDB(self.pdbFileName, ens)
 
@@ -245,13 +260,18 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
-        outputStructure = AtomStruct(filename=self.pdbFileName)
+        outputStructures = self.pdbs
+
+        outputSeqs = SetOfSequences().create()
+        outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
         outputDcd = EMFile(filename=self.dcdFileName)
         outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
-        self._defineOutputs(outputStructure=outputStructure,
+        self._defineOutputs(outputStructures=outputStructures,
                             outputDcd=outputDcd,
-                            outputNpz=outputNpz)
-                            #outputTransformations=outputTrans)
+                            outputNpz=outputNpz,
+                            outSequences=outputSeqs#,
+                            #outputTransformations=outputTrans
+                            )
