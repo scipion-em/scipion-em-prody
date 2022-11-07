@@ -33,6 +33,7 @@ from pyworkflow.protocol import params
 
 from pwem import *
 from pwem.objects import AtomStruct, Transform, String, EMFile
+from pwem.objects import SetOfAtomStructs, SetOfSequences
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -40,6 +41,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, IntParam, Flo
                                         EnumParam, LEVEL_ADVANCED)
 
 import prody
+import time
 
 STRUCTURE = 0
 INDEX = 1
@@ -62,43 +64,85 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy buildPDBEnsemble')
 
+        form.addParam('inputType', EnumParam, choices=['structures', 'id for DALI search'],
+                      default=STRUCTURE, important=True,
+                      label="Type of input for building the ensemble",
+                      help='The input can be a SetOfAtomStructs or an indexed to search DALI')
+
         form.addParam('structures', PointerParam, label="Set of structures",
-                      important=True,
-                      pointerClass='SetOfAtomStructs',
+                      condition="inputType == %d" % STRUCTURE,
+                      pointerClass='SetOfAtomStructs', allowsNull=True,
                       help='The structures to be aligned must be atomic models.')
 
+        form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
+                      condition="inputType == %d" % INDEX,
+                      help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
+
+        form.addParam('cutoff_len', StringParam, label="cutoff_len for filtering DALI results",
+                      condition="inputType == %d" % INDEX, default='-1',
+                      expertLevel=LEVEL_ADVANCED,
+                      help='Select results with length of aligned residues < cutoff_len '
+                      '(must be an integer up to the number of residues or a float between 0 and 1)')
+        form.addParam('cutoff_rmsd', StringParam, label="cutoff_rmsd for filtering DALI results",
+                      condition="inputType == %d" % INDEX, default='-1',
+                      expertLevel=LEVEL_ADVANCED,
+                      help='Select results with RMSD < cutoff_rmsd (must be a positive number)')
+        form.addParam('cutoff_Z', StringParam, label="cutoff_Z for filtering DALI results",
+                      condition="inputType == %d" % INDEX, default='-1',
+                      expertLevel=LEVEL_ADVANCED,
+                      help='Select results with Z score < cutoff_Z (must be a positive number)')
+        form.addParam('cutoff_identity', StringParam, label="cutoff_identity for filtering DALI results",
+                      condition="inputType == %d" % INDEX, default='-1',
+                      expertLevel=LEVEL_ADVANCED,
+                      help='Select results sequence identity > cutoff_identity '
+                      '(must be an integer up to 100 or a float between 0 and 1).')
+
         form.addParam('refType', EnumParam, choices=['structure', 'index'], 
-                      default=STRUCTURE,
+                      default=STRUCTURE, condition="inputType == %d" % STRUCTURE,
                       label="Reference structure selection type",
                       help='The reference structure can be a separate structure or indexed from the set')
 
         form.addParam('refStructure', PointerParam, label="Reference structure",
                       condition="refType == %d" % STRUCTURE,
-                      pointerClass='AtomStruct',
-                      help='Select an atomic model as the reference structure')
+                      pointerClass='AtomStruct', allowsNull=True,
+                      help='Select an atomic model as the reference structure. '
+                      'When using Dali, this is optional and is used for selecting atoms at the end.')
 
         form.addParam('refIndex', IntParam, label="Reference structure index",
-                      condition="refType == %d" % INDEX,
-                      help='Select the index of the reference structure in the set, starting from 1')
+                      condition="refType == %d and inputType != %d" % (INDEX, INDEX),
+                      help='Select the index of the reference structure in the set, starting from 1. '
+                      'When using Dali, this is optional and is used for selecting atoms at the end.')
 
         form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
-                      label="Sequence Identity Cut-off (%)",
+                      label="Sequence identity cutoff",
                       help='Alignment mapping with lower sequence identity will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1')
 
         form.addParam('overlap', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
-                      label="Overlap Cut-off (%)",
+                      label="Overlap cutoff",
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1') 
 
         form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
-                      default=SAME_CHID,
+                      default=SAME_CHID, condition="inputType == %d" % STRUCTURE,
                       expertLevel=LEVEL_ADVANCED,
                       label="Chain matching function",
                       help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
-                           'Custom match functions will be added soon.')    
+                           'Custom match functions will be added soon.')
+
+        form.addParam('occupancy', FloatParam, default=0.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Occupancy cutoff for trimmng the ensemble",
+                      help='Residues with occupancies lower than this value will be removed.\n'
+                           'It can be a number between 0 and 100 or a decimal between 0 and 1')
+
+        form.addParam('selstr', StringParam, default="name CA",
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Selection string",
+                      help='Selection string for atoms to include in the ensemble.\n'
+                           'It is recommended to use "protein" or "name CA" (default)')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -108,13 +152,43 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
 
-        tars = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.structures.get()], alt='all')
+        if self.inputType.get() == STRUCTURE:
+            pdbs = [tarStructure.getFileName() for tarStructure in self.structures.get()]
+            mappings = 'auto'
+        else:
+            idstr = self.id.get()
+            dali_rec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
+            while dali_rec.isSuccess != True:
+                dali_rec.fetch(timeout=1000)
+                time.sleep(10)
+
+            cutoff_len = eval(str(self.cutoff_len.get()))
+            if cutoff_len == -1:
+                cutoff_len = None
+
+            cutoff_rmsd = eval(str(self.cutoff_rmsd.get()))
+            if cutoff_rmsd == -1:
+                cutoff_rmsd = None
+                
+            cutoff_Z = eval(str(self.cutoff_Z.get()))
+            if cutoff_Z == -1:
+                cutoff_Z = None
+
+            cutoff_identity = eval(str(self.cutoff_identity.get()))
+            if cutoff_identity == -1:
+                cutoff_identity = None
+
+            pdbs = dali_rec.filter(cutoff_len=cutoff_len, cutoff_rmsd=cutoff_rmsd,
+                                   cutoff_Z=cutoff_Z, cutoff_identity=cutoff_identity)
+            mappings = dali_rec.getMappings()
+
+        self.tars = prody.parsePDB(pdbs, alt='all', subset='ca')
 
         # actual steps
-        self._insertFunctionStep('alignStep', ref, tars)
+        self._insertFunctionStep('alignStep', ref, mappings)
         self._insertFunctionStep('createOutputStep')
 
-    def alignStep(self, ref, tars):
+    def alignStep(self, ref, mappings):
         """This step includes alignment mapping and superposition"""
 
         # configure ProDy to automatically handle secondary structure information and verbosity
@@ -130,14 +204,29 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             match_func = prody.sameChid
 
-        ens = prody.buildPDBEnsemble(tars, ref=ref,
+        if mappings != 'auto':
+            # from dali so don't use match func or ref
+            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
+                                        seqid=self.seqid.get(),
+                                        overlap=self.overlap.get(),
+                                        mapping=mappings)
+
+            # instead use them later for selection
+            ens_ref = ens.getAtoms()
+            amap = prody.alignChains(ens_ref, ref.select(self.selstr.get()),
                                      seqid=self.seqid.get(),
                                      overlap=self.overlap.get(),
-                                     match_func=match_func)
+                                     match_func=match_func)[0]
+            ens.setAtoms(amap)
 
-        ens = prody.trimPDBEnsemble(ens, occupancy=1)
+        else:
+            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
+                                          ref=ref.select(self.selstr.get()),
+                                          seqid=self.seqid.get(),
+                                          overlap=self.overlap.get(),
+                                          match_func=match_func)
 
-        self.T = [T.getMatrix() for T in ens.getTransformations()]
+        ens = prody.trimPDBEnsemble(ens, occupancy=self.occupancy.get())
 
         self.pdbFileName = self._getPath('ensemble.pdb')
         prody.writePDB(self.pdbFileName, ens)
@@ -148,6 +237,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.npzFileName = self._getPath('ensemble.ens.npz')
         prody.saveEnsemble(ens, self.npzFileName)
 
+        self.T = [T.getMatrix() for T in ens.getTransformations()]
         self.matrixFileName = self._getPath('transformation_%05d.txt')
         [prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
 
