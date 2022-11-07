@@ -226,7 +226,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           overlap=self.overlap.get(),
                                           match_func=match_func)
 
-        ens = prody.trimPDBEnsemble(ens, occupancy=self.occupancy.get())
+        if self.occupancy.get() > 0:
+            ens = prody.trimPDBEnsemble(ens, occupancy=self.occupancy.get())
 
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
