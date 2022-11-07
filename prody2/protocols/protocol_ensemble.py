@@ -268,7 +268,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def createOutputStep(self):
         outputStructures = self.pdbs
 
-        outputSeqs = SetOfSequences().create()
+        outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
         outputDcd = EMFile(filename=self.dcdFileName)
