@@ -242,6 +242,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
 
+        if len(ens.getLabels()[0]) > 5:
+            if ens.getLabels()[0][:5] != ens.getLabels()[1][:5]:
+                ens._labels = [label.split('_')[0] for label in ens.getLabels()]
+            elif ens.getLabels()[0][-5:] != ens.getLabels()[1][-5:]:
+                ens._labels = [label.split('_')[-1] for label in ens.getLabels()]
 
         self.pdbFileName = self._getPath('ensemble.pdb')
         prody.writePDB(self.pdbFileName, ens)
