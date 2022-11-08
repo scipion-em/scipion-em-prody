@@ -48,6 +48,7 @@ INDEX = 1
 
 BEST_MATCH = 0
 SAME_CHID = 1
+SAME_POS = 2
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
@@ -125,18 +126,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1') 
 
-        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
+        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos'], 
                       default=SAME_CHID, condition="inputType == %d" % STRUCTURE,
                       expertLevel=LEVEL_ADVANCED,
                       label="Chain matching function",
                       help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
                            'Custom match functions will be added soon.')
-
-        form.addParam('occupancy', FloatParam, default=0.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Occupancy cutoff for trimmng the ensemble",
-                      help='Residues with occupancies lower than this value will be removed.\n'
-                           'It can be a number between 0 and 100 or a decimal between 0 and 1')
 
         form.addParam('selstr', StringParam, default="name CA",
                       expertLevel=LEVEL_ADVANCED,
@@ -151,6 +146,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
+            ref = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.structures.get()][ref])
 
         if self.inputType.get() == STRUCTURE:
             pdbs = [tarStructure.getFileName() for tarStructure in self.structures.get()]
@@ -182,7 +178,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                    cutoff_Z=cutoff_Z, cutoff_identity=cutoff_identity)
             mappings = dali_rec.getMappings()
 
-        self.tars = prody.parsePDB(pdbs, alt='all', subset='ca')
+        self.tars = prody.parsePDB(pdbs, alt='all')
 
         # actual steps
         self._insertFunctionStep('alignStep', ref, mappings)
@@ -199,17 +195,17 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        if self.matchFunc.get() == BEST_MATCH:
-            match_func = prody.bestMatch
-        else:
-            match_func = prody.sameChid
+        match_func = eval('prody.'+['bestMatch', 'sameChid', 'sameChainPos'][self.matchFunc.get()])
+        
+        atommaps = [] # output argument for collecting atommaps
 
         if mappings != 'auto':
             # from dali so don't use match func or ref
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
                                         seqid=self.seqid.get(),
                                         overlap=self.overlap.get(),
-                                        mapping=mappings)
+                                        mapping=mappings,
+                                        atommaps=atommaps)
 
             # instead use them later for selection
             ens_ref = ens.getAtoms()
@@ -224,36 +220,26 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           ref=ref.select(self.selstr.get()),
                                           seqid=self.seqid.get(),
                                           overlap=self.overlap.get(),
-                                          match_func=match_func)
+                                          match_func=match_func,
+                                          atommaps=atommaps)
 
-        if self.occupancy.get() > 0:
-            ens = prody.trimPDBEnsemble(ens, occupancy=self.occupancy.get())
+        ens = prody.trimPDBEnsemble(ens, 1.)
+        indices = ens.getIndices()
 
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
 
-        pos_aligned = prody.alignByEnsemble(self.tars, ens)
-
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for i, ag in enumerate(pos_aligned):
-            sele = prody.trimAtomsUsingMSA(ag, msa, mismatch=-1.0, chain=" ".join(list(set(ag.getChids()))))
-            amap = prody.alignChains(sele, ens.getAtoms(), mapping=msa[[0, i]], seqid=0, overlap=0)[0]
+        for i, ag in enumerate(self.tars):
+            amap = atommaps[i][indices]
+            amap.setTitle(amap.getTitle().split('[')[0])
             filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i, ag.getTitle()))
             prody.writePDB(filename, amap)
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
 
-        if len(ens.getLabels()[0]) > 5:
-            if ens.getLabels()[0][:5] != ens.getLabels()[1][:5]:
-                ens._labels = [label.split('_')[0] for label in ens.getLabels()]
-            elif ens.getLabels()[0][-5:] != ens.getLabels()[1][-5:]:
-                ens._labels = [label.split('_')[-1] for label in ens.getLabels()]
-
         self.pdbFileName = self._getPath('ensemble.pdb')
         prody.writePDB(self.pdbFileName, ens)
-
-        self.dcdFileName = self._getPath('ensemble.dcd')
-        prody.writeDCD(self.dcdFileName, ens)
 
         self.npzFileName = self._getPath('ensemble.ens.npz')
         prody.saveEnsemble(ens, self.npzFileName)
@@ -266,18 +252,15 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
-        outputStructures = self.pdbs
-
+        
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        outputDcd = EMFile(filename=self.dcdFileName)
         #outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
-        self._defineOutputs(outputStructures=outputStructures,
-                            outputDcd=outputDcd,
+        self._defineOutputs(outputStructures=self.pdbs,
                             #outputNpz=outputNpz,
-                            outSequences=outputSeqs#,
+                            outAlignment=outputSeqs#,
                             #outputTransformations=outputTrans
                             )

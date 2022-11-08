@@ -39,7 +39,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfPrincipalComponents, String
+from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -71,8 +71,9 @@ class ProDyPCA(ProDyModesBase):
         form.addSection(label='ProDy PCA')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='EMFile', # may want to make a new class for this
-                      help='The input ensemble should be an ens.npz file built by ProDy')
+                      pointerClass='SetOfAtomStructs',
+                      help='The input ensemble should be a SetOfAtomStructs '
+                      'where all structures have the same number of atoms.')
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -110,12 +111,17 @@ class ProDyPCA(ProDyModesBase):
         # Insert processing steps
 
         # Link the input
-        inputFn = self.inputEnsemble.get().getFileName()
+        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.inputEnsemble.get()])
+        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
+        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        
+        self.dcdFileName = self._getPath('ensemble.dcd')
+        prody.writeDCD(self.dcdFileName, ens)
 
         self.model_type = 'pca'
         n = self.numberOfModes.get()
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
+        self._insertFunctionStep('computeModesStep', ens, n)
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
@@ -124,7 +130,7 @@ class ProDyPCA(ProDyModesBase):
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn, n):
+    def computeModesStep(self, ens, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
         old_secondary = prody.confProDy("auto_secondary")
         old_verbosity = prody.confProDy("verbosity")
@@ -134,13 +140,7 @@ class ProDyPCA(ProDyModesBase):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         self.pdbFileName = self._getPath('atoms.pdb')
-        self.dcdFileName = self._getPath('ensemble.dcd')
-
-        ens = prody.loadEnsemble(inputFn)
-        prody.writeDCD(self.dcdFileName, ens)
-
-        self.atoms = ens.getAtoms()
-        prody.writePDB(self.pdbFileName, self.atoms)
+        prody.writePDB(self.pdbFileName, ens.getAtoms())
 
         self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
                     ' -o {2} -p modes -n {3} -P {4}'.format(self.dcdFileName,
@@ -148,7 +148,7 @@ class ProDyPCA(ProDyModesBase):
                                                             self._getPath(), n,
                                                             self.numberOfThreads.get()))
         
-        self.pca, _ = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        self.pca, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
         eigvecs = self.pca.getEigvecs()
         eigvals = self.pca.getEigvals()

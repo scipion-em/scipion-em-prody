@@ -36,10 +36,9 @@ import math
 from multiprocessing import cpu_count
 
 from pwem import *
-from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfPrincipalComponents, String, EMFile
+import pwem.emlib.metadata as md
+from pwem.objects import (SetOfPrincipalComponents, SetOfAtomStructs,
+                          String, EMFile)
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -68,8 +67,9 @@ class ProDyProject(EMProtocol):
         form.addSection(label='ProDy Projection')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='EMFile', # may want to make a new class for this
-                      help='The input ensemble should be an ens.npz file built by ProDy')
+                      pointerClass='SetOfAtomStructs',
+                      help='The input ensemble should be a SetOfAtomStructs '
+                      'where all structures have the same number of atoms.')
 
         form.addParam('inputModes', PointerParam, label="Input set of modes",
                       important=True,
@@ -96,7 +96,9 @@ class ProDyProject(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        ens = prody.loadEnsemble(self.inputEnsemble.get().getFileName())
+        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.inputEnsemble.get()])
+        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
+        # the ensemble gets built exactly as the input is setup and nothing gets rejected
 
         modes_path = self.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
@@ -108,6 +110,19 @@ class ProDyProject(EMProtocol):
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
+        inputEnsemble = self.inputEnsemble.get()
+        coeffs = list(prody.parseArray(self._getExtraPath('projection.txt')))
+        
+        outSetAS = SetOfAtomStructs().create(self._getExtraPath())
+        outSetAS.copyItems(inputEnsemble,
+                          updateItemCallback=self._updateStructure,
+                          itemDataIterator=iter(coeffs))
+        
         outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
-        self._defineOutputs(outputProjection=outputProjection)
+        self._defineOutputs(outputProjection=outputProjection,
+                            outputStructures=outSetAS)
 
+
+    # --------------------------- UTILS functions --------------------------------------------
+    def _updateStructure(self, structure, value):
+        setattr(structure, "_prody_pcaCoefficients", value)

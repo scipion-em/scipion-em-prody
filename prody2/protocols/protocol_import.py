@@ -34,7 +34,7 @@ import numpy as np
 
 from pwem import *
 from pwem.objects import (AtomStruct, SetOfNormalModes, SetOfPrincipalComponents,
-                          String, EMFile)
+                          String, EMFile, SetOfAtomStructs)
 from pwem.protocols import EMProtocol, ProtImportFiles
 
 from pyworkflow.utils import *
@@ -310,6 +310,15 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.outEns.superpose()
         elif self.superpose == ITERPOSE:
             self.outEns.iterpose()
+            
+        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+        for i, coordset in enumerate(self.outEns.getCoordsets()):
+            atoms = self.atoms.copy()
+            atoms.setCoords(coordset)
+            filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
+            prody.writePDB(filename, atoms)
+            pdb = AtomStruct(filename)
+            self.pdbs.append(pdb)
         
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
@@ -318,5 +327,5 @@ class ProDyImportEnsemble(ProtImportFiles):
 
     def createOutputStep(self):
         outFile = EMFile(filename=self.filename)
-        self._defineOutputs(outputNpz=outFile)
+        self._defineOutputs(outputNpz=outFile, outputStructures=self.pdbs)
         

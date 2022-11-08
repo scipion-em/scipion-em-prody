@@ -77,7 +77,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Select whether to normalise projections.')   
 
         form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
-                      help='Select whether to scale projections to RMSDs.')   
+                      help='Select whether to scale projections to RMSDs.')
+        
+        form.addParam('label', BooleanParam, label="Label points?", default=True,
+                      help='Select whether to label points.',
+                      condition=self.numModes!=ONE)   
 
         # form.addParam('kde', BooleanParam, label="Use kernel density estimation?",
         #               condition=(numModes != THREE and not byFrame),
@@ -91,13 +95,18 @@ class ProDyProjectionsViewer(ProtocolViewer):
         """visualisation for all projections""" 
         #proj = prody.parseArray(self.protocol.outputProjection.getFileName())
 
-        ensemble = prody.loadEnsemble(self.protocol.inputEnsemble.get().getFileName())
+        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.protocol.inputEnsemble.get()])
+        ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
+        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        
+        if ensemble.getLabels()[0].endswith('_atoms_amap'):
+            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
 
         modes_path = self.protocol.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
 
         plotter = EmPlotter()
-        plotter.createSubPlot('', 'mode index from set 2', 'mode index from set 1')
+        plotter.createSubPlot('', '', '')
         ax = plotter.figure.gca()
 
         if self.numModes == ONE:
@@ -105,10 +114,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                         by_time=self.byFrame.get(),
                                         rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
         else:
-            plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
-                                        text=ensemble.getLabels(), 
-                                        rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())            
-        
+            if self.label.get():
+                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
+                                            text=ensemble.getLabels(), 
+                                            rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
+            else:
+                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
+                                            rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
+                
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 

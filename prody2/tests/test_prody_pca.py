@@ -125,7 +125,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protEns1)   
 
         protPca1 = self.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca1.inputEnsemble.set(protEns1.outputNpz)
+        protPca1.inputEnsemble.set(protEns1.outputStructures)
         protPca1.setObjLabel('PCA_ref_3o21_CD')
         self.launchProtocol(protPca1)  
 
@@ -144,7 +144,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protEns2)   
 
         protPca2 = self.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca2.inputEnsemble.set(protEns2.outputNpz)
+        protPca2.inputEnsemble.set(protEns2.outputStructures)
         protPca2.setObjLabel('PCA_ref_idx')
         self.launchProtocol(protPca2)  
 
@@ -165,7 +165,7 @@ class TestProDy_pca(TestWorkflow):
         # Step 5. Project 1D, 2D and 3D
         # ------------------------------------------------    
         protProj1 = self.newProtocol(ProDyProject)
-        protProj1.inputEnsemble.set(protEns2.outputNpz)
+        protProj1.inputEnsemble.set(protEns2.outputStructures)
         protProj1.inputModes.set(protPca2.outputModes)
         protProj1.numModes.set(ONE)
         protProj1.setObjLabel('Project 1D')
@@ -173,7 +173,7 @@ class TestProDy_pca(TestWorkflow):
 
         protProj2 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj2.inputEnsemble.set(protEns2.outputNpz)
+        protProj2.inputEnsemble.set(protEns2.outputStructures)
         protProj2.inputModes.set(protPca2.outputModes)
         protProj2.numModes.set(TWO)
         protProj2.setObjLabel('Project 2D')
@@ -181,7 +181,7 @@ class TestProDy_pca(TestWorkflow):
 
         protProj3 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj3.inputEnsemble.set(protEns2.outputNpz)
+        protProj3.inputEnsemble.set(protEns2.outputStructures)
         protProj3.inputModes.set(protPca2.outputModes)
         protProj3.numModes.set(THREE)
         protProj3.setObjLabel('Project 3D')
@@ -200,13 +200,13 @@ class TestProDy_pca(TestWorkflow):
         protSel4.setObjLabel('Sel 2k39_n_ca')
         self.launchProtocol(protSel4)        
 
-        protImportEns = self.newProtocol(ProDyImportEnsemble, superpose=2)
+        protImportEns = self.newProtocol(ProDyImportEnsemble, superpose=2) # iterpose
         protImportEns.filesPath.set(protSel4._getPath("2k39_atoms.pdb"))
         protImportEns.setObjLabel('prody import ens - 2k39_n_ca')
         self.launchProtocol(protImportEns)
 
         protPca3 = self.newProtocol(ProDyPCA)
-        protPca3.inputEnsemble.set(protImportEns.outputNpz)
+        protPca3.inputEnsemble.set(protImportEns.outputStructures)
         protPca3.setObjLabel('PCA_2k39')
         self.launchProtocol(protPca3)  
 
