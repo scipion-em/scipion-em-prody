@@ -74,7 +74,7 @@ class ProDyPCA(ProDyModesBase):
                       pointerClass='SetOfAtomStructs',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms.')
-        form.addParam('numberOfModes', IntParam, default=20,
+        form.addParam('numberOfModes', IntParam, default=5,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
