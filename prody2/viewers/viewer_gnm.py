@@ -122,13 +122,6 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Show overlaid chains",
                       help="Choose whether to show chains as overlaid curves of different colours or one after the other with bars underneath to "
                         "indicate them. Different options may be better for different data.")
-        group.addParam('displaySingleCov', LabelParam, default=False,
-                label="Plot single mode covariance?",
-                help="Covariance matrices are shown as heatmaps.")
-        group.addParam('displaySingleCC', LabelParam, default=False,
-                label="Plot single mode cross correlation?",
-                help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
-                    'Normalized Covariance matrix')
 
         group = form.addGroup('Modes range')  
         group.addParam('modeNumber1', IntParam, default=self.startMode+1,
@@ -136,13 +129,18 @@ class ProDyGNMViewer(ProtocolViewer):
         group.addParam('modeNumber2', IntParam, default=self.startMode+1,
                       label='Final mode number')
         group.addParam('displayRangeSqFluct', LabelParam, default=False,
-                      label="Plot range mean square fluctuation?",
-                      help="Shows the cumulative Mean Square Fluctuations of the range of modes selected, to calculate the Square fluctuations "
-                      "of a single mode, just put the same number in the range boxes.")
+                      label="Plot mean square fluctuation?",
+                      help="Shows the cumulative Mean Square Fluctuations of the range of modes selected.")
         group.addParam('displayRangeRMSFluct', LabelParam, default=False,
-                      label="Plot range root mean square fluctuation?",
-                      help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected. To calculate the Root Square fluctuations "
-                      "of a single mode, just put the same number in the range boxes.")
+                      label="Plot root mean square fluctuation?",
+                      help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected.")
+        group.addParam('displayCov', LabelParam, default=False,
+                label="Plot covariance?",
+                help="Covariance matrices are shown as heatmaps.")
+        group.addParam('displayCC', LabelParam, default=False,
+                label="Plot cross-correlation?",
+                help="Orientational cross-correlation matrices are shown as heatmaps. "
+                     "Cross correlation is equal to Normalized Covariance matrix")   
 
         form.addParam('displayVmd2', LabelParam,
                       condition=os.path.isfile(nmdFile),
@@ -161,8 +159,8 @@ class ProDyGNMViewer(ProtocolViewer):
                 'displayCovMatrix': self._viewAllModes,
                 'displayCrossCorrMatrix': self._viewAllModes,
                 'displaySingleMode': self._viewSingleMode,
-                'displaySingleCov': self._viewSingleMode,
-                'displaySingleCC': self._viewSingleMode
+                'displayCov': self._viewSQF,
+                'displayCC': self._viewSQF,
                 } 
 
     def _viewAllModes(self, paramName):
@@ -230,22 +228,39 @@ class ProDyGNMViewer(ProtocolViewer):
                                     title="Invalid input")]  
                 
         plotter = EmPlotter()
+        
+        if paramName in ['displayCov', 'displayCC']:
+            plotter.createSubPlot('', 'atom index', 'atom index')
+            
 
         if paramName == 'displaySqFlucts':
             plot = prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms)
         elif paramName == 'displayRMSFlucts':
             plot = prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms)
         else:            
-            if modeNumber1 == modeNumber2:
+            if modeNumber1+1 == modeNumber2:
+                mode = self.modes[modeNumber1]
+                
                 if paramName == 'displayRangeSqFluct':
-                    plot = prody.showSqFlucts(self.modes[modeNumber1], atoms=self.atoms)
+                    plot = prody.showSqFlucts(mode, atoms=self.atoms)
                 elif paramName == 'displayRangeRMSFluct':
-                    plot = prody.showRMSFlucts(self.modes[modeNumber1], atoms=self.atoms)
+                    plot = prody.showRMSFlucts(mode, atoms=self.atoms)
+                elif paramName == 'displayCov':
+                    plot = prody.showCovarianceMatrix(mode, atoms=self.atoms)
+                elif paramName == 'displayCC':   
+                    plot = prody.showCrossCorr(mode, atoms=self.atoms) 
+                    
             else:
+                modes = self.modes[modeNumber1:modeNumber2]
+                
                 if paramName == 'displayRangeSqFluct':
-                    plot = prody.showSqFlucts(self.modes[modeNumber1:modeNumber2], atoms=self.atoms)
+                    plot = prody.showSqFlucts(modes, atoms=self.atoms)
                 elif paramName == 'displayRangeRMSFluct':
-                    plot = prody.showRMSFlucts(self.modes[modeNumber1:modeNumber2], atoms=self.atoms)
+                    plot = prody.showRMSFlucts(modes, atoms=self.atoms)                  
+                elif paramName == 'displayCov':
+                    plot = prody.showCovarianceMatrix(modes, atoms=self.atoms)
+                elif paramName == 'displayCC':   
+                    plot = prody.showCrossCorr(modes, atoms=self.atoms)
 
         return [plotter]
     
@@ -268,18 +283,10 @@ class ProDyGNMViewer(ProtocolViewer):
 
         mode = self.modes[modeNumber-1]
         plotter = EmPlotter() 
+        plotter.createSubPlot('', 'atom index', 'mode {0}'.format(mode.getIndex() + 1))
 
         if paramName == 'displaySingleMode':
-            plot = prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)        
-
-        elif paramName == 'displaySingleCov':
-            plot = prody.showCovarianceMatrix(mode, atoms=self.atoms)
-
-        elif paramName == 'displaySingleCC':   
-            plot = prody.showCrossCorr(mode, atoms=self.atoms) 
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+            plot = prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)
 
         return [plotter]
         
@@ -326,3 +333,6 @@ def showDistanceProfilePlot(protocol, modeNumber):
 ProjectWindow.registerObjectCommand(OBJCMD_NMA_PLOTDIST,
                                     showDistanceProfilePlot)
 
+
+# configure ProDy to restore secondary structure information and verbosity
+prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
