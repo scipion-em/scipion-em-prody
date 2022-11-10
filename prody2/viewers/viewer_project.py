@@ -101,6 +101,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
         
         if ensemble.getLabels()[0].endswith('_atoms_amap'):
             ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+            
+        if ensemble.getLabels()[0][:6].isnumeric():
+            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
 
         modes_path = self.protocol.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
