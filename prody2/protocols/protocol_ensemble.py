@@ -146,7 +146,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
-            ref = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.structures.get()][ref])
 
         if self.inputType.get() == STRUCTURE:
             pdbs = [tarStructure.getFileName() for tarStructure in self.structures.get()]
@@ -216,8 +215,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             ens.setAtoms(amap)
 
         else:
+            if self.refType.get() == STRUCTURE:
+                self.tars = [ref] + self.tars
+                ref=0
+                
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          ref=ref.select(self.selstr.get()),
+                                          ref=ref,
                                           seqid=self.seqid.get(),
                                           overlap=self.overlap.get(),
                                           match_func=match_func,
