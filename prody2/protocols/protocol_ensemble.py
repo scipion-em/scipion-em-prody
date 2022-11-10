@@ -231,7 +231,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for i, ag in enumerate(self.tars):
-            amap = atommaps[i][indices]
+            amap = atommaps[i]
+            if indices:
+                amap = amap[indices]
+            
             amap.setTitle(amap.getTitle().split('[')[0])
             filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i, ag.getTitle()))
             prody.writePDB(filename, amap)
