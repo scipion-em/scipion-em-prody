@@ -50,6 +50,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 import prody
+import matplotlib.pyplot as plt
 
 
 class ProDyPCA(ProDyModesBase):
@@ -159,6 +160,10 @@ class ProDyPCA(ProDyModesBase):
         prody.saveModel(self.pca, self._getPath('modes.pca.npz'), matrices=True)
 
         self.outModes = self.pca
+        
+        plt.figure()
+        prody.showFractVars(self.pca)
+        plt.savefig(self._getPath('pca_fract_vars.png'))
         
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
