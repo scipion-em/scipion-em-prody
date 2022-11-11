@@ -92,8 +92,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         return {'showProjection': self._viewProjection}            
 
     def _viewProjection(self, paramName):
-        """visualisation for all projections""" 
-        #proj = prody.parseArray(self.protocol.outputProjection.getFileName())
+        """visualisation for all projections"""  
 
         ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.protocol.inputEnsemble.get()])
         ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
