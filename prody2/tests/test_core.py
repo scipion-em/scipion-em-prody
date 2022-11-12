@@ -87,13 +87,13 @@ class TestProDy_core(TestWorkflow):
         protSel1b.setObjLabel('Sel_4akeA_all_file')
         self.launchProtocol(protSel1b)
 
-        # ------------------------------------------------
-        # Step 1c. Select chain A from PDB id
-        # ------------------------------------------------
+        # ----------------------------------------------------
+        # Step 1c. Select chain A from PDB id (difficult case)
+        # ----------------------------------------------------
         protSel1c = self.newProtocol(ProDySelect, selection="protein and chain A",
                                      inputPdbData=0)
-        protSel1c.pdbId.set("4ake")
-        protSel1c.setObjLabel('Sel_4akeA_all_id')
+        protSel1c.pdbId.set("6xr8")
+        protSel1c.setObjLabel('Sel_6xr8_A_all_id')
         self.launchProtocol(protSel1c)
 
         # ------------------------------------------------

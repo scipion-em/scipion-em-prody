@@ -105,6 +105,10 @@ class ProDySelect(EMProtocol):
         if self.inputPdbData == self.IMPORT_FROM_ID:
             prody.pathPDBFolder(self.getPath(""))
             inputFn = prody.fetchPDB(self.pdbId.get())
+            
+            if inputFn == None:
+                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif")
+
             prody.pathPDBFolder("")
 
             self.inputStructure = AtomStruct()
