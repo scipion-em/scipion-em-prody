@@ -239,7 +239,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 amap = amap[indices]
             
             amap.setTitle(amap.getTitle().split('[')[0])
-            filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i, ag.getTitle()))
+            filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
             prody.writePDB(filename, amap)
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
