@@ -235,7 +235,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for i, ag in enumerate(self.tars):
             amap = atommaps[i]
-            if indices:
+            if indices is not None:
                 amap = amap[indices]
             
             amap.setTitle(amap.getTitle().split('[')[0])
