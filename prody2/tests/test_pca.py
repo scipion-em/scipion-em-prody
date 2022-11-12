@@ -124,7 +124,7 @@ class TestProDy_pca(TestWorkflow):
                         "wrong size SetOfAtomStructs ({0} not 4) with "
                         "SetOfAtomStructs input and added atom struct ref".format(numAS))
 
-        protPca1 = self.newProtocol(ProDyPCA, numberOfModes=3)
+        protPca1 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca1.inputEnsemble.set(protEns1.outputStructures)
         protPca1.setObjLabel('PCA_from_set_ref_3o21_CD')
         self.launchProtocol(protPca1)
@@ -149,7 +149,7 @@ class TestProDy_pca(TestWorkflow):
                         "wrong size SetOfAtomStructs ({0} not 3) with "
                         "SetOfAtomStructs input and index ref".format(numAS))
 
-        protPca2 = self.newProtocol(ProDyPCA, numberOfModes=3)
+        protPca2 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca2.inputEnsemble.set(protEns2.outputStructures)
         protPca2.setObjLabel('PCA_from_set_ref_idx')
         self.launchProtocol(protPca2)
@@ -206,7 +206,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protComp1)
 
         comp_matrix = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
-        self.assertTrue(np.allclose(comp_matrix, np.ones(3)), "The modes aren't identical")
+        self.assertTrue(np.allclose(comp_matrix, np.ones(2)), "The modes aren't identical")
 
         # ------------------------------------------------
         # Step 5. Project 1D, 2D and 3D
@@ -296,8 +296,7 @@ class TestProDy_pca(TestWorkflow):
                         )) 
 
         # compare
-        protComp2 = self.newProtocol(ProDyCompare,
-                                     diag=True, match=True)
+        protComp2 = self.newProtocol(ProDyCompare)
         protComp2.modes1.set(protImportModes1.outputModes)
         protComp2.modes2.set(protImportModes2.outputModes)
         protComp2.setObjLabel('Compare_imported_2k39')
