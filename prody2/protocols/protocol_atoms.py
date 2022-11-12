@@ -60,6 +60,9 @@ class ProDySelect(EMProtocol):
     This protocol will perform atom selection
     """
     _label = 'Atom Selection'
+    IMPORT_FROM_ID = 0
+    IMPORT_FROM_FILES = 1
+    USE_POINTER = 2
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -70,8 +73,21 @@ class ProDySelect(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy Select')
 
+        form.addParam('inputPdbData', params.EnumParam, choices=['id', 'file', 'pointer'],
+                      label="Import atomic structure from",
+                      default=self.USE_POINTER,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Import mmCIF data from online server or local file')
+        form.addParam('pdbId', params.StringParam,
+                      condition='inputPdbData == IMPORT_FROM_ID',
+                      label="Atomic structure ID ", allowsNull=True,
+                      help='Type a mmCIF ID (four alphanumeric characters).')
+        form.addParam('pdbFile', params.PathParam, label="File path",
+                      condition='inputPdbData == IMPORT_FROM_FILES',
+                      allowsNull=True,
+                      help='Specify a path to desired atomic structure.')
         form.addParam('inputStructure', PointerParam, label="Input structure",
-                      important=True,
+                      condition='inputPdbData == USE_POINTER',
                       pointerClass='AtomStruct',
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
@@ -85,7 +101,26 @@ class ProDySelect(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        inputFn = self.inputStructure.get().getFileName()
+
+        if self.inputPdbData == self.IMPORT_FROM_ID:
+            prody.pathPDBFolder(self.getPath(""))
+            inputFn = prody.fetchPDB(self.pdbId.get())
+            prody.pathPDBFolder("")
+
+            self.inputStructure = AtomStruct()
+            self.inputStructure.setFileName(inputFn)
+
+        elif self.inputPdbData == self.IMPORT_FROM_FILES:
+            inputFn = self.pdbFile.get()
+            if not exists(inputFn):
+                raise Exception("Atomic structure not found at *%s*" % inputFn)
+
+            self.inputStructure = AtomStruct()
+            self.inputStructure.setFileName(inputFn)
+
+        else:
+            inputFn = self.inputStructure.get().getFileName()
+
         self._insertFunctionStep('selectionStep', inputFn)
         self._insertFunctionStep('createOutputStep')
 

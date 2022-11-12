@@ -57,9 +57,9 @@ class TestProDy_core(TestWorkflow):
         old_verbosity = prody.confProDy("verbosity")
         old_secondary = prody.confProDy("auto_secondary")
 
-        # ------------------------------------------------
-        # Step 1. Import a Pdb -> Select chain A -> NMA
-        # ------------------------------------------------
+        # --------------------------------------------------------------
+        # Step 1a. Import a Pdb -> Select chain A from Pointer -> NMA
+        # --------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                           pdbId="4ake")
@@ -69,7 +69,7 @@ class TestProDy_core(TestWorkflow):
         # Select Chain A
         protSel1 = self.newProtocol(ProDySelect, selection="protein and chain A")
         protSel1.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1.setObjLabel('Sel_4akeA_all')
+        protSel1.setObjLabel('Sel_4akeA_all_pointer')
         self.launchProtocol(protSel1)
 
         # Launch ANM NMA for chain A (all atoms)
@@ -77,6 +77,24 @@ class TestProDy_core(TestWorkflow):
         protANM1.inputStructure.set(protSel1.outputStructure)
         protANM1.setObjLabel('ANM_all')
         self.launchProtocol(protANM1)
+
+        # ------------------------------------------------
+        # Step 1b. Select chain A from Filename
+        # ------------------------------------------------
+        protSel1b = self.newProtocol(ProDySelect, selection="protein and chain A",
+                                     inputPdbData=1)
+        protSel1b.pdbFile.set(protImportPdb1.outputPdb.getFileName())
+        protSel1b.setObjLabel('Sel_4akeA_all_file')
+        self.launchProtocol(protSel1b)
+
+        # ------------------------------------------------
+        # Step 1c. Select chain A from PDB id
+        # ------------------------------------------------
+        protSel1c = self.newProtocol(ProDySelect, selection="protein and chain A",
+                                     inputPdbData=0)
+        protSel1c.pdbId.set("4ake")
+        protSel1c.setObjLabel('Sel_4akeA_all_id')
+        self.launchProtocol(protSel1c)
 
         # ------------------------------------------------
         # Step 2. Select CA -> ANM NMA
