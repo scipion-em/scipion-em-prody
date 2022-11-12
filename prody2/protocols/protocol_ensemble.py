@@ -37,7 +37,8 @@ from pwem.objects import SetOfAtomStructs, SetOfSequences
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import (PointerParam, StringParam, IntParam, FloatParam,
+from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
+                                        StringParam, IntParam, FloatParam,
                                         EnumParam, LEVEL_ADVANCED)
 
 import prody
@@ -70,9 +71,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       label="Type of input for building the ensemble",
                       help='The input can be a SetOfAtomStructs or an indexed to search DALI')
 
-        form.addParam('structures', PointerParam, label="Set of structures",
+        form.addParam('structures', MultiPointerParam, label="Set of structures",
                       condition="inputType == %d" % STRUCTURE,
-                      pointerClass='SetOfAtomStructs', allowsNull=True,
+                      pointerClass='AtomStruct,SetOfAtomStructs', allowsNull=True,
                       help='The structures to be aligned must be atomic models.')
 
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
@@ -148,7 +149,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
 
         if self.inputType.get() == STRUCTURE:
-            pdbs = [tarStructure.getFileName() for tarStructure in self.structures.get()]
+            pdbs = []
+            for i, obj in enumerate(self.structures):
+                if isinstance(obj.get(), AtomStruct):
+                    pdbs.append(obj.get().getFileName())
+                else:
+                    pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+
             mappings = 'auto'
         else:
             idstr = self.id.get()
