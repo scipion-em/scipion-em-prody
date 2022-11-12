@@ -1,3 +1,8 @@
+12 November 2022 - major release v3.3.0
+    Substantial integration and improvements of everything
+    including ensemble analysis using SetOfAtomStructs and 
+    MultiPointerParam
+
 29 July 2022 - major release v3.2.0
     Whole new working pipelines with tests:
         1. GNM analysis and dynamical domain decomposition
