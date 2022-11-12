@@ -110,7 +110,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Select an atomic model as the reference structure. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')
 
-        form.addParam('refIndex', IntParam, label="Reference structure index",
+        form.addParam('refIndex', IntParam, label="Reference structure index", default=1,
                       condition="refType == %d and inputType != %d" % (INDEX, INDEX),
                       help='Select the index of the reference structure in the set, starting from 1. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')

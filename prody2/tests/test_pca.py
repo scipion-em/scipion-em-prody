@@ -186,7 +186,6 @@ class TestProDy_pca(TestWorkflow):
                                     matchFunc=0)
         protEns4.structures.set([protSel1.outputStructure,
                                  protSel2.outputStructure])
-        protEns4.refIndex.set(1)
         protEns4.setObjLabel('buildPDBEns_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns4)
 
