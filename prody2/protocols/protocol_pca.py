@@ -167,7 +167,7 @@ class ProDyPCA(ProDyModesBase):
         plt.savefig(self._getPath('pca_fract_vars.png'))
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
-        prody.writeArray(self._getExtraPath('fract_vars.txt'), self.fract_vars)
+        prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
         self._enterWorkingDir()
@@ -266,7 +266,7 @@ class ProDyPCA(ProDyModesBase):
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
         
-        outputFractVars = EMFile(filename=self._getExtraPath('fract_vars.txt'))
+        outputFractVars = EMFile(filename=self._getPath('pca_fract_vars.txt'))
 
         self._defineOutputs(outFractVars=outputFractVars,
                             outputModes=nmSet)
