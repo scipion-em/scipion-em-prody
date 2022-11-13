@@ -163,6 +163,9 @@ class ProDyPCA(ProDyModesBase):
         prody.showFractVars(self.outModes)
         plt.savefig(self._getPath('pca_fract_vars.png'))
         
+        self.fract_vars = prody.calcFractVariance(self.outModes)
+        prody.writeArray(self._getExtraPath('fract_vars.txt'), self.fract_vars)
+        
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
@@ -262,6 +265,9 @@ class ProDyPCA(ProDyModesBase):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        
+        outputFractVars = EMFile(filename=self._getExtraPath('fract_vars.txt'))
 
-        self._defineOutputs(outputModes=nmSet)
+        self._defineOutputs(outFractVars=outputFractVars,
+                            outputModes=nmSet)
 
