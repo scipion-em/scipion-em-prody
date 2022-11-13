@@ -113,7 +113,7 @@ class ProDyPCA(ProDyModesBase):
 
         # Link the input
         ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.inputEnsemble.get()])
-        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
+        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
         # the ensemble gets built exactly as the input is setup and nothing gets rejected
         
         self.dcdFileName = self._getPath('ensemble.dcd')
