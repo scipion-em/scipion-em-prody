@@ -238,9 +238,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
+        
+        pos_aligned = prody.alignByEnsemble(self.tars, ens)
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for i, ag in enumerate(self.tars):
+        for i, ag in enumerate(pos_aligned):
             amap = atommaps[i]
             if indices is not None:
                 amap = amap[indices]
