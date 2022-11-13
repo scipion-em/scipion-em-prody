@@ -149,20 +149,18 @@ class ProDyPCA(ProDyModesBase):
                                                                       self._getPath(), n,
                                                                       self.numberOfThreads.get()))
         
-        self.pca, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
-        eigvecs = self.pca.getEigvecs()
-        eigvals = self.pca.getEigvals()
+        eigvecs = self.outModes.getEigvecs()
+        eigvals = self.outModes.getEigvals()
         cov = prody.parseArray(self._getPath('modes_covariance.txt'))
 
-        self.pca.setCovariance(cov)
-        self.pca.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.pca, self._getPath('modes.pca.npz'), matrices=True)
-
-        self.outModes = self.pca
+        self.outModes.setCovariance(cov)
+        self.outModes.setEigens(eigvecs, eigvals)
+        prody.saveModel(self.outModes, self._getPath('modes.pca.npz'), matrices=True)
         
         plt.figure()
-        prody.showFractVars(self.pca)
+        prody.showFractVars(self.outModes)
         plt.savefig(self._getPath('pca_fract_vars.png'))
         
         # configure ProDy to restore secondary structure information and verbosity
@@ -181,8 +179,8 @@ class ProDyPCA(ProDyModesBase):
             self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.pca))
-        eigvals = self.pca.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.outModes))
+        eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -222,7 +220,7 @@ class ProDyPCA(ProDyModesBase):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.pca, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):
