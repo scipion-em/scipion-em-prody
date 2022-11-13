@@ -95,7 +95,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         """visualisation for all projections"""  
 
         ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.protocol.inputEnsemble.get()])
-        ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0.)
+        ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
         # the ensemble gets built exactly as the input is setup and nothing gets rejected
         
         if ensemble.getLabels()[0].endswith('_atoms_amap'):
