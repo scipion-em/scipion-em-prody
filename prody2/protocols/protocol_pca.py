@@ -143,6 +143,9 @@ class ProDyPCA(ProDyModesBase):
         self.pdbFileName = self._getPath('atoms.pdb')
         prody.writePDB(self.pdbFileName, ens.getAtoms())
 
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+
         self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
                                                                       self.pdbFileName,
@@ -165,9 +168,6 @@ class ProDyPCA(ProDyModesBase):
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getExtraPath('fract_vars.txt'), self.fract_vars)
-        
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
         self._enterWorkingDir()
