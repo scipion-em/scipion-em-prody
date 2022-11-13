@@ -144,10 +144,10 @@ class ProDyPCA(ProDyModesBase):
         prody.writePDB(self.pdbFileName, ens.getAtoms())
 
         self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
-                    ' -o {2} -p modes -n {3} -P {4}'.format(self.dcdFileName,
-                                                            self.pdbFileName,
-                                                            self._getPath(), n,
-                                                            self.numberOfThreads.get()))
+                    ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
+                                                                      self.pdbFileName,
+                                                                      self._getPath(), n,
+                                                                      self.numberOfThreads.get()))
         
         self.pca, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
