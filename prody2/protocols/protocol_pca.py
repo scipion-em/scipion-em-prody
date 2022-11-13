@@ -39,7 +39,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String
+from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
