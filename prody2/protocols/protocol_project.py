@@ -41,12 +41,14 @@ from pwem.objects import (SetOfPrincipalComponents, SetOfAtomStructs,
                           String, EMFile)
 from pwem.protocols import EMProtocol
 
+import pyworkflow.object as pwobj
 from pyworkflow.utils import *
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
+from prody2.constants import PROJ_COEFFS
 
 ONE = 0
 TWO = 1
@@ -104,19 +106,15 @@ class ProDyProject(EMProtocol):
         modes = prody.parseScipionModes(modes_path)
 
         self.proj = prody.calcProjection(ens, modes[:self.numModes.get()+1])
-        prody.writeArray(self._getExtraPath('projection.txt'), self.proj)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         inputEnsemble = self.inputEnsemble.get()
-        coeffs = list(prody.parseArray(self._getExtraPath('projection.txt')))
         
         outSetAS = SetOfAtomStructs().create(self._getExtraPath())
-        outSetAS.copyItems(inputEnsemble,
-                          updateItemCallback=self._updateStructure,
-                          itemDataIterator=iter(coeffs))
+        outSetAS.copyItems(inputEnsemble, updateItemCallback=self._setCoeffs)
         
         outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
         self._defineOutputs(outputProjection=outputProjection,
@@ -124,5 +122,8 @@ class ProDyProject(EMProtocol):
 
 
     # --------------------------- UTILS functions --------------------------------------------
-    def _updateStructure(self, structure, value):
-        setattr(structure, "_prody_pcaCoefficients", value)
+    def _setCoeffs(self, item, row=None):
+        # We provide data directly so don't need a row
+        vector = pwobj.CsvList()
+        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[item.getObjId()-1])])
+        setattr(item, PROJ_COEFFS, vector)

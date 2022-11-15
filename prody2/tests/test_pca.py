@@ -217,6 +217,12 @@ class TestProDy_pca(TestWorkflow):
         protProj1.setObjLabel('Project 1D')
         self.launchProtocol(protProj1)
 
+        self.assertTrue(hasattr(protProj1.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+                        "1D Project protocol didn't add coefficients to SetOfAtomStructs")
+
+        self.assertEqual(len(protProj1.outputStructures.getFirstItem()._prodyProjCoefficients), 1,
+                        "1D Project protocol didn't add 1 coefficient to first item")
+
         protProj2 = self.newProtocol(ProDyProject,
                                      byFrame=True)
         protProj2.inputEnsemble.set(protEns2.outputStructures)
@@ -225,6 +231,12 @@ class TestProDy_pca(TestWorkflow):
         protProj2.setObjLabel('Project 2D')
         self.launchProtocol(protProj2)
 
+        self.assertTrue(hasattr(protProj2.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+                        "2D Project protocol didn't add coefficients to SetOfAtomStructs")
+
+        self.assertEqual(len(protProj2.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+                        "2D Project protocol didn't add 2 coefficient to first item")
+
         protProj3 = self.newProtocol(ProDyProject,
                                      byFrame=True)
         protProj3.inputEnsemble.set(protEns2.outputStructures)
@@ -232,6 +244,26 @@ class TestProDy_pca(TestWorkflow):
         protProj3.numModes.set(THREE)
         protProj3.setObjLabel('Project 3D')
         self.launchProtocol(protProj3)
+
+        self.assertTrue(hasattr(protProj3.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+                        "3D Project protocol didn't add coefficients to SetOfAtomStructs")
+
+        self.assertEqual(len(protProj3.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+                        "3D Project protocol didn't add 2 coefficients to first item when given 2 components")
+
+        protProj4 = self.newProtocol(ProDyProject,
+                                     byFrame=True)
+        protProj4.inputEnsemble.set(protEns3.outputStructures)
+        protProj4.inputModes.set(protPca3.outputModes)
+        protProj4.numModes.set(THREE)
+        protProj4.setObjLabel('Project 3D')
+        self.launchProtocol(protProj4)
+
+        self.assertTrue(hasattr(protProj4.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+                        "3D Project protocol didn't add coefficients to SetOfAtomStructs")
+
+        self.assertEqual(len(protProj4.outputStructures.getFirstItem()._prodyProjCoefficients), 3,
+                        "3D Project protocol didn't add 3 coefficients to first item when given 3 components")
 
         # -------------------------------------------------------
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA

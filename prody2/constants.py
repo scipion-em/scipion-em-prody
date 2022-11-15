@@ -32,3 +32,5 @@ DEVEL = 'github'
 V230 = '2.3.0'
 VERSIONS = [DEVEL, V230]
 PRODY_DEFAULT_VER_NUM = V230
+
+PROJ_COEFFS = "_prodyProjCoefficients"
