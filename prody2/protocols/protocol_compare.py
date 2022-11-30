@@ -37,7 +37,8 @@ from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
+from pyworkflow.protocol.params import (PointerParam, EnumParam,
+                                        BooleanParam, NumericRangeParam)
 
 import prody
 
@@ -68,6 +69,15 @@ class ProDyCompare(EMProtocol):
                            '(an EM volume compared into pseudoatoms).\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
+        form.addParam('modeList1', NumericRangeParam, expertLevel=params.LEVEL_ADVANCED,
+                      label="Modes selection",
+                      help='Select the normal modes that will be used for image analysis. \n'
+                           'If you leave this field empty, all computed modes will be selected for image analysis.\n'
+                           'You have several ways to specify the modes.\n'
+                           '   Examples:\n'
+                           ' "7,8-10" -> [7,8,9,10]\n'
+                           ' "8, 10, 12" -> [8,10,12]\n'
+                           ' "8 9, 10-12" -> [8,9,10,11,12])\n')
 
         form.addParam('modes2', PointerParam, label="Input SetOfNormalModes 2",
                       important=True,
@@ -77,6 +87,15 @@ class ProDyCompare(EMProtocol):
                            '(an EM volume compared into pseudoatoms).\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
+        form.addParam('modeList2', NumericRangeParam, expertLevel=params.LEVEL_ADVANCED,
+                      label="Modes selection",
+                      help='Select the normal modes that will be used for image analysis. \n'
+                           'If you leave this field empty, all computed modes will be selected for image analysis.\n'
+                           'You have several ways to specify the modes.\n'
+                           '   Examples:\n'
+                           ' "7,8-10" -> [7,8,9,10]\n'
+                           ' "8, 10, 12" -> [8,10,12]\n'
+                           ' "8 9, 10-12" -> [8,9,10,11,12])\n')
 
         form.addParam('metric', EnumParam, choices=['Overlap', 'Covariance Overlap', 'RWSIP'],
                       default=NMA_METRIC_OVERLAP,
@@ -124,6 +143,8 @@ class ProDyCompare(EMProtocol):
             pdb1 = None
 
         modes1 = prody.parseScipionModes(self.modes1.get().getFileName(), pdb=pdb1)
+        if not self.modeList1.empty():
+            modes1 = modes1[getListFromRangeString(self.modeList1.get())]
 
         modes2_path = os.path.dirname(os.path.dirname(
             self.modes2.get()._getMapper().selectFirst().getModeFile()))
@@ -133,6 +154,8 @@ class ProDyCompare(EMProtocol):
             pdb2 = None
 
         modes2 = prody.parseScipionModes(self.modes2.get().getFileName(), pdb=pdb2)
+        if not self.modeList2.empty():
+            modes2 = modes2[getListFromRangeString(self.modeList2.get())]
 
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
