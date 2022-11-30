@@ -31,7 +31,9 @@ This module will provide ProDy normal mode analysis (NMA) using the anisotropic 
 """
 from pyworkflow.protocol import params
 
+import os
 from os.path import basename, exists, join
+
 import math
 from multiprocessing import cpu_count
 
@@ -111,7 +113,7 @@ class ProDyANM(EMProtocol):
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
                       'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
+                      'Zero modes 1-6 are always deselected as they are related to rigid-body movements. \n'
                       'The modes metadata file can be used to see which modes are more collective '
                       'in order to decide which modes to use at the image analysis step.')
 
@@ -165,7 +167,14 @@ class ProDyANM(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
         
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
@@ -189,6 +198,9 @@ class ProDyANM(EMProtocol):
 
         if self.zeros.get():
             args += ' --zero-modes'
+            self.startMode = 6
+        else:
+            self.startMode = 0
 
         if self.turbo.get():
             args += ' --turbo'
@@ -208,8 +220,8 @@ class ProDyANM(EMProtocol):
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')
         makePath(animations_dir)
-        for i, mode in enumerate(self.anm[6:]):
-            modenum = i+7
+        for i, mode in enumerate(self.anm[self.startMode:]):
+            modenum = i+self.startMode+1
             fnAnimation = join(animations_dir, "animated_mode_%03d"
                                % modenum)
              
@@ -262,14 +274,16 @@ class ProDyANM(EMProtocol):
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
-            if n >= 6:
+            eigval = eigvals[n]
+            mdOut.setValue(MDL_NMA_EIGENVAL, eigval, objId)
+
+            if eigval > prody.utilities.ZERO:
                 mdOut.setValue(MDL_ENABLED, 1, objId)
             else:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
 
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
-
+            
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
 
@@ -305,7 +319,7 @@ class ProDyANM(EMProtocol):
         maxShift=[]
         maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
+        for n in range(self.startMode+1, numberOfModes+1):
             fnVec = self._getPath("modes", "vec.%d" % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
@@ -314,9 +328,9 @@ class ProDyANM(EMProtocol):
                 for line in fhIn:
                     x, y, z = map(float, line.split())
                     d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
+                    if n==self.startMode+1:
                         maxShift.append(d)
-                        maxShiftMode.append(7)
+                        maxShiftMode.append(self.startMode+1)
                     else:
                         if d>maxShift[atomCounter]:
                             maxShift[atomCounter]=d
@@ -333,6 +347,10 @@ class ProDyANM(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

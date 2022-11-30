@@ -52,6 +52,10 @@ class TestProDy_pca(TestWorkflow):
 
     def test_ProDy_pca(self):
         """ Run PCA simple workflow for two ways of building ensembles. """
+        
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
         # ----------------------------------------------------
         # Step 1. Import some structures -> Select CA 
         # ---------------------------------------------------
@@ -128,16 +132,20 @@ class TestProDy_pca(TestWorkflow):
         # --------------------------------------------------
         # Step 3a. buildPDBEns with index ref -> PCA 2
         # --------------------------------------------------
+
+        ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
+        idx = ens1.getLabels().index("3o21_atoms") + 1
+        
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
         protEns2.structures.set(protSetAS.outputAtomStructs)
-        protEns2.refIndex.set(4)
-        protEns2.setObjLabel('buildPDBEns_ref_idx_4')
+        protEns2.refIndex.set(idx)
+        protEns2.setObjLabel('buildPDBEns_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns2)   
 
         protPca2 = self.newProtocol(ProDyPCA, numberOfModes=3)
         protPca2.inputEnsemble.set(protEns2.outputNpz)
-        protPca2.setObjLabel('PCA_ref_idx_4')
+        protPca2.setObjLabel('PCA_ref_idx')
         self.launchProtocol(protPca2)  
 
         # ------------------------------------------------
@@ -164,7 +172,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protProj1)   
 
         protProj2 = self.newProtocol(ProDyProject,
-                                      byFrame=True)
+                                     byFrame=True)
         protProj2.inputEnsemble.set(protEns2.outputNpz)
         protProj2.inputModes.set(protPca2.outputModes)
         protProj2.numModes.set(TWO)
@@ -172,7 +180,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protProj2)   
 
         protProj3 = self.newProtocol(ProDyProject,
-                                      byFrame=True)
+                                     byFrame=True)
         protProj3.inputEnsemble.set(protEns2.outputNpz)
         protProj3.inputModes.set(protPca2.outputModes)
         protProj3.numModes.set(THREE)
@@ -247,3 +255,9 @@ class TestProDy_pca(TestWorkflow):
         protComp2.modes2.set(protImportModes2.outputModes)
         protComp2.setObjLabel('Compare_imported_2k39')
         self.launchProtocol(protComp2)   
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
+
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")

@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import PointerParam, IntParam
 import prody
 
 
-class  ProDyDomainDecomp (EMProtocol):
+class  ProDyDomainDecomp(EMProtocol):
     """
     This protocol will perform dynamical domain decomposition
     """
@@ -70,12 +70,22 @@ class  ProDyDomainDecomp (EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-        self._insertFunctionStep('computeGNMstep')
+        self._insertFunctionStep('computeDecompStep')
         self._insertFunctionStep('createOutputStep')
 
-    def computeGNMstep(self):
+    def computeDecompStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         modes_GNM_path = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
-        modes_GNM = prody.parseScipionModes(modes_GNM_path, pdb=glob(modes_GNM_path+"/*atoms.pdb"))
+
+        modes_GNM = prody.parseScipionModes(self.modesGNM.get().getFileName(),
+                                            pdb=glob(modes_GNM_path+"/*atoms.pdb"))
 
         n_modes = self.modeNumber.get()
         
@@ -92,6 +102,10 @@ class  ProDyDomainDecomp (EMProtocol):
 
         prody.writePDB(self._getPath("atoms.pdb"), atoms, beta=domains)
     
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
+
     def createOutputStep(self):        
         fhCmd=open(self._getPath("domains.vmd"),'w')
         fhCmd.write("mol new %s\n" % self._getPath("atoms.pdb"))
