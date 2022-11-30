@@ -53,7 +53,7 @@ SAME_POS = 2
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
-    This protocol will build a PDBEnsemble
+    This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
     """
     _label = 'buildPDBEnsemble'
 
