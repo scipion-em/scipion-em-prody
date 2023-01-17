@@ -242,14 +242,14 @@ class TestProDy_pca(TestWorkflow):
         # compare modes from different size sets with modeList
         protComp2b = self.newProtocol(ProDyCompare)
         protComp2b.modes1.set(protPca1.outputModes)
-        protComp2b.modesList1.set("1,2")
+        protComp2b.modeList1.set("1,2")
         protComp2b.modes2.set(protPca4.outputModes)
         protComp2b.setObjLabel('Compare_A3_PCAs_2_vs_3_modelist')
         self.launchProtocol(protComp2b)
 
         comp_matrix2b = prody.parseArray(protComp2b._getExtraPath('matrix.txt'))
-        self.assertEqual(comp_matrix2b.shape, (3,2),
-                         "Comparing 3 and 2 modes using modelist doesn't give the 3x2 matrix"
+        self.assertEqual(comp_matrix2b.shape, (2,2),
+                         "Comparing 2 and 2 modes using mode list doesn't give the 2x2 matrix"
                          " when using modeList")
 
         # ------------------------------------------------

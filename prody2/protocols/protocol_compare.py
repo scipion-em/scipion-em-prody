@@ -38,7 +38,7 @@ from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, EnumParam,
-                                        BooleanParam, NumericRangeParam)
+                                        BooleanParam, NumericRangeParam, LEVEL_ADVANCED)
 
 import prody
 
@@ -69,7 +69,8 @@ class ProDyCompare(EMProtocol):
                            '(an EM volume compared into pseudoatoms).\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
-        form.addParam('modeList1', NumericRangeParam, expertLevel=params.LEVEL_ADVANCED,
+        form.addParam('modeList1', NumericRangeParam,
+                      expertLevel=LEVEL_ADVANCED,
                       label="Modes selection",
                       help='Select the normal modes that will be used for image analysis. \n'
                            'If you leave this field empty, all computed modes will be selected for image analysis.\n'
@@ -87,7 +88,8 @@ class ProDyCompare(EMProtocol):
                            '(an EM volume compared into pseudoatoms).\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
-        form.addParam('modeList2', NumericRangeParam, expertLevel=params.LEVEL_ADVANCED,
+        form.addParam('modeList2', NumericRangeParam,
+                      expertLevel=LEVEL_ADVANCED,
                       label="Modes selection",
                       help='Select the normal modes that will be used for image analysis. \n'
                            'If you leave this field empty, all computed modes will be selected for image analysis.\n'
