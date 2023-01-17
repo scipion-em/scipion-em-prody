@@ -106,7 +106,7 @@ class ProDyClustENM(EMProtocol):
                       label='Whether to use parallel threads for conformer generation.',
                       help='This will only affect the ENM NMA steps')  
         form.addParam('rmsd', StringParam, default="1.",
-                      expertLevel=LEVEL_ADVANCED,
+                      #expertLevel=LEVEL_ADVANCED,
                       label="Average RMSD (A) of the new conformers from source conformer",
                       help='Average RMSD of the new conformers with respect to the conformer'
                            'from which they are generated \n'
