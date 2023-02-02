@@ -104,10 +104,11 @@ class ProDySelect(EMProtocol):
 
         if self.inputPdbData == self.IMPORT_FROM_ID:
             prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get())
+            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
             
             if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif")
+                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
+                                         compressed=False)
 
             prody.pathPDBFolder("")
 
@@ -137,7 +138,7 @@ class ProDySelect(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        ag = prody.parsePDB(inputFn, alt='all')
+        ag = prody.parsePDB(inputFn, alt='all', compressed=False)
         selection = ag.select(str(self.selection))
 
         logger.info("%d atoms selected from %d" % (selection.numAtoms(),
