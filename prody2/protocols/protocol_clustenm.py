@@ -88,6 +88,18 @@ class ProDyClustENM(EMProtocol):
                       label="Cut-off distance (A)",
                       help='Calpha atoms beyond this distance will not interact. \n'
                            'The default distance of 15 A works well in the majority of cases.')
+        form.addParam('sparse', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use sparse matrices?",
+                      help='This saves memory at the expense of computational time.')
+        form.addParam('kdtree', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use KDTree for building Hessian matrix?",
+                      help='This takes more computational time.')                      
+        form.addParam('turbo', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use turbo mode",
+                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
         form.addSection(label='ClustENM')
         form.addParam('n_gens', IntParam, default=5,
@@ -211,7 +223,8 @@ class ProDyClustENM(EMProtocol):
                 solvent=self.solvent, force_field=eval(self.force_field.get()),  
                 sim=self.sim.get(), temp=self.temp.get(),
                 t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
-                outlier=self.outlier.get(), mzscore=self.mzscore.get(), 
+                outlier=self.outlier.get(), mzscore=self.mzscore.get(),
+                sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(), 
                 parallel=parallel)
 
         self.outFileName = self._getPath('clustenm')
