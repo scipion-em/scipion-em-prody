@@ -14,6 +14,8 @@ from .protocol_edit import ProDyEdit
 from .protocol_defvec import ProDyDefvec
 from .protocol_import import ProDyImportModes
 
+from .protocol_clustenm import ProDyClustENM
+
 from .protocol_ensemble import ProDyBuildPDBEnsemble
 from .protocol_import import ProDyImportEnsemble
 from .protocol_pca import ProDyPCA
