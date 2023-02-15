@@ -68,6 +68,8 @@ class ProDySelect(EMProtocol):
     IMPORT_FROM_FILES = 1
     USE_POINTER = 2
 
+    _possibleOutputs = {'outputStructure': AtomStruct}
+
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
