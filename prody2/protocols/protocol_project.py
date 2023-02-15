@@ -75,8 +75,8 @@ class ProDyProject(EMProtocol):
 
         form.addParam('inputModes', PointerParam, label="Input set of modes",
                       important=True,
-                      pointerClass='SetOfNormalModes',
-                      help='The input modes can come from Continuous-Flex NMA, ProDy ANM NMA, or ProDy PCA.\n'
+                      pointerClass='SetOfNormalModes,SetOfPrincipalComponents',
+                      help='The input modes can come from Continuous-Flex NMA, ProDy NMA, or ProDy PCA.\n'
                            'The first modes from this set will be used. To use other modes, make a subset.')
 
         form.addParam('numModes', EnumParam, choices=['1', '2', '3'],
