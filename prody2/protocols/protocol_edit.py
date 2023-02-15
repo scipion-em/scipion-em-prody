@@ -138,7 +138,6 @@ class ProDyEdit(ProDyModesBase):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.old_secondary = prody.confProDy("auto_secondary")
         self.old_verbosity = prody.confProDy("verbosity")
-        print('protocol edit, old_verbosity: ' + self.old_verbosity)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
