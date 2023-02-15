@@ -58,6 +58,8 @@ class ProDyPCA(ProDyModesBase):
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
     _label = 'PCA'
+    _possibleOutputs = {'outputFractVars': EMFile,
+                        'outputModes': SetOfPrincipalComponents}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):

@@ -56,6 +56,7 @@ class ProDyANM(EMProtocol):
     This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
     """
     _label = 'ANM analysis'
+    _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
