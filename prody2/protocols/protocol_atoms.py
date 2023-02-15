@@ -29,6 +29,7 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
+from collections import OrderedDict
 from os.path import basename, splitext
 
 from pyworkflow.protocol import params
@@ -39,7 +40,8 @@ from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
-                                        BooleanParam, EnumParam, LEVEL_ADVANCED)
+                                        BooleanParam, EnumParam, TextParam,
+                                        PathParam, LEVEL_ADVANCED)
 
 import prody
 import logging
@@ -48,6 +50,8 @@ logger = logging.getLogger(__name__)
 # chain matching methods
 BEST_MATCH = 0
 SAME_CHID = 1
+SAME_POS = 2
+CUSTOM = 3
 
 # residue mapping methods
 NOTHING = 0 # stop trivial mapping if trivial mapping fails
@@ -68,21 +72,21 @@ class ProDySelect(EMProtocol):
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
         Params:
-            form: this is the form to be populated with sections and params.
+            form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
         form.addSection(label='ProDy Select')
 
-        form.addParam('inputPdbData', params.EnumParam, choices=['id', 'file', 'pointer'],
+        form.addParam('inputPdbData', EnumParam, choices=['id', 'file', 'pointer'],
                       label="Import atomic structure from",
                       default=self.USE_POINTER,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Import mmCIF data from online server or local file')
-        form.addParam('pdbId', params.StringParam,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='Import PDB or mmCIF data from online server or local file')
+        form.addParam('pdbId', StringParam,
                       condition='inputPdbData == IMPORT_FROM_ID',
                       label="Atomic structure ID ", allowsNull=True,
-                      help='Type a mmCIF ID (four alphanumeric characters).')
-        form.addParam('pdbFile', params.PathParam, label="File path",
+                      help='Type a PDB ID (four alphanumeric characters).')
+        form.addParam('pdbFile', PathParam, label="File path",
                       condition='inputPdbData == IMPORT_FROM_FILES',
                       allowsNull=True,
                       help='Specify a path to desired atomic structure.')
@@ -161,12 +165,15 @@ class ProDyAlign(EMProtocol):
     This protocol will perform atomic structure mapping and superposition
     """
     _label = 'Atom Alignment'
+    _possibleOutputs = {'outputStructureMob': AtomStruct,
+                        'outputStructureTar': AtomStruct,
+                        'outputTransform': Transform}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
         Params:
-            form: this is the form to be populated with sections and params.
+            form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
         form.addSection(label='ProDy Align')
@@ -197,13 +204,46 @@ class ProDyAlign(EMProtocol):
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This should be a number between 0 and 100') 
 
-        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid'], 
+        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos', 'custom'], 
                       default=BEST_MATCH,
-                      expertLevel=LEVEL_ADVANCED,
                       label="Chain matching function",
                       help='Chains can be matched by either trying all combinations and taking the best one '
-                           'based on a number of criteria including final RMSD or by taking chains with the same ID.\n'
-                           'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')    
+                           'based on a number of criteria including final RMSD or by taking chains with the same ID '
+                           'or position in the list of chains.\n'
+                           'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')
+        
+        
+        group = form.addGroup('custom chain orders', condition='matchFunc == %d' % CUSTOM)
+        
+        group.addParam('chainOrders', TextParam, width=20, readOnly=True,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Custom chain match list',
+                       help='Defined order of chains from custom matching. \nManual modification will have no '
+                            'effect, use the wizards to add / delete the entries')
+        
+        group.addParam('insertOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Insert custom match order number',
+                       help='Insert the chain order with the specified index into the match list.\n'
+                            'The default (when empty) is the last position')
+        
+        group.addParam('customOrder', StringParam, default='',
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Custom match order to insert at the specified number',
+                       help='Enter the desired chain order here.\n'
+                            'The default (when empty) is the current chain order')
+        
+        group.addParam('label', StringParam, default='', readOnly=True,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Label for item with the specified number for custom match',
+                       help='This does not change for this form')
+
+        group.addParam('recoverOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Recover custom match order number',
+                       help='Enter the desired chain order here.\n'
+                            'Recover the chain order with the specified index from the match list.')
+
 
         form.addParam('mapping', EnumParam, choices=['Nothing', 'Biopython pwalign local sequence alignment'],
                       default=PWALIGN,
@@ -211,7 +251,7 @@ class ProDyAlign(EMProtocol):
                       label="Residue mapping function",
                       help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
                            'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
-                           'for more details.')    
+                           'for more details.')
 
         form.addParam('rmsd_reject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
@@ -252,8 +292,17 @@ class ProDyAlign(EMProtocol):
 
         if self.matchFunc.get() == BEST_MATCH:
             match_func = prody.bestMatch
-        else:
+            logger.info('\nUsing bestMatch\n')
+        elif self.matchFunc.get() == SAME_CHID:
             match_func = prody.sameChid
+            logger.info('\nUsing sameChid\n')
+        elif self.matchFunc.get() == SAME_POS:
+            match_func = prody.sameChainPos
+            logger.info('\nUsing sameChainPos\n')
+        else:
+            chmap = eval(self.chainOrders.get())
+            logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
+            match_func = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
 
         if self.mapping.get() == DEFAULT:
             mapping = 'auto'
@@ -317,7 +366,7 @@ class ProDyAlign(EMProtocol):
                 alg = prody.applyTransformation(self.T, mob_sel)
 
                 self.rmsd = prody.calcRMSD(mob_sel, tar_sel)
-                logger.info("RMSD = {:6.2f}".format(self.rmsd))
+                logger.info("\nRMSD = {:6.2f}\n".format(self.rmsd))
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
@@ -344,5 +393,46 @@ class ProDyAlign(EMProtocol):
 
             self._defineOutputs(outputStructureMob=outputPdbMob,
                                 outputStructureTar=outputPdbTar,
-                                outputTransformation=outputTrans)
+                                outputTransform=outputTrans)
 
+    def countMatches(self):
+        matchesStr = self.chainOrders.get() if self.chainOrders.get() is not None else ''
+        matches = matchesStr.split('\n')
+        return len(matches) - 1
+    
+    def getMaxMatches(self):
+        return self._maxMatches
+    
+    def createMatchDic(self, index):
+
+        self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all')
+        self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all')
+        
+        try:
+            keys = self.matchDic.keys()
+        except:
+            self.matchDic = OrderedDict()
+            self.matchDic[self.mob.getTitle()] = self.getInitialMobileChainOrder()
+            self.matchDic[self.tar.getTitle()] = self.getInitialTargetChainOrder()
+            
+        if index == 0:
+            label = self.mob.getTitle()
+            if self.customOrder.get() == '':
+                self.matchDic[label] = self.getInitialMobileChainOrder()
+            else:
+                self.matchDic[label] = self.customOrder.get()
+                
+        else:
+            label = self.tar.getTitle()
+            if self.customOrder.get() == '':
+                self.matchDic[label] = self.getInitialTargetChainOrder()
+            else:
+                self.matchDic[label] = self.customOrder.get()
+                            
+        return self.matchDic
+    
+    def getInitialMobileChainOrder(self):
+        return ''.join([ch.getChid() for ch in self.mob.iterChains()])
+
+    def getInitialTargetChainOrder(self):
+        return ''.join([ch.getChid() for ch in self.tar.iterChains()])
