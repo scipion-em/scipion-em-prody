@@ -29,6 +29,8 @@
 """
 This module will provide ProDy ensemble tools.
 """
+from collections import OrderedDict
+import numpy as np
 from pyworkflow.protocol import params
 
 from pwem import *
@@ -39,7 +41,8 @@ from pwem.protocols import EMProtocol
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
-                                        EnumParam, LEVEL_ADVANCED)
+                                        EnumParam, TextParam, NumericRangeParam,
+                                        LEVEL_ADVANCED)
 
 import prody
 import time
@@ -50,12 +53,14 @@ INDEX = 1
 BEST_MATCH = 0
 SAME_CHID = 1
 SAME_POS = 2
+CUSTOM = 3
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
     This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
     """
     _label = 'buildPDBEnsemble'
+    _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -114,6 +119,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition="refType == %d and inputType != %d" % (INDEX, INDEX),
                       help='Select the index of the reference structure in the set, starting from 1. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')
+        
+        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos', 'custom'], 
+                      default=SAME_CHID, condition="inputType == %d" % STRUCTURE,
+                      label="Chain matching function",
+                      help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n')
 
         form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
@@ -125,20 +135,46 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Overlap cutoff",
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1') 
-
-        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos'], 
-                      default=SAME_CHID, condition="inputType == %d" % STRUCTURE,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Chain matching function",
-                      help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n'
-                           'Custom match functions will be added soon.')
+                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
 
         form.addParam('selstr', StringParam, default="name CA",
                       expertLevel=LEVEL_ADVANCED,
                       label="Selection string",
                       help='Selection string for atoms to include in the ensemble.\n'
                            'It is recommended to use "protein" or "name CA" (default)')
+        
+        
+        group = form.addGroup('custom chain orders', condition='matchFunc == %d' % CUSTOM)
+        
+        group.addParam('chainOrders', TextParam, width=40, readOnly=True,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Custom chain match list',
+                       help='Defined order of chains from custom matching. \nManual modification will have no '
+                            'effect, use the wizards to add / delete the entries')
+        
+        group.addParam('insertOrder', NumericRangeParam, default='1',
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Insert custom match order number',
+                       help='Insert the chain order with the specified index into the match list.\n'
+                            'The default (when empty) is the last position')
+        
+        group.addParam('customOrder', StringParam, default='',
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Custom match order to insert at the specified number',
+                       help='Enter the desired chain order here.\n'
+                            'The default (when empty) is the current chain order in the form. '
+                            'The initial value is the order in the structure file.')
+        
+        group.addParam('label', StringParam, default='', readOnly=True,
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Label for item with the specified number for recovering custom match',
+                       help='This cannot be changed by the user and is for display only.')
+
+        group.addParam('recoverOrder', StringParam, default='1',
+                       condition='matchFunc == %d' % CUSTOM,
+                       label='Recover custom match order number',
+                       help='Enter the desired chain order here.\n'
+                            'Recover the chain order with the specified index from the match list.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -146,7 +182,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         if self.refType.get() == STRUCTURE:
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
         else:
-            ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to Prody (python) nomenclature
+            ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
         if self.inputType.get() == STRUCTURE:
             pdbs = []
@@ -184,7 +220,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                    cutoff_Z=cutoff_Z, cutoff_identity=cutoff_identity)
             mappings = dali_rec.getMappings()
 
-        self.tars = prody.parsePDB(pdbs, alt='all')
+        if self.selstr.get() == 'name CA':
+            subset='ca'
+        else:
+            subset='all'
+        self.tars = prody.parsePDB(pdbs, alt='all', subset=subset)
 
         # actual steps
         self._insertFunctionStep('alignStep', ref, mappings)
@@ -201,17 +241,29 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        match_func = eval('prody.'+['bestMatch', 'sameChid', 'sameChainPos'][self.matchFunc.get()])
+        if self.matchFunc.get() == BEST_MATCH:
+            match_func = prody.bestMatch
+            logger.info('\nUsing bestMatch\n')
+        elif self.matchFunc.get() == SAME_CHID:
+            match_func = prody.sameChid
+            logger.info('\nUsing sameChid\n')
+        elif self.matchFunc.get() == SAME_POS:
+            match_func = prody.sameChainPos
+            logger.info('\nUsing sameChainPos\n')
+        else:
+            chmap = eval(self.chainOrders.get())
+            logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
+            match_func = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
         
         atommaps = [] # output argument for collecting atommaps
 
         if mappings != 'auto':
             # from dali so don't use match func or ref
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                        seqid=self.seqid.get(),
-                                        overlap=self.overlap.get(),
-                                        mapping=mappings,
-                                        atommaps=atommaps)
+                                          seqid=self.seqid.get(),
+                                          overlap=self.overlap.get(),
+                                          mapping=mappings,
+                                          atommaps=atommaps)
 
             # instead use them later for selection
             ens_ref = ens.getAtoms()
@@ -271,11 +323,75 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        #outputNpz = EMFile(filename=self.npzFileName)
+        outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
-        self._defineOutputs(outputStructures=self.pdbs,
-                            #outputNpz=outputNpz,
+        self._defineOutputs(outputAtomStructs=self.pdbs,
+                            outputNpz=outputNpz,
                             outAlignment=outputSeqs#,
                             #outputTransformations=outputTrans
                             )
+
+    def createMatchDic(self, index):
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
+        
+        pdbs = []
+        for i, obj in enumerate(self.structures):
+            if isinstance(obj.get(), AtomStruct):
+                pdbs.append(obj.get().getFileName())
+            else:
+                pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+        
+        try:
+            self.matchDic = eval(self.chainOrders.get())
+            self.labels = list(self.matchDic.keys())
+            self.orders = list(self.matchDic.values())
+            
+            # reinitialise to update with new keys
+            # that are still ordered correctly
+            self.matchDic = OrderedDict()
+        except:
+            self.matchDic = OrderedDict()
+            self.labels = []
+            self.orders = []
+
+            if self.selstr.get() == 'name CA':
+                subset='ca'
+            else:
+                subset='all'
+            tars = prody.parsePDB(pdbs, alt='all', subset=subset)
+
+            for ag in tars:
+                title = ag.getTitle()
+                self.labels.append(title)
+                self.orders.append(self.getInitialChainOrder(ag))
+                
+        self.labels = np.array(self.labels, dtype='<U20')
+        self.orders = np.array(self.orders)
+
+        inds = list(np.array(getListFromRangeString(index)) - 1)
+        
+        for idx in inds:
+            if self.customOrder.get() != '':
+                self.orders[idx] = self.customOrder.get()
+        
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+
+        self.matchDic.update(zip(self.labels, self.orders))
+        return self.matchDic
+    
+    def getInitialChainOrder(self, ag):
+        return ''.join([ch.getChid() for ch in ag.protein.getHierView().iterChains()])
+    
+def validate(self):
+    adsa
+    
+    

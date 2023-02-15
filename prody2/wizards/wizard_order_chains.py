@@ -46,9 +46,9 @@ class ProDyAddChainOrderWizard(VariableWizard):
     def show(self, form, *params):
         inputParam, outputParam = self.getInputOutput(form)
         protocol = form.protocol
-        index = int(getattr(protocol, inputParam[0]).get())
+        index = getattr(protocol, inputParam[0]).get()
         matchDic = protocol.createMatchDic(index)
-        form.setVar(outputParam[0], str(matchDic).replace(',',',\n'))
+        form.setVar(outputParam[0], str(matchDic).replace('),', '),\n' + ' '*20))
 
 
 ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,
@@ -56,10 +56,10 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,
                                      inputs=['insertOrder'],
                                      outputs=['chainOrders'])
 
-# AddChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
-#                              targets=['insertStep'],
-#                              inputs=['insertStep'],
-#                              outputs=['workFlowSteps', 'summarySteps'])
+ProDyAddChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
+                             targets=['insertOrder'],
+                             inputs=['insertOrder'],
+                             outputs=['chainOrders'])
 
 class ProDyRecoverChainOrderWizard(VariableWizard):
     """Watch the parameters of the step of the workflow defined by the index"""
@@ -70,22 +70,18 @@ class ProDyRecoverChainOrderWizard(VariableWizard):
         inputParam, outputParam = self.getInputOutput(form)
         protocol = form.protocol
         
-        inp = getattr(protocol, inputParam[0]).get()
-        try:
-            index = int(inp)
-        except:
-            print('Index "{}" not recognized as integer for recovering chain orders'.format(inp))
-        else:
-            matchDic = eval(protocol.chainOrders.get())
-            form.setVar(outputParam[0], list(matchDic.keys())[index])
-            form.setVar(outputParam[1], list(matchDic.values())[index])
+        index = int(getattr(protocol, inputParam[0]).get()) - 1
+        matchDic = eval(protocol.chainOrders.get())
+        form.setVar(outputParam[0], list(matchDic.keys())[index])
+        form.setVar(outputParam[1], list(matchDic.values())[index])
 
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyAlign,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
                                          outputs=['label', 'customOrder'])
-# ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyAlign,
-#                                          targets=['recoverOrder'],
-#                                          inputs=['recoverOrder'],
-#                                          outputs=['customOrder'])
+
+ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
+                                         targets=['recoverOrder'],
+                                         inputs=['recoverOrder'],
+                                         outputs=['label', 'customOrder'])

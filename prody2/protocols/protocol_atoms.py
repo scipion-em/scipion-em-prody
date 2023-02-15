@@ -217,7 +217,7 @@ class ProDyAlign(EMProtocol):
         
         group = form.addGroup('custom chain orders', condition='matchFunc == %d' % CUSTOM)
         
-        group.addParam('chainOrders', TextParam, width=20, readOnly=True,
+        group.addParam('chainOrders', TextParam, width=30, readOnly=True,
                        condition='matchFunc == %d' % CUSTOM,
                        label='Custom chain match list',
                        help='Defined order of chains from custom matching. \nManual modification will have no '
@@ -233,12 +233,12 @@ class ProDyAlign(EMProtocol):
                        condition='matchFunc == %d' % CUSTOM,
                        label='Custom match order to insert at the specified number',
                        help='Enter the desired chain order here.\n'
-                            'The default (when empty) is the current chain order')
+                            'The default (when empty) is the chain order in the structure file')
         
         group.addParam('label', StringParam, default='', readOnly=True,
                        condition='matchFunc == %d' % CUSTOM,
                        label='Label for item with the specified number for custom match',
-                       help='This does not change for this form')
+                       help='This cannot be changed by the user and is for display only.')
 
         group.addParam('recoverOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
                        condition='matchFunc == %d' % CUSTOM,
@@ -407,10 +407,13 @@ class ProDyAlign(EMProtocol):
     
     def createMatchDic(self, index):
 
+        index = int(index)
+
         self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all')
         self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all')
         
         try:
+            self.matchDic = eval(self.chainOrders.get())
             keys = self.matchDic.keys()
         except:
             self.matchDic = OrderedDict()
