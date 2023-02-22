@@ -130,7 +130,7 @@ class ProDyClustENM(EMProtocol):
                            'generations and/or structures, specifying maxclust is more efficient.\n'
                            'A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')     
         form.addParam('threshold', StringParam, default="None",
-                      expertLevel=LEVEL_ADVANCED,
+                      #expertLevel=LEVEL_ADVANCED,
                       label="RMSD threshold (A) to apply when forming clusters",
                       help='Either maxclust or RMSD threshold should be given! For large number of '
                            'generations and/or structures, specifying maxclust is more efficient.\n'
@@ -149,8 +149,9 @@ class ProDyClustENM(EMProtocol):
                       label="Padding distance to use for solvation",
                       help='Padding distance to use for the solvent box')
         form.addParam('ionicStrength', FloatParam, default=0.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Total concentration of ions (both positive and negative) to add",
+                      condition="solvent==%d" % EXP,
+                      #expertLevel=LEVEL_ADVANCED, 
+                      label="Total concentration of ions (both positive and negative) to add in mol/L",
                       help='This does not include ions that are added to neutralize the system.')
         form.addParam('force_field', StringParam, default="None",
                       expertLevel=LEVEL_ADVANCED,
@@ -225,7 +226,7 @@ class ProDyClustENM(EMProtocol):
                 t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
                 outlier=self.outlier.get(), mzscore=self.mzscore.get(),
                 sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(), 
-                parallel=parallel)
+                parallel=self.parallel.get())
 
         self.outFileName = self._getPath('clustenm')
         prody.saveEnsemble(ens, self.outFileName+'.ens.npz')
