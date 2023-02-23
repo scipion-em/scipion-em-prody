@@ -20,3 +20,11 @@ from .protocol_ensemble import ProDyBuildPDBEnsemble
 from .protocol_import import ProDyImportEnsemble
 from .protocol_pca import ProDyPCA
 from .protocol_project import ProDyProject
+
+try:
+    from prody import addHydrogens
+    from pdbfixer import PDBFixer
+except:
+    pass
+else:
+    from .protocol_pdbfixer import ProDyPDBFixer
