@@ -29,10 +29,9 @@
 """
 This module will provide the ClustENM hybrid simulation method from ProDy, combining clustering, ENM NMA and MD.
 """
-from pyworkflow.protocol import params
 
-from os.path import basename, exists, join
 import math
+from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -47,6 +46,8 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
+
+from os.path import basename, exists, join
 
 IMP = 0
 EXP = 1
@@ -63,6 +64,8 @@ class ProDyClustENM(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
+        cpus = cpu_count()//2 # don't use everything
+        form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='NMA')
         form.addParam('inputStructure', PointerParam, label="Input structure",
@@ -215,18 +218,26 @@ class ProDyClustENM(EMProtocol):
         else:
             self.solvent = 'exp'
 
-        ens = prody.ClustENM(atoms)
-        ens.setAtoms(atoms)
-        ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
-                n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
-                cutoff=self.cutoff.get(), gamma=self.gamma.get(), 
-                maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
-                solvent=self.solvent, force_field=eval(self.force_field.get()),  
-                sim=self.sim.get(), temp=self.temp.get(),
-                t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
-                outlier=self.outlier.get(), mzscore=self.mzscore.get(),
-                sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(), 
-                parallel=self.parallel.get())
+        nproc = self.numberOfThreads.get()
+        if nproc:
+            try:
+                from threadpoolctl import threadpool_limits
+            except ImportError:
+                raise ImportError('Please install threadpoolctl to control threads')
+
+            with threadpool_limits(limits=nproc, user_api="blas"):
+                ens = prody.ClustENM(atoms)
+                ens.setAtoms(atoms)
+                ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
+                        n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
+                        cutoff=self.cutoff.get(), gamma=self.gamma.get(), 
+                        maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
+                        solvent=self.solvent, force_field=eval(self.force_field.get()),  
+                        sim=self.sim.get(), temp=self.temp.get(),
+                        t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
+                        outlier=self.outlier.get(), mzscore=self.mzscore.get(),
+                        sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(), 
+                        parallel=self.parallel.get())
 
         self.outFileName = self._getPath('clustenm')
         prody.saveEnsemble(ens, self.outFileName+'.ens.npz')
