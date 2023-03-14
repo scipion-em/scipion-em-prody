@@ -48,6 +48,7 @@ class ProDyPDBFixer(EMProtocol):
     This module will provide the ProDy wrapper for OpenMM PDBFixer
     """
     _label = 'PDBFixer'
+    _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -79,7 +80,7 @@ class ProDyPDBFixer(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
         
-        prody.addHydrogens(inputFn, method='pdbfixer', pH=self.pH.get(), outfile=self.outputFn)
+        prody.addMissingAtoms(inputFn, method='pdbfixer', pH=self.pH.get(), outfile=self.outputFn)
 
     def createOutputStep(self):
         outAS = AtomStruct(self.outputFn)

@@ -22,7 +22,7 @@ from .protocol_pca import ProDyPCA
 from .protocol_project import ProDyProject
 
 try:
-    from prody import addHydrogens
+    from prody import addMissingAtoms
     from pdbfixer import PDBFixer
 except:
     pass
