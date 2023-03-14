@@ -34,7 +34,7 @@ import numpy as np
 from pyworkflow.protocol import params
 
 from pwem import *
-from pwem.objects import AtomStruct, Transform, String, EMFile
+from pwem.objects import AtomStruct, Transform, String, EMFile, TrajFrame
 from pwem.objects import SetOfAtomStructs, SetOfSequences
 from pwem.protocols import EMProtocol
 
@@ -46,6 +46,8 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
 
 import prody
 import time
+
+from prody2.objects import ProDyNpzEnsemble
 
 STRUCTURE = 0
 INDEX = 1
@@ -60,7 +62,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
     """
     _label = 'buildPDBEnsemble'
-    _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs}
+    _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
+                        #'outputNpz': ProDyNpzEnsemble,
+                        'outAlignment': SetOfSequences}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -305,15 +309,19 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
 
-        self.pdbFileName = self._getPath('ensemble.pdb')
-        prody.writePDB(self.pdbFileName, ens)
+        prody.writePDB(self._getPath('ensemble.pdb'), ens)
 
-        self.npzFileName = self._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(ens, self.npzFileName)
+        npzFileName = self._getPath('ensemble.ens.npz')
+        prody.saveEnsemble(ens, npzFileName)
 
-        self.T = [T.getMatrix() for T in ens.getTransformations()]
-        self.matrixFileName = self._getPath('transformation_%05d.txt')
-        [prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
+        self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), 
+                                             ref=TrajFrame((0, npzFileName)))
+        for j in range(ens.numConfs()):
+            self.npz.append(TrajFrame((j, npzFileName)))
+
+        #self.T = [T.getMatrix() for T in ens.getTransformations()]
+        #self.matrixFileName = self._getPath('transformation_%05d.txt')
+        #[prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
@@ -323,11 +331,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        outputNpz = EMFile(filename=self.npzFileName)
+        #outputNpz = EMFile(filename=self.npzFileName)
         #outputTrans = [Transform(matrix=T) for T in self.T]
 
         self._defineOutputs(outputAtomStructs=self.pdbs,
-                            outputNpz=outputNpz,
+                            #outputNpz=self.npz,
                             outAlignment=outputSeqs#,
                             #outputTransformations=outputTrans
                             )
@@ -390,8 +398,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     
     def getInitialChainOrder(self, ag):
         return ''.join([ch.getChid() for ch in ag.protein.getHierView().iterChains()])
-    
-def validate(self):
-    adsa
+
     
     
