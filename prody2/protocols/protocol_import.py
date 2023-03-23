@@ -249,7 +249,6 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('filesPattern', params.StringParam,
                       label='Pattern',
-                      condition="importType!=%d" % SCIPION,
                       help="Pattern of the files to be imported.\n\n"
                            "The pattern can contain standard wildcards such as\n"
                            "*, ?, etc, or special ones like ### to mark some\n"
@@ -268,6 +267,11 @@ class ProDyImportEnsemble(ProtImportFiles):
         form.addParam('superpose', params.EnumParam, label="Superpose?",
                       choices=['No', 'Once', 'Iteratively'], default=NO_SUP,
                       help='Elect whether and how to superpose the ensemble')        
+
+        form.addParam('selstr', params.StringParam, default="all",
+                      label="Selection string",
+                      help='Selection string for atoms to include in the ensemble.\n'
+                           'It is recommended to use "all" (default), "protein" or "name CA"')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -306,6 +310,10 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.atoms = self.outEns.getAtoms()
 
         self.outEns.setAtoms(self.atoms)
+
+        selstr = self.selstr.get()
+        self.outEns.setAtoms(self.atoms.select(selstr))
+
         if self.superpose == YES_SUP:
             self.outEns.superpose()
         elif self.superpose == ITERPOSE:
@@ -313,7 +321,7 @@ class ProDyImportEnsemble(ProtImportFiles):
             
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for i, coordset in enumerate(self.outEns.getCoordsets()):
-            atoms = self.atoms.copy()
+            atoms = self.atoms.select(selstr).copy()
             atoms.setCoords(coordset)
             filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
             prody.writePDB(filename, atoms)
