@@ -243,6 +243,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             subset='all'
         self.tars = prody.parsePDB(pdbs, alt='all', subset=subset)
 
+        if isinstance(self.tars, prody.Atomic):
+            n_models = self.tars.numCoordsets()
+            self.tars = []
+            for i in range(n_models):
+                self.tars.append(prody.parsePDB(pdbs, alt='all', subset=subset,
+                                                model=i+1))
+
         # actual steps
         self._insertFunctionStep('alignStep', ref, mappings)
         self._insertFunctionStep('createOutputStep')
@@ -295,12 +302,25 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.tars = [ref] + self.tars
                 ref=0
                 
-            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          ref=ref,
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          match_func=match_func,
-                                          atommaps=atommaps)
+            tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
+
+            if self.matchFunc <= SAME_POS:
+                self.labels = [tar.getTitle() for tar in tars]
+            else:
+                self.matchDic = self.createMatchDic("1")
+                self.labels = list(self.matchDic.keys())
+
+            for i, label in enumerate(self.labels):
+                tars[i].setTitle(label)
+
+            self.labels = list(np.array(self.labels, dtype='<U20'))
+
+            ens = prody.buildPDBEnsemble(tars,
+                                         ref=ref,
+                                         seqid=self.seqid.get(),
+                                         overlap=self.overlap.get(),
+                                         match_func=match_func,
+                                         atommaps=atommaps)
 
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
