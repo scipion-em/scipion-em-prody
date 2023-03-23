@@ -42,7 +42,7 @@ from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
                                         EnumParam, TextParam, NumericRangeParam,
-                                        LEVEL_ADVANCED)
+                                        BooleanParam, LEVEL_ADVANCED)
 
 import prody
 import time
@@ -146,7 +146,20 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       label="Selection string",
                       help='Selection string for atoms to include in the ensemble.\n'
                            'It is recommended to use "protein" or "name CA" (default)')
-        
+
+        form.addParam('trim', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Whether to trim away dummy atoms",
+                      help='If any structure lacks some atom in the reference '
+                           'then it will be replaced by a dummy atom at the average '
+                           'position in the ensemble. This option allows these to be trimmed away.')
+        form.addParam('trimFraction', FloatParam, default=1,
+                      expertLevel=LEVEL_ADVANCED, condition="trim == True",
+                      label="Occupancy fraction to trim away dummy atoms",
+                      help='This option controls how many dummy atoms are trimmed away '
+                           'and should take a value between 0 and 1.\n'
+                           'The resulting ensemble will contain atoms whose occupancies are greater '
+                           'than or equal to this value.')
         
         group = form.addGroup('custom chain orders', condition='matchFunc == %d' % CUSTOM)
         
@@ -289,7 +302,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           match_func=match_func,
                                           atommaps=atommaps)
 
-        ens = prody.trimPDBEnsemble(ens, 1.)
+        if self.trim.get():
+            ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
+
         indices = ens.getIndices()
 
         msa = ens.getMSA()
