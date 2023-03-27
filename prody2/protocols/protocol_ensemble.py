@@ -310,7 +310,15 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.labels = list(self.matchDic.keys())
 
             for i, label in enumerate(self.labels):
+                if label.endswith(" Selection 'name CA'"):
+                    label = label.replace(" Selection 'name CA'", "")
+                    if not label.endswith("_ca"):
+                        label += "_ca"
+
+                label = label.replace("_atoms", "")
+
                 tars[i].setTitle(label)
+                self.labels[i] = label
 
             self.labels = list(np.array(self.labels, dtype='<U20'))
 
