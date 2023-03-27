@@ -25,9 +25,9 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
             conf_index = item.getIndex() - 1 # back to python
 
             ensemble = old_ensembles[fname_index]
-            coords = ensemble.getCoordsets(conf_index, selected=False)[0]
+            coords = ensemble.getCoordsets(selected=False)[conf_index]
             label = ensemble.getLabels()[conf_index]
-            weights = ensemble.getWeights()[conf_index]
+            weights = ensemble.getWeights(selected=False)[conf_index]
             if not self.hasRef():
                 new_ensemble.setCoords(coords)
                 new_ensemble.setAtoms(ensemble.getAtoms())

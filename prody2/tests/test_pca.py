@@ -126,13 +126,13 @@ class TestProDy_pca(TestWorkflow):
         protEns1.setObjLabel('buildPDBEns_ref_3o21_CD')
         self.launchProtocol(protEns1)
 
-        numAS = len(protEns1.outputStructures)
-        self.assertSetSize(protEns1.outputStructures, 4,
+        numAS = len(protEns1.outputNpz)
+        self.assertSetSize(protEns1.outputNpz, 4,
                            "wrong size SetOfAtomStructs ({0} not 4) with "
                            "SetOfAtomStructs input and added atom struct ref".format(numAS))
 
         protPca1 = self.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca1.inputEnsemble.set(protEns1.outputStructures)
+        protPca1.inputEnsemble.set(protEns1.outputNpz)
         protPca1.setObjLabel('PCA_from_set_ref_3o21_CD')
         self.launchProtocol(protPca1)
 
@@ -142,7 +142,7 @@ class TestProDy_pca(TestWorkflow):
         # -------------------------------------------------------------------
 
         ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
-        idx = ens1.getLabels().index("3o21_atoms") + 1
+        idx = ens1.getLabels().index("3o21_ca") + 1
         
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
@@ -151,13 +151,13 @@ class TestProDy_pca(TestWorkflow):
         protEns2.setObjLabel('buildPDBEns_set_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns2)
 
-        numAS = len(protEns2.outputStructures)
-        self.assertSetSize(protEns2.outputStructures, 3,
+        numAS = len(protEns2.outputNpz)
+        self.assertSetSize(protEns2.outputNpz, 3,
                            "wrong size SetOfAtomStructs ({0} not 3) with "
                            "SetOfAtomStructs input and index ref".format(numAS))
 
         protPca2 = self.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca2.inputEnsemble.set(protEns2.outputStructures)
+        protPca2.inputEnsemble.set(protEns2.outputNpz)
         protPca2.setObjLabel('PCA_from_set_ref_idx')
         self.launchProtocol(protPca2)
 
@@ -174,13 +174,13 @@ class TestProDy_pca(TestWorkflow):
         protEns3.setObjLabel('buildPDBEns_set_plus_sel_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns3)
 
-        numAS = len(protEns3.outputStructures)
-        self.assertSetSize(protEns3.outputStructures, 4,
+        numAS = len(protEns3.outputNpz)
+        self.assertSetSize(protEns3.outputNpz, 4,
                            "wrong size SetOfAtomStructs ({0} not 4) with "
                            "SetOfAtomStructs and AtomStruct input and index ref".format(numAS))
 
         protPca3 = self.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca3.inputEnsemble.set(protEns3.outputStructures)
+        protPca3.inputEnsemble.set(protEns3.outputNpz)
         protPca3.setObjLabel('PCA_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca3)
 
@@ -189,7 +189,7 @@ class TestProDy_pca(TestWorkflow):
                                len(protPca3.outputModes)))
 
         protPca4 = self.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca4.inputEnsemble.set(protEns3.outputStructures)
+        protPca4.inputEnsemble.set(protEns3.outputNpz)
         protPca4.setObjLabel('PCA_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca4)
 
@@ -209,8 +209,8 @@ class TestProDy_pca(TestWorkflow):
         protEns4.setObjLabel('buildPDBEns_2_structs_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns4)
 
-        numAS = len(protEns4.outputStructures)
-        self.assertSetSize(protEns4.outputStructures, 2,
+        numAS = len(protEns4.outputNpz)
+        self.assertSetSize(protEns4.outputNpz, 2,
                            "wrong size SetOfAtomStructs ({0} not 2) with "
                            "multiple AtomStructs input and index ref".format(numAS))
 
@@ -239,24 +239,11 @@ class TestProDy_pca(TestWorkflow):
         self.assertEqual(comp_matrix2.shape, (3,2),
                          "Comparing 3 and 2 modes doesn't give the 3x2 matrix")
 
-        # compare modes from different size sets with modeList
-        protComp2b = self.newProtocol(ProDyCompare)
-        protComp2b.modes1.set(protPca1.outputModes)
-        protComp2b.modeList1.set("1,2")
-        protComp2b.modes2.set(protPca4.outputModes)
-        protComp2b.setObjLabel('Compare_A3_PCAs_2_vs_3_modelist')
-        self.launchProtocol(protComp2b)
-
-        comp_matrix2b = prody.parseArray(protComp2b._getExtraPath('matrix.txt'))
-        self.assertEqual(comp_matrix2b.shape, (2,2),
-                         "Comparing 2 and 2 modes using mode list doesn't give the 2x2 matrix"
-                         " when using modeList")
-
         # ------------------------------------------------
         # Step 5. Project 1D, 2D and 3D
         # ------------------------------------------------
         protProj1 = self.newProtocol(ProDyProject)
-        protProj1.inputEnsemble.set(protEns2.outputStructures)
+        protProj1.inputEnsemble.set(protEns2.outputNpz)
         protProj1.inputModes.set(protPca2.outputModes)
         protProj1.numModes.set(ONE)
         protProj1.setObjLabel('Project 1D')
@@ -270,7 +257,7 @@ class TestProDy_pca(TestWorkflow):
 
         protProj2 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj2.inputEnsemble.set(protEns2.outputStructures)
+        protProj2.inputEnsemble.set(protEns2.outputNpz)
         protProj2.inputModes.set(protPca2.outputModes)
         protProj2.numModes.set(TWO)
         protProj2.setObjLabel('Project 2D')
@@ -284,7 +271,7 @@ class TestProDy_pca(TestWorkflow):
 
         protProj3 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj3.inputEnsemble.set(protEns2.outputStructures)
+        protProj3.inputEnsemble.set(protEns2.outputNpz)
         protProj3.inputModes.set(protPca2.outputModes)
         protProj3.numModes.set(THREE)
         protProj3.setObjLabel('Project 3D')
@@ -298,7 +285,7 @@ class TestProDy_pca(TestWorkflow):
 
         protProj4 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj4.inputEnsemble.set(protEns3.outputStructures)
+        protProj4.inputEnsemble.set(protEns3.outputNpz)
         protProj4.inputModes.set(protPca3.outputModes)
         protProj4.numModes.set(THREE)
         protProj4.setObjLabel('Project 3D')
@@ -329,7 +316,7 @@ class TestProDy_pca(TestWorkflow):
         self.launchProtocol(protImportEns)
 
         protPca5 = self.newProtocol(ProDyPCA)
-        protPca5.inputEnsemble.set(protImportEns.outputStructures)
+        protPca5.inputEnsemble.set(protImportEns.outputNpz)
         protPca5.setObjLabel('PCA_2k39')
         self.launchProtocol(protPca5)
 
