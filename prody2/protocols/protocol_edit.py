@@ -143,8 +143,9 @@ class ProDyEdit(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        modes = prody.parseScipionModes(self.modes.get().getFileName())
         self.inputStructure = self.modes.get().getPdb()
+        modes = prody.parseScipionModes(self.modes.get().getFileName(),
+                                        pdb=self.inputStructure.getFileName())
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
         new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
