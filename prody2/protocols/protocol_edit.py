@@ -160,6 +160,10 @@ class ProDyEdit(ProDyModesBase):
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
+            modes_path = os.path.dirname(os.path.dirname(
+                self.modes.get()._getMapper().selectFirst().getModeFile()))
+
+            from_prody = len(glob(modes_path+"/*npz"))
             if from_prody:
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
