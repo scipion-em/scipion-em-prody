@@ -80,8 +80,22 @@ class ProDyPDBFixer(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
         
-        prody.addMissingAtoms(inputFn, method='pdbfixer', pH=self.pH.get(), outfile=self.outputFn)
+        prody.addMissingAtoms(inputFn, method='pdbfixer', pH=self.pH.get(), outfile=self.outputFn, 
+                              model_residues=True)
 
     def createOutputStep(self):
         outAS = AtomStruct(self.outputFn)
         self._defineOutputs(outputStructure=outAS)
+
+    def _summary(self):
+        if not hasattr(self, 'outputStructure'):
+            sum = ['Output structure not ready yet']
+        else:
+            input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
+            output_ag = prody.parsePDB(self.outputStructure.getFileName())
+            sum = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
+                   output_ag.numAtoms(), input_ag.numAtoms())]
+            sum.append('The new structure has *{0}* protein residues '
+                        'from original *{1}* protein residues'.format(
+                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+        return sum

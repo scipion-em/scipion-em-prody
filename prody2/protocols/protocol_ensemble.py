@@ -31,11 +31,10 @@ This module will provide ProDy ensemble tools.
 """
 from collections import OrderedDict
 import numpy as np
-from pyworkflow.protocol import params
 
 from pwem import *
-from pwem.objects import AtomStruct, Transform, String, EMFile, TrajFrame
-from pwem.objects import SetOfAtomStructs, SetOfSequences
+from pwem.objects import (AtomStruct, TrajFrame,
+                          SetOfAtomStructs, SetOfSequences)
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -63,7 +62,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     """
     _label = 'buildPDBEnsemble'
     _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
-                        #'outputNpz': ProDyNpzEnsemble,
+                        'outputNpz': ProDyNpzEnsemble,
                         'outAlignment': SetOfSequences}
 
     # -------------------------- DEFINE param functions ----------------------
@@ -346,17 +345,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         prody.writePDB(self._getPath('ensemble.pdb'), ens)
 
-        npzFileName = self._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(ens, npzFileName)
+        self.npzFileName = self._getPath('ensemble.ens.npz')
+        prody.saveEnsemble(ens, self.npzFileName)
 
-        self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), 
-                                             ref=TrajFrame((0, npzFileName)))
+        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
+        #self.npz.setRef(TrajFrame((0, self.npzFileName)))
         for j in range(ens.numConfs()):
-            self.npz.append(TrajFrame((j, npzFileName)))
-
-        #self.T = [T.getMatrix() for T in ens.getTransformations()]
-        #self.matrixFileName = self._getPath('transformation_%05d.txt')
-        #[prody.writeArray(self.matrixFileName % i, T) for i, T in enumerate(self.T)]
+            self.npz.append(TrajFrame((j+1, self.npzFileName)))
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
@@ -366,14 +361,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        #outputNpz = EMFile(filename=self.npzFileName)
-        #outputTrans = [Transform(matrix=T) for T in self.T]
-
         self._defineOutputs(outputAtomStructs=self.pdbs,
-                            #outputNpz=self.npz,
-                            outAlignment=outputSeqs#,
-                            #outputTransformations=outputTrans
-                            )
+                            outputNpz=self.npz,
+                            outAlignment=outputSeqs)
 
     def createMatchDic(self, index):
 
@@ -434,5 +424,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def getInitialChainOrder(self, ag):
         return ''.join([ch.getChid() for ch in ag.protein.getHierView().iterChains()])
 
+    def _summary(self):
+        if not hasattr(self, 'outputNpz'):
+            sum = ['Output ensemble not ready yet']
+        else:
+            ens = self.outputNpz.loadEnsemble()
+            sum = ['Ensemble built with *{0}* structures of *{1}* atoms'.format(
+                   ens.numConfs(), ens.numAtoms())]
+        return sum
     
     

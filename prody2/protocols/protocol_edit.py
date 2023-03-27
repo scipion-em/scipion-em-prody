@@ -34,7 +34,6 @@ import numpy as np
 
 from pwem import *
 from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
@@ -93,11 +92,12 @@ class ProDyEdit(ProDyModesBase):
                         'from nodes of the same residue')
 
 
-        form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
+        form.addParam('modes', PointerParam, label='Input set of modes',
                       pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).')
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.')
 
         form.addParam('newNodes', PointerParam,
                       label='new nodes',
@@ -142,18 +142,9 @@ class ProDyEdit(ProDyModesBase):
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
-        modes_path = os.path.dirname(os.path.dirname(self.modes.get()._getMapper().selectFirst().getModeFile()))
         
-        from_prody = len(glob(modes_path+"/*npz"))
-        if from_prody:
-            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
-        else:
-            fn_sqlite = self.modes.get().getFileName()
-            modes = prody.parseScipionModes(fn_sqlite)
-
+        modes = prody.parseScipionModes(self.modes.get().getFileName())
         self.inputStructure = self.modes.get().getPdb()
-        structureEM = self.inputStructure.getPseudoAtoms()
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
         new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")

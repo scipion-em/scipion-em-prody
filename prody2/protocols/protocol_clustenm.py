@@ -30,33 +30,29 @@
 This module will provide the ClustENM hybrid simulation method from ProDy, combining clustering, ENM NMA and MD.
 """
 
-import math
 from multiprocessing import cpu_count
 
 from pwem import *
-from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, TrajFrame
 from pwem.protocols import EMProtocol
 
+from prody2.objects import ProDyNpzEnsemble
+
 from pyworkflow.utils import *
-from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
-
-from os.path import basename, exists, join
 
 IMP = 0
 EXP = 1
 
 class ProDyClustENM(EMProtocol):
     """
-    This protocol will provide the ClustENM hybrid simulation method from ProDy, combining clustering, ENM NMA, minimisation and MD.
+    This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
-    _label = 'ClustENM'
+    _label = 'ClustENM(D)'
+    _possibleOutputs = {'outputNpz': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -67,7 +63,7 @@ class ProDyClustENM(EMProtocol):
         cpus = cpu_count()//2 # don't use everything
         form.addParallelSection(threads=cpus, mpi=0)
 
-        form.addSection(label='NMA')
+        form.addSection(label='ClustENM(D)')
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
                       pointerClass='AtomStruct',
@@ -79,32 +75,6 @@ class ProDyClustENM(EMProtocol):
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms), but we suggest 3 to 5.')
-        form.addParam('gamma', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
-        form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Cut-off distance (A)",
-                      help='Calpha atoms beyond this distance will not interact. \n'
-                           'The default distance of 15 A works well in the majority of cases.')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')                      
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
-
-        form.addSection(label='ClustENM')
         form.addParam('n_gens', IntParam, default=5,
                       label='Number of generations',
                       help='Number of generations of NMA, clustering and refinement')     
@@ -126,20 +96,46 @@ class ProDyClustENM(EMProtocol):
                       help='Average RMSD of the new conformers with respect to the conformer'
                            'from which they are generated \n'
                            'A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.')
+        form.addParam('clusterMode', EnumParam, choices=['maxclust', 'threshold'],
+                      label="Method for clustering for each generation",
+                      help='Either maxclust or RMSD threshold should be given! For large number of '
+                           'generations and/or structures, specifying maxclust is more efficient.')
         form.addParam('maxclust', StringParam, default="None",
-                      #expertLevel=LEVEL_ADVANCED,
+                      condition='clusterMode==0',
                       label="Maximum number of clusters for each generation",
-                      help='Either maxclust or RMSD threshold should be given! For large number of '
-                           'generations and/or structures, specifying maxclust is more efficient.\n'
-                           'A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')     
+                      help='A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')
         form.addParam('threshold', StringParam, default="None",
-                      #expertLevel=LEVEL_ADVANCED,
+                      condition='clusterMode==1',
                       label="RMSD threshold (A) to apply when forming clusters",
-                      help='Either maxclust or RMSD threshold should be given! For large number of '
-                           'generations and/or structures, specifying maxclust is more efficient.\n'
-                           'A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.\n'
+                      help='A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.\n'
                            'This parameter has been used in ClustENMv1, setting it to 75%% of the maximum RMSD for sampling. '
                            'For the current version (v2), this should be chosen carefully for efficiency')                          
+
+        form.addSection(label='NMA')
+        form.addParam('gamma', FloatParam, default=1.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Spring constant",
+                      help='This number or function determines the strength of the springs.\n'
+                           'More sophisticated options are available within the ProDy API and '
+                           'the resulting modes can be imported back into Scipion.\n'
+                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+        form.addParam('cutoff', FloatParam, default=15.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Cut-off distance (A)",
+                      help='Calpha atoms beyond this distance will not interact. \n'
+                           'The default distance of 15 A works well in the majority of cases.')
+        form.addParam('sparse', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use sparse matrices?",
+                      help='This saves memory at the expense of computational time.')
+        form.addParam('kdtree', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use KDTree for building Hessian matrix?",
+                      help='This takes more computational time.')
+        form.addParam('turbo', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use turbo mode",
+                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
         form.addSection(label='Simulation')
         form.addParam('solvent', EnumParam, choices=['implicit', 'explicit'],
@@ -226,7 +222,7 @@ class ProDyClustENM(EMProtocol):
                 raise ImportError('Please install threadpoolctl to control threads')
 
             with threadpool_limits(limits=nproc, user_api="blas"):
-                ens = prody.ClustENM(atoms)
+                ens = prody.ClustENM(str(atoms))
                 ens.setAtoms(atoms)
                 ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
                         n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
@@ -247,5 +243,15 @@ class ProDyClustENM(EMProtocol):
     def createOutputStep(self):
         outputPdb = AtomStruct()
         outputPdb.setFileName(self.outFileName+'.pdb')
-        self._defineOutputs(outputStructure=outputPdb)
+        self._defineOutputs(outputStructure=outputPdb,
+                            outputNPZ=self.npz)
+
+    def _summary(self):
+        if not hasattr(self, 'outputNPZ'):
+            sum = ['Output ensemble not ready yet']
+        else:
+            ens = self.outputNPZ.loadEnsemble()
+            sum = ['ClustENM completed *{0}* generations and generated *{1}* structures of *{2}* atoms'.format(
+                    self.n_gens.get(), ens.numConfs(), ens.numAtoms())]
+        return sum
 

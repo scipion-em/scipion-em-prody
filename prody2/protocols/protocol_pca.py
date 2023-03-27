@@ -48,6 +48,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, LEVEL_ADVANCED)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2.objects import ProDyNpzEnsemble
 
 import prody
 import matplotlib.pyplot as plt
@@ -74,7 +75,7 @@ class ProDyPCA(ProDyModesBase):
         form.addSection(label='ProDy PCA')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='SetOfAtomStructs',
+                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms.')
         form.addParam('numberOfModes', IntParam, default=5,
@@ -114,17 +115,21 @@ class ProDyPCA(ProDyModesBase):
         # Insert processing steps
 
         # Link the input
-        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.inputEnsemble.get()])
-        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        inputEnsemble = self.inputEnsemble.get()
+        if isinstance(inputEnsemble, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        else:
+            self.ens = inputEnsemble.loadEnsemble()
         
         self.dcdFileName = self._getPath('ensemble.dcd')
-        prody.writeDCD(self.dcdFileName, ens)
+        prody.writeDCD(self.dcdFileName, self.ens)
 
         self.model_type = 'pca'
         n = self.numberOfModes.get()
 
-        self._insertFunctionStep('computeModesStep', ens, n)
+        self._insertFunctionStep('computeModesStep', n)
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
@@ -133,7 +138,7 @@ class ProDyPCA(ProDyModesBase):
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, ens, n):
+    def computeModesStep(self, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
         old_secondary = prody.confProDy("auto_secondary")
         old_verbosity = prody.confProDy("verbosity")
@@ -143,7 +148,7 @@ class ProDyPCA(ProDyModesBase):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, ens.getAtoms())
+        prody.writePDB(self.pdbFileName, self.ens.getAtoms())
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
@@ -272,4 +277,15 @@ class ProDyPCA(ProDyModesBase):
 
         self._defineOutputs(outFractVars=outputFractVars,
                             outputModes=nmSet)
+
+    def _summary(self):
+        if not hasattr(self, 'outputModes'):
+            sum = ['Output modes not ready yet']
+        else:
+            modes = prody.parseScipionModes(self.outputModes.getFileName())
+            ens = self.inputEnsemble.get().loadEnsemble()
+
+            sum = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+                    modes.numModes(), ens.numConfs(), ens.numAtoms())]
+        return sum
 

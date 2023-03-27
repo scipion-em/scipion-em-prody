@@ -63,7 +63,7 @@ class ProDySelect(EMProtocol):
     """
     This protocol will perform atom selection
     """
-    _label = 'Atom Selection'
+    _label = 'Select'
     IMPORT_FROM_ID = 0
     IMPORT_FROM_FILES = 1
     USE_POINTER = 2
@@ -161,12 +161,25 @@ class ProDySelect(EMProtocol):
         outputPdb.setFileName(self.pdbFileName)
         self._defineOutputs(outputStructure=outputPdb)   
 
+    def _summary(self):
+        if not hasattr(self, 'outputStructure'):
+            sum = ['Output structure not ready yet']
+        else:
+            input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
+            output_ag = prody.parsePDB(self.outputStructure.getFileName())
+            sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
+                   output_ag.numAtoms(), input_ag.numAtoms())]
+            sum.append('The new structure has *{0}* protein residues '
+                        'from original *{1}* protein residues'.format(
+                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+        return sum
+
 
 class ProDyAlign(EMProtocol):
     """
     This protocol will perform atomic structure mapping and superposition
     """
-    _label = 'Atom Alignment'
+    _label = 'Align'
     _possibleOutputs = {'outputStructureMob': AtomStruct,
                         'outputStructureTar': AtomStruct,
                         'outputTransform': Transform}
@@ -315,7 +328,7 @@ class ProDyAlign(EMProtocol):
         else:
             mapping = False
 
-        mob_amap_list = prody.alignChains(mob, tar,
+        mob_amap_list = prody.alignChains(mob.protein, tar.protein,
                                           seqid=self.seqid.get(),
                                           overlap=self.overlap.get(),
                                           match_func=match_func,
@@ -326,7 +339,7 @@ class ProDyAlign(EMProtocol):
             mob_sel = mob_amap.select("not dummy").copy()
             mob_sel.setTitle(mob.getTitle())
 
-            tar_amap_list = prody.alignChains(tar, mob_sel,
+            tar_amap_list = prody.alignChains(tar.protein, mob_sel,
                                               seqid=self.seqid.get(),
                                               overlap=self.overlap.get(),
                                               match_func=match_func,

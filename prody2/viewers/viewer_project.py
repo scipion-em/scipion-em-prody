@@ -29,19 +29,15 @@ This module implements wrappers around the ProDy tools
 for plotting projections of ensembles onto modes.
 """
 
-from pyworkflow.protocol.params import LabelParam, IntParam, BooleanParam
+from pyworkflow.protocol.params import LabelParam, BooleanParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
+from pwem.objects import SetOfAtomStructs
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 
-from matplotlib import ticker
-import numpy as np
-import os
-
 import prody
-from prody.utilities.drawtools import IndexFormatter
 
 class ProDyProjectionsViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
@@ -67,12 +63,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       label='Show projection?',
                       help='Projections are shown in various ways depending on the options selected')
 
-        form.addParam('byFrame', BooleanParam, label="Plot by frame?",
-                      condition=self.numModes==ONE, default=False,
-                      help='Select whether to plot a line graph with the frame number on the x-axis '
-                           'and the mode projection on the y-axis.\n'
-                           'The alternative is to show a histogram for 1D.')   
-
         form.addParam('norm', BooleanParam, label="Normalize?", default=False,
                       help='Select whether to normalise projections.')   
 
@@ -83,10 +73,10 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Select whether to label points.',
                       condition=self.numModes!=ONE)   
 
-        # form.addParam('kde', BooleanParam, label="Use kernel density estimation?",
-        #               condition=(numModes != THREE and not byFrame),
-        #               help='Select whether to use kernel density estimation from seaborn.\n'
-        #                    'The alternative is to show points for 2D and a regular histogram for 1D.')
+        form.addParam('kde', BooleanParam, label="Use kernel density estimation?",
+                      default=False, condition=self.numModes != THREE,
+                      help='Select whether to use kernel density estimation from seaborn.\n'
+                           'The alternative is to show points for 2D and a regular histogram for 1D.')
 
     def _getVisualizeDict(self):
         return {'showProjection': self._viewProjection}            
@@ -94,12 +84,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
     def _viewProjection(self, paramName):
         """visualisation for all projections"""  
 
-        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.protocol.inputEnsemble.get()])
-        ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        inputEnsemble = self.protocol.inputEnsemble.get()
+        if isinstance(inputEnsemble, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+            ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        else:
+            ensemble = inputEnsemble.loadEnsemble()
         
         if ensemble.getLabels()[0].endswith('_atoms_amap'):
             ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0].endswith('_ca'):
+            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
             
         if ensemble.getLabels()[0][:6].isnumeric():
             ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
@@ -112,17 +109,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
         ax = plotter.figure.gca()
 
         if self.numModes == ONE:
-            plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
-                                        by_time=self.byFrame.get(),
-                                        rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
+            plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                        show_density=self.kde.get())
         else:
             if self.label.get():
-                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
-                                            text=ensemble.getLabels(), 
-                                            rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
+                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                            text=ensemble.getLabels(),
+                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                            show_density=self.kde.get())
             else:
-                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1], 
-                                            rmsd=self.rmsd.get(), norm=self.norm.get())#, kde=self.kde.get())
+                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                            show_density=self.kde.get())
                 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))

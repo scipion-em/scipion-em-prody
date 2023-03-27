@@ -55,7 +55,7 @@ class ProDyANM(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
     """
-    _label = 'ANM analysis'
+    _label = 'ANM NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
@@ -119,7 +119,6 @@ class ProDyANM(EMProtocol):
                       'in order to decide which modes to use at the image analysis step.')
 
         form.addParam('zeros', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
         form.addParam('turbo', BooleanParam, default=True,
@@ -363,4 +362,14 @@ class ProDyANM(EMProtocol):
 
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.inputStructure, nmSet)
+
+    def _summary(self):
+        if not hasattr(self, 'outputModes'):
+            sum = ['Output modes not ready yet']
+        else:
+            modes = prody.parseScipionModes(self.outputModes.getFileName())
+
+            sum = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
+                    modes.numModes(), modes.numAtoms())]
+        return sum
 

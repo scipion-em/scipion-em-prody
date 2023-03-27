@@ -29,11 +29,6 @@
 """
 This module will provide ProDy projection of structural ensembles on principal component or normal modes
 """
-from pyworkflow.protocol import params
-
-from os.path import basename, exists, join
-import math
-from multiprocessing import cpu_count
 
 from pwem import *
 import pwem.emlib.metadata as md
@@ -43,12 +38,11 @@ from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
 from pyworkflow.utils import *
-from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
-                                        BooleanParam, EnumParam, LEVEL_ADVANCED)
+from pyworkflow.protocol.params import PointerParam, EnumParam
 
 import prody
 from prody2.constants import PROJ_COEFFS
+from prody2.objects import ProDyNpzEnsemble
 
 ONE = 0
 TWO = 1
@@ -69,7 +63,7 @@ class ProDyProject(EMProtocol):
         form.addSection(label='ProDy Projection')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='SetOfAtomStructs',
+                      pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms.')
 
@@ -98,9 +92,13 @@ class ProDyProject(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in self.inputEnsemble.get()])
-        ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        inputEnsemble = self.inputEnsemble.get()
+        if isinstance(inputEnsemble, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        else:
+            ens = inputEnsemble.loadEnsemble()
 
         modes_path = self.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modes_path)
@@ -113,12 +111,13 @@ class ProDyProject(EMProtocol):
     def createOutputStep(self):
         inputEnsemble = self.inputEnsemble.get()
         
-        outSetAS = SetOfAtomStructs().create(self._getExtraPath())
-        outSetAS.copyItems(inputEnsemble, updateItemCallback=self._setCoeffs)
+        input_class = type(inputEnsemble)
+        outSet = input_class().create(self._getExtraPath())
+        outSet.copyItems(inputEnsemble, updateItemCallback=self._setCoeffs)
         
         outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
         self._defineOutputs(outputProjection=outputProjection,
-                            outputStructures=outSetAS)
+                            outputStructures=outSet)
 
 
     # --------------------------- UTILS functions --------------------------------------------

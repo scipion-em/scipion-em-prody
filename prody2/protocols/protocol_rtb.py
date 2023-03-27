@@ -55,7 +55,7 @@ class ProDyRTB(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
     """
-    _label = 'RTB analysis'
+    _label = 'RTB NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
