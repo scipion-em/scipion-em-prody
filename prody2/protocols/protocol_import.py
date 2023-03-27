@@ -281,7 +281,13 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('superpose', params.EnumParam, label="Superpose?",
                       choices=['No', 'Once', 'Iteratively'], default=NO_SUP,
-                      help='Elect whether and how to superpose the ensemble')        
+                      help='Elect whether and how to superpose the ensemble')
+
+        form.addParam('savePDBs', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Save PDB files?",
+                      help='This takes up storage and time, but '
+                           'may be helpful for interfacing with ContinuousFlex.')
 
         form.addParam('selstr', params.StringParam, default="all",
                       label="Selection string",
