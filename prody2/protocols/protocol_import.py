@@ -232,13 +232,20 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='Select the type of import.')
 
         form.addParam('importType', params.EnumParam, choices=['pdb', 'dcd', 'ens.npz'],
-                      default=PDB,
+                      default=PDB, condition='importFrom==0',
+                      label='Type of ensemble file to import',
+                      help='ProDy can support import of ensembles in various file formats: \n'
+                           'pdb, dcd and the native ens.npz format')
+
+        form.addParam('importPointer', params.PointerParam,
+                      pointerClass='AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble',
+                      condition='importFrom!=0',
                       label='Type of ensemble file to import',
                       help='ProDy can support import of ensembles in various file formats: \n'
                            'pdb, dcd and the native ens.npz format')
 
         form.addParam('filesPath', params.PathParam,
-                      label="Files directory",
+                      label="Files directory", condition='importFrom==0',
                       help="Directory with the files you want to import.\n\n"
                            "The path can also contain wildcards to select"
                            "from several folders. \n\n"
@@ -254,7 +261,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                            "cannot appear in the actual path.)")
 
         form.addParam('filesPattern', params.StringParam,
-                      label='Pattern',
+                      label='Pattern', condition='importFrom==0',
                       help="Pattern of the files to be imported.\n\n"
                            "The pattern can contain standard wildcards such as\n"
                            "*, ?, etc, or special ones like ### to mark some\n"
@@ -265,7 +272,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                            "For gromacs modes, the first is for values and this is for vectors")
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
-                      pointerClass='AtomStruct', condition="importType==%d" % DCD,
+                      pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model '
                            '(an EM volume converted into pseudoatoms) '
