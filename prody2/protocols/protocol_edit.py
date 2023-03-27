@@ -165,6 +165,7 @@ class ProDyEdit(ProDyModesBase):
 
             from_prody = len(glob(modes_path+"/*npz"))
             if from_prody:
+                modes = prody.loadModel(glob(modes_path+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
