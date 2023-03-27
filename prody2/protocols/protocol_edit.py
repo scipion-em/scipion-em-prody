@@ -154,7 +154,7 @@ class ProDyEdit(ProDyModesBase):
         smaller = nodes_list[np.argmin(n_atoms_arr)]
         bigger = nodes_list[np.argmax(n_atoms_arr)]
 
-        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid)[0]
         
         if self.edit == NMA_SLICE:
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
