@@ -359,8 +359,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         for j in range(ens.numConfs()):
             frame = TrajFrame((j+1, self.npzFileName), objLabel=ens.getLabels()[j])
             self.npz.append(frame)
-            if j == 0:
-                self.npz.setRef(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))

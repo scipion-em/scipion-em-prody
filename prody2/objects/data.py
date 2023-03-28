@@ -149,13 +149,6 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
                 old_ensembles[i] = prody.PDBEnsemble(ens)
 
         new_ensemble = prody.PDBEnsemble()
-        if self.hasRef():
-            if isinstance(self._ref.get(), TrajFrame):
-                ref = self._ref.get()
-                ref_index = ref.getIndex() - 1 # back to python
-                ref_ens = prody.loadEnsemble(ref.getFileName())
-                new_ensemble.setCoords(ref_ens.getCoordsets(selected=False)[ref_index])
-                new_ensemble.setAtoms(ref_ens.getAtoms())
 
         for i, item in enumerate(self.iterItems(orderBy=orderBy,
                                                 direction=direction)):
@@ -166,10 +159,11 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
             coords = ensemble.getCoordsets(selected=False)[conf_index]
             label = ensemble.getLabels()[conf_index]
             weights = ensemble.getWeights(selected=False)[conf_index]
-            if not self.hasRef():
-                new_ensemble.setCoords(coords)
+
+            if i == 0:
+                new_ensemble.setCoords(ensemble.getCoords(selected=False))
                 new_ensemble.setAtoms(ensemble.getAtoms())
-                self.setRef(item)
+
             new_ensemble.addCoordset(coords, weights, label)
 
         return new_ensemble
