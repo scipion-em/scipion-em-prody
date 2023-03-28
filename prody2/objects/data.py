@@ -1,3 +1,4 @@
+import os
 import prody
 from pwem.objects import (EMObject, EMSet, Pointer, Integer,
                           String)
@@ -47,7 +48,6 @@ class TrajFrame(EMObject):
             First argument can be:
              1. a tuple with (index, filename)
              2. a index, this implies a second argument with filename
-             3. a filename, this implies index=NO_INDEX
         """
         first = args[0]
         t = type(first)
@@ -55,8 +55,6 @@ class TrajFrame(EMObject):
             index, filename = first
         elif t == int:
             index, filename = first, args[1]
-        elif t == str:
-            index, filename = NO_INDEX, first
         else:
             raise Exception('setLocation: unsupported type %s as input.' % t)
 
@@ -145,7 +143,10 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
     def loadEnsemble(self, orderBy='id', direction='ASC'):
         """Make a new ensemble with all the items and write a new ens.npz file"""
         filenames = list(self.getFiles())
-        old_ensembles = [prody.PDBEnsemble(prody.loadEnsemble(filename)) for filename in filenames]
+        old_ensembles = [prody.loadEnsemble(filename) for filename in filenames]
+        for i, ens in enumerate(old_ensembles):
+            if not isinstance(ens, prody.PDBEnsemble):
+                old_ensembles[i] = prody.PDBEnsemble(ens)
 
         new_ensemble = prody.PDBEnsemble()
         if self.hasRef():
