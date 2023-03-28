@@ -29,7 +29,7 @@ This module implements wrappers around the ProDy tools
 for plotting projections of ensembles onto modes.
 """
 
-from pyworkflow.protocol.params import LabelParam, BooleanParam
+from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
@@ -64,19 +64,55 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Projections are shown in various ways depending on the options selected')
 
         form.addParam('norm', BooleanParam, label="Normalize?", default=False,
-                      help='Select whether to normalise projections.')   
+                      help='Select whether to normalise projections.')
 
         form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
                       help='Select whether to scale projections to RMSDs.')
         
         form.addParam('label', BooleanParam, label="Label points?", default=True,
                       help='Select whether to label points.',
-                      condition=self.numModes!=ONE)   
+                      condition=self.numModes!=ONE)
 
-        form.addParam('kde', BooleanParam, label="Use kernel density estimation?",
+        form.addParam('kde', BooleanParam, label="Show density?",
                       default=False, condition=self.numModes != THREE,
-                      help='Select whether to use kernel density estimation from seaborn.\n'
-                           'The alternative is to show points for 2D and a regular histogram for 1D.')
+                      help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
+                           'The alternative is to show points for 2D and an ordered series in 1D.')
+
+        groupX = form.addGroup('xlim')
+        groupX.addParam('xlim1', FloatParam, label="x-axis limit 1", default=-1,
+                      help='Enter values here and below to specify x-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes!=ONE)
+        groupX.addParam('xlim2', FloatParam, label="x-axis limit 2", default=-1,
+                      help='Enter values here and above to specify x-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes!=ONE)
+
+        groupY = form.addGroup('ylim')
+        groupY.addParam('ylim1', FloatParam, label="y-axis limit 1", default=-1,
+                      help='Enter values here and below to specify y-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes!=ONE)
+        groupY.addParam('ylim2', FloatParam, label="y-axis limit 2", default=-1,
+                      help='Enter values here and above to specify y-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes!=ONE)
+
+        groupZ = form.addGroup('zlim')
+        groupZ.addParam('zlim1', FloatParam, label="z-axis limit 1", default=-1,
+                      help='Enter values here and below to specify z-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes==THREE)
+        groupZ.addParam('zlim2', FloatParam, label="z-axis limit 2", default=-1,
+                      help='Enter values here and above to specify z-axis-limits.\n'
+                           '-1 is the dummy value and needs changing to e.g. -1.1 '
+                           'to have an effect',
+                      condition=self.numModes==THREE)
 
     def _getVisualizeDict(self):
         return {'showProjection': self._viewProjection}            
@@ -105,23 +141,50 @@ class ProDyProjectionsViewer(ProtocolViewer):
         modes = prody.parseScipionModes(modes_path)
 
         plotter = EmPlotter()
-        plotter.createSubPlot('', '', '')
-        ax = plotter.figure.gca()
 
         if self.numModes == ONE:
-            plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                        show_density=self.kde.get())
+            prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                 rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                 show_density=self.kde.get())
         else:
             if self.label.get():
-                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                            text=ensemble.getLabels(),
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=self.kde.get())
+                prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                     text=ensemble.getLabels(),
+                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                     show_density=self.kde.get())
             else:
-                plot = prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=self.kde.get())
+                prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                     show_density=self.kde.get())
+
+            ax = plotter.figure.gca()
+            
+            if self.xlim1.get() != -1 or self.xlim2.get() != -1:
+                xlims = ax.get_xlim()
+                if self.xlim1.get() != -1 and not self.xlim2.get() != -1:
+                    ax.set_xlim([self.xlim1.get(), xlims[1]])
+                elif not self.xlim1.get() != -1 and self.xlim2.get() != -1:
+                    ax.set_xlim([xlims[0], self.xlim2.get()])
+                else:
+                    ax.set_xlim([self.xlim1.get(), self.xlim2.get()])
+
+            if self.ylim1.get() != -1 or self.ylim2.get() != -1:
+                ylims = ax.get_ylim()
+                if self.ylim1.get() != -1 and not self.ylim2.get() != -1:
+                    ax.set_ylim([self.ylim1.get(), ylims[1]])
+                elif not self.ylim1.get() != -1 and self.ylim2.get() != -1:
+                    ax.set_ylim([ylims[0], self.ylim2.get()])
+                else:
+                    ax.set_ylim([self.ylim1.get(), self.ylim2.get()])
+
+            if self.zlim1.get() != -1 or self.zlim2.get() != -1:
+                zlims = ax.get_zlim()
+                if self.zlim1.get() != -1 and not self.zlim2.get() != -1:
+                    ax.set_zlim([self.zlim1.get(), zlims[1]])
+                elif not self.zlim1.get() != -1 and self.zlim2.get() != -1:
+                    ax.set_zlim([zlims[0], self.zlim2.get()])
+                else:
+                    ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
                 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
