@@ -33,10 +33,10 @@ This module will provide the ClustENM hybrid simulation method from ProDy, combi
 from multiprocessing import cpu_count
 
 from pwem import *
-from pwem.objects import AtomStruct, TrajFrame
+from pwem.objects import AtomStruct
 from pwem.protocols import EMProtocol
 
-from prody2.objects import ProDyNpzEnsemble
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,

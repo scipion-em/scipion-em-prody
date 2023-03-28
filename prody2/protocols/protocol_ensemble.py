@@ -33,8 +33,7 @@ from collections import OrderedDict
 import numpy as np
 
 from pwem import *
-from pwem.objects import (AtomStruct, TrajFrame,
-                          SetOfAtomStructs, SetOfSequences)
+from pwem.objects import AtomStruct, SetOfAtomStructs, SetOfSequences
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -46,7 +45,7 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
 import prody
 import time
 
-from prody2.objects import ProDyNpzEnsemble
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 STRUCTURE = 0
 INDEX = 1

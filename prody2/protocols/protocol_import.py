@@ -33,12 +33,11 @@ import os
 import numpy as np
 
 from pwem import *
-from pwem.objects import (AtomStruct, TrajFrame,
-                          SetOfNormalModes, SetOfPrincipalComponents,
-                          String, SetOfAtomStructs)
+from pwem.objects import (String, AtomStruct, SetOfAtomStructs,
+                          SetOfNormalModes, SetOfPrincipalComponents)
 from pwem.protocols import ProtImportFiles
 
-from prody2.objects import ProDyNpzEnsemble
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 from pyworkflow.utils import *
 import pyworkflow.protocol.params as params
