@@ -126,3 +126,12 @@ class ProDyProject(EMProtocol):
         vector = pwobj.CsvList()
         vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[item.getObjId()-1])])
         setattr(item, PROJ_COEFFS, vector)
+
+    def _summary(self):
+        if not hasattr(self, 'outputStructures'):
+            sum = ['Projection not ready yet']
+        else:
+            sum = ['Projected *{0}* structures onto *{1}* components'.format(
+                   len(self.outputStructures), self.numModes.get())]
+        return sum
+        
