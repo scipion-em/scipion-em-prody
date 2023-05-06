@@ -235,17 +235,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                    cutoff_Z=cutoff_Z, cutoff_identity=cutoff_identity)
             mappings = dali_rec.getMappings()
 
-        if self.selstr.get() == 'name CA':
-            subset='ca'
-        else:
-            subset='all'
-        self.tars = prody.parsePDB(pdbs, alt='all', subset=subset)
+        self.tars = prody.parsePDB(pdbs, alt='all')
 
         if isinstance(self.tars, prody.Atomic):
             n_models = self.tars.numCoordsets()
             self.tars = []
             for i in range(n_models):
-                self.tars.append(prody.parsePDB(pdbs, alt='all', subset=subset,
+                self.tars.append(prody.parsePDB(pdbs, alt='all',
                                                 model=i+1))
 
         # actual steps
@@ -402,11 +398,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             self.labels = []
             self.orders = []
 
-            if self.selstr.get() == 'name CA':
-                subset='ca'
-            else:
-                subset='all'
-            tars = prody.parsePDB(pdbs, alt='all', subset=subset)
+            tars = prody.parsePDB(pdbs, alt='all')
 
             for ag in tars:
                 title = ag.getTitle()
