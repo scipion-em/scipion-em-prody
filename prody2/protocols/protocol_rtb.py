@@ -103,11 +103,11 @@ class ProDyRTB(EMProtocol):
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                      help='Atoms or pseudoatoms beyond this distance will not interact.\n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
+                           'For fewer atoms or pseudoatoms, set this according to the level of coarse-graining '
+                           '(see Doruker et al., J Comput Chem 2002 though values may differ for RTB).')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
