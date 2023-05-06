@@ -90,7 +90,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('cumulOverlapSet1', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         group = form.addGroup('Single mode from set 2 (column)',
                               condition=have_matrix == True)
@@ -102,7 +102,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('cumulOverlapSet2', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         form.addParam('cumulOverlapMain', BooleanParam, default=False,
                       condition=(metric==NMA_METRIC_OVERLAP and have_matrix==False),
