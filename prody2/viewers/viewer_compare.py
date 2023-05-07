@@ -85,7 +85,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('displayBarsSet1', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix rows are shown as bars.')
-        group.addParam('modeNumSet1', IntParam, default=7,
+        group.addParam('modeNumSet1', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet1', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
@@ -97,7 +97,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('displayBarsSet2', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix columns are shown as bars.')
-        group.addParam('modeNumSet2', IntParam, default=7,
+        group.addParam('modeNumSet2', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet2', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
