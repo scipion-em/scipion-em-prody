@@ -206,7 +206,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet1.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,
@@ -227,7 +227,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet2.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,
