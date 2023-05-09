@@ -145,7 +145,7 @@ class ProDyDefvec(EMProtocol):
         fhCmd.write("mol modcolor 0 0 Index\n")
         num_rep_atoms = self.mob.ca.numAtoms() + self.mob.select('name P').numAtoms()
         if num_rep_atoms == self.mob.numAtoms():
-            fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+            fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
             # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
             #         "2.600000 0\n")
         else:
