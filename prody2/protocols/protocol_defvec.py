@@ -144,18 +144,18 @@ class ProDyDefvec(EMProtocol):
         fhCmd.write("display projection Orthographic\n")
         fhCmd.write("mol modcolor 0 0 Index\n")
 
-        if self.atoms.select('name P') is not None:
-            num_p_atoms = self.atoms.select('name P').numAtoms()
+        if self.mob.select('name P') is not None:
+            num_p_atoms = self.mob.select('name P').numAtoms()
         else:
             num_p_atoms = 0
 
-        if self.atoms.ca is not None:
-            num_ca_atoms = self.atoms.ca.numAtoms()
+        if self.mob.ca is not None:
+            num_ca_atoms = self.mob.ca.numAtoms()
         else:
             num_ca_atoms = 0
 
         num_rep_atoms = num_ca_atoms + num_p_atoms
-        if num_rep_atoms == self.atoms.numAtoms():
+        if num_rep_atoms == self.mob.numAtoms():
             fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
             # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
             #         "2.600000 0\n")
