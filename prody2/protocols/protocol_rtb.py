@@ -100,6 +100,13 @@ class ProDyRTB(EMProtocol):
                       label='Number of residues in longest block',
                       help='Blocks with more residues will be split in half')
 
+        form.addParam('min_dist_cutoff', FloatParam, default=20.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Distance cutoff for splitting blocks',
+                      help='Distance of a residue from others beyond which '
+                           'it is not included in the same block based on a distance tree. '
+                           'This is calculated using ProDy function findSubgroups.')
+
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
@@ -196,17 +203,30 @@ class ProDyRTB(EMProtocol):
         if self.blockDef.get() == BLOCKS_FROM_RES:
             self.blocks, self.amap = prody.assignBlocks(atoms, res_per_block=self.res_per_block.get(),
                                                         shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get())
+                                                        longest_block=self.longest_block.get(),
+                                                        min_dist_cutoff=self.min_dist_cutoff.get())
         else:
             self.blocks, self.amap = prody.assignBlocks(atoms, secstr=True,
                                                         shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get())
+                                                        longest_block=self.longest_block.get(),
+                                                        min_dist_cutoff=self.min_dist_cutoff.get())
 
         prody.writePDB(self.pdbFileName, self.amap)
 
         self.rtb = prody.RTB()
-        self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(), gamma=self.gamma.get())
-        self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        try:
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                gamma=self.gamma.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                    gamma=self.gamma.get(), sparse=True)
+
+        try:
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
 
         if self.zeros.get():
             self.startMode = 6
