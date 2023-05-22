@@ -213,8 +213,19 @@ class ProDyRTB(EMProtocol):
         prody.writePDB(self.pdbFileName, self.amap)
 
         self.rtb = prody.RTB()
-        self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(), gamma=self.gamma.get())
-        self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        try:
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                gamma=self.gamma.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                    gamma=self.gamma.get(), sparse=True)
+
+        try:
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
 
         if self.zeros.get():
             self.startMode = 6
