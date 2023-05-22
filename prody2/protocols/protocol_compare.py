@@ -37,7 +37,8 @@ from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
+from pyworkflow.protocol.params import (PointerParam, EnumParam,
+                                        BooleanParam, NumericRangeParam, LEVEL_ADVANCED)
 
 import prody
 
@@ -60,21 +61,23 @@ class ProDyCompare(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy compare')
 
-        form.addParam('modes1', PointerParam, label="Input SetOfNormalModes 1",
+        form.addParam('modes1', PointerParam, label="Input modes set 1",
                       important=True,
                       pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).\n'
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
 
-        form.addParam('modes2', PointerParam, label="Input SetOfNormalModes 2",
+        form.addParam('modes2', PointerParam, label="Input modes set 2",
                       important=True,
                       pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).\n'
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
 
@@ -128,7 +131,7 @@ class ProDyCompare(EMProtocol):
         modes2_path = os.path.dirname(os.path.dirname(
             self.modes2.get()._getMapper().selectFirst().getModeFile()))
             
-        pdb2 = glob(modes1_path+"/*atoms.pdb")
+        pdb2 = glob(modes2_path+"/*atoms.pdb")
         if len(pdb2) == 0:
             pdb2 = None
 
@@ -136,33 +139,27 @@ class ProDyCompare(EMProtocol):
 
         n_modes = np.max([modes1.numModes(), modes2.numModes()])
         min_n_modes = np.min([modes1.numModes(), modes2.numModes()])
-        if modes1.numModes() != modes2.numModes() and min_n_modes != 1:
-            raise ValueError('The two sets should have the same number of modes '
-                             'unless one of them has exactly 1 mode in it.\n'
-                             'modes1 has {0} and modes2 has {1}'.format(modes1.numModes(),
-                                                                        modes2.numModes()))
 
-        if min_n_modes != 1:
+        if min_n_modes != 1 and self.match:
             mode_ens = prody.ModeEnsemble()
             mode_ens.addModeSet(modes1)
             mode_ens.addModeSet(modes2)
-            if self.match:
-                mode_ens.match()
+            mode_ens.match()
 
-                match_inds = prody.matchModes(modes1, modes2, index=True)
+            match_inds = prody.matchModes(modes1, modes2, index=True)
 
-                prody.writeArray(self._getExtraPath('match_inds.txt'),
-                                 np.array(match_inds, dtype=int)[1]+1,
-                                 format='%3d')
+            prody.writeArray(self._getExtraPath('match_inds.txt'),
+                             np.array(match_inds, dtype=int)[1]+1,
+                             format='%3d')
 
-                pdb = self.modes1.get().getPdb()
-                if pdb is not None:
-                    atoms = prody.parsePDB(pdb.getFileName())
-                else:
-                    atoms = prody.parsePDB(pdb1)
+            pdb = self.modes1.get().getPdb()
+            if pdb is not None:
+                atoms = prody.parsePDB(pdb.getFileName())
+            else:
+                atoms = prody.parsePDB(pdb1)
 
-                prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
-                prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
+            prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
+            prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
             mode_ens = [modes1, modes2]
         

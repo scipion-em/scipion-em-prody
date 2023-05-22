@@ -1,3 +1,9 @@
+29 March 2023 - major release v3.3.0
+    Substantial integration and improvements of everything:
+    1. Improved ensembles and alignments including custom chain matching
+    2. New ProDyNpzEnsemble object, making everything work more smoothly
+    3. General improvements including protocol summaries
+
 29 July 2022 - major release v3.2.0
     Whole new working pipelines with tests:
         1. GNM analysis and dynamical domain decomposition

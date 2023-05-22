@@ -85,24 +85,24 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('displayBarsSet1', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix rows are shown as bars.')
-        group.addParam('modeNumSet1', IntParam, default=7,
+        group.addParam('modeNumSet1', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet1', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         group = form.addGroup('Single mode from set 2 (column)',
                               condition=have_matrix == True)
         group.addParam('displayBarsSet2', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix columns are shown as bars.')
-        group.addParam('modeNumSet2', IntParam, default=7,
+        group.addParam('modeNumSet2', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet2', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         form.addParam('cumulOverlapMain', BooleanParam, default=False,
                       condition=(metric==NMA_METRIC_OVERLAP and have_matrix==False),
@@ -206,7 +206,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet1.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,
@@ -227,7 +227,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet2.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,

@@ -55,7 +55,8 @@ class ProDyRTB(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
     """
-    _label = 'RTB analysis'
+    _label = 'RTB NMA'
+    _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -102,11 +103,11 @@ class ProDyRTB(EMProtocol):
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                      help='Atoms or pseudoatoms beyond this distance will not interact.\n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
+                           'For fewer atoms or pseudoatoms, set this according to the level of coarse-graining '
+                           '(see Doruker et al., J Comput Chem 2002 though values may differ for RTB).')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -239,8 +240,20 @@ class ProDyRTB(EMProtocol):
                 fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
             else:
                 fhCmd.write("mol modcolor 0 0 Index\n")
-                if self.amap.ca.numAtoms() == self.amap.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+
+                if self.amap.select('name P') is not None:
+                    num_p_atoms = self.amap.select('name P').numAtoms()
+                else:
+                    num_p_atoms = 0
+
+                if self.amap.ca is not None:
+                    num_ca_atoms = self.amap.ca.numAtoms()
+                else:
+                    num_ca_atoms = 0
+
+                num_rep_atoms = num_ca_atoms + num_p_atoms
+                if num_rep_atoms == self.amap.numAtoms():
+                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
                 else:

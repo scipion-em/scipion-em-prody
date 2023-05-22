@@ -80,9 +80,8 @@ class ProDyGNM(EMProtocol):
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
                            'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance is recommended.')
+                           'For all atoms, a shorter distance is recommended.'
+                           'For fewer atoms or pseudoatoms, a longer distance is recommended.')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,

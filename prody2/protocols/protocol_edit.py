@@ -34,7 +34,6 @@ import numpy as np
 
 from pwem import *
 from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
@@ -93,11 +92,12 @@ class ProDyEdit(ProDyModesBase):
                         'from nodes of the same residue')
 
 
-        form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
+        form.addParam('modes', PointerParam, label='Input set of modes',
                       pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).')
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.')
 
         form.addParam('newNodes', PointerParam,
                       label='new nodes',
@@ -138,23 +138,14 @@ class ProDyEdit(ProDyModesBase):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.old_secondary = prody.confProDy("auto_secondary")
         self.old_verbosity = prody.confProDy("verbosity")
-        print('protocol edit, old_verbosity: ' + self.old_verbosity)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
-        modes_path = os.path.dirname(os.path.dirname(self.modes.get()._getMapper().selectFirst().getModeFile()))
         
-        from_prody = len(glob(modes_path+"/*npz"))
-        if from_prody:
-            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
-        else:
-            fn_sqlite = self.modes.get().getFileName()
-            modes = prody.parseScipionModes(fn_sqlite)
-
         self.inputStructure = self.modes.get().getPdb()
-        structureEM = self.inputStructure.getPseudoAtoms()
+        modes = prody.parseScipionModes(self.modes.get().getFileName(),
+                                        pdb=self.inputStructure.getFileName())
 
         old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
         new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
@@ -164,13 +155,18 @@ class ProDyEdit(ProDyModesBase):
         smaller = nodes_list[np.argmin(n_atoms_arr)]
         bigger = nodes_list[np.argmax(n_atoms_arr)]
 
-        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid)[0]
         
         if self.edit == NMA_SLICE:
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
+            modes_path = os.path.dirname(os.path.dirname(
+                self.modes.get()._getMapper().selectFirst().getModeFile()))
+
+            from_prody = len(glob(modes_path+"/*npz"))
             if from_prody:
+                modes = prody.loadModel(glob(modes_path+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
