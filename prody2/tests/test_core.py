@@ -53,9 +53,13 @@ class TestProDy_core(TestWorkflow):
 
     def test_ProDy_core(self):
         """ Run NMA simple workflow for two Atomic structures. """
-        # ------------------------------------------------
-        # Step 1. Import a Pdb -> Select chain A -> NMA
-        # ------------------------------------------------
+
+        old_verbosity = prody.confProDy("verbosity")
+        old_secondary = prody.confProDy("auto_secondary")
+
+        # --------------------------------------------------------------
+        # Step 1a. Import a Pdb -> Select chain A from Pointer -> NMA
+        # --------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
                                           pdbId="4ake")
@@ -65,7 +69,7 @@ class TestProDy_core(TestWorkflow):
         # Select Chain A
         protSel1 = self.newProtocol(ProDySelect, selection="protein and chain A")
         protSel1.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1.setObjLabel('Sel_4akeA_all')
+        protSel1.setObjLabel('Sel_4akeA_all_pointer')
         self.launchProtocol(protSel1)
 
         # Launch ANM NMA for chain A (all atoms)
@@ -73,6 +77,24 @@ class TestProDy_core(TestWorkflow):
         protANM1.inputStructure.set(protSel1.outputStructure)
         protANM1.setObjLabel('ANM_all')
         self.launchProtocol(protANM1)
+
+        # ------------------------------------------------
+        # Step 1b. Select chain A from Filename
+        # ------------------------------------------------
+        protSel1b = self.newProtocol(ProDySelect, selection="protein and chain A",
+                                     inputPdbData=1)
+        protSel1b.pdbFile.set(protImportPdb1.outputPdb.getFileName())
+        protSel1b.setObjLabel('Sel_4akeA_all_file')
+        self.launchProtocol(protSel1b)
+
+        # ----------------------------------------------------
+        # Step 1c. Select chain A from PDB id (difficult case)
+        # ----------------------------------------------------
+        protSel1c = self.newProtocol(ProDySelect, selection="protein and chain A",
+                                     inputPdbData=0)
+        protSel1c.pdbId.set("6xr8")
+        protSel1c.setObjLabel('Sel_6xr8_A_all_id')
+        self.launchProtocol(protSel1c)
 
         # ------------------------------------------------
         # Step 2. Select CA -> ANM NMA
@@ -251,32 +273,37 @@ class TestProDy_core(TestWorkflow):
         protRTB1 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
         protRTB1.inputStructure.set(protSel2.outputStructure)
         protRTB1.setObjLabel('RTB_CA_10_res')
-        self.launchProtocol(protRTB1)    
+        self.launchProtocol(protRTB1)
 
         # Launch RTB NMA for selected atoms (CA) with secstr block
         protRTB2 = self.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
         protRTB2.inputStructure.set(protSel2.outputStructure)
         protRTB2.setObjLabel('RTB_CA_secstr')
-        self.launchProtocol(protRTB2)    
+        self.launchProtocol(protRTB2)
 
         # Compare RTB1 and RTB2
         protComp6 = self.newProtocol(ProDyCompare)
         protComp6.modes1.set(protRTB1.outputModes)
         protComp6.modes2.set(protRTB2.outputModes)
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
-        self.launchProtocol(protComp6)  
+        self.launchProtocol(protComp6)
 
         # Compare CA ANM and RTB1
         protComp7 = self.newProtocol(ProDyCompare)
         protComp7.modes1.set(protANM2.outputModes)
         protComp7.modes2.set(protRTB1.outputModes)
         protComp7.setObjLabel('Compare_ANM_to_RTB1')
-        self.launchProtocol(protComp7)  
+        self.launchProtocol(protComp7)
 
         # Compare CA ANM and RTB2
         protComp8 = self.newProtocol(ProDyCompare)
         protComp8.modes1.set(protANM2.outputModes)
         protComp8.modes2.set(protRTB2.outputModes)
         protComp8.setObjLabel('Compare_ANM_to_RTB2')
-        self.launchProtocol(protComp8) 
+        self.launchProtocol(protComp8)
+
+        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+                        "prody verbosity changed")
         
+        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+                        "prody auto_secondary changed")

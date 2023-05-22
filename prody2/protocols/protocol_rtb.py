@@ -55,7 +55,8 @@ class ProDyRTB(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
     """
-    _label = 'RTB analysis'
+    _label = 'RTB NMA'
+    _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -99,14 +100,21 @@ class ProDyRTB(EMProtocol):
                       label='Number of residues in longest block',
                       help='Blocks with more residues will be split in half')
 
+        form.addParam('min_dist_cutoff', FloatParam, default=20.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Distance cutoff for splitting blocks',
+                      help='Distance of a residue from others beyond which '
+                           'it is not included in the same block based on a distance tree. '
+                           'This is calculated using ProDy function findSubgroups.')
+
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.')
+                      help='Atoms or pseudoatoms beyond this distance will not interact.\n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
+                           'For fewer atoms or pseudoatoms, set this according to the level of coarse-graining '
+                           '(see Doruker et al., J Comput Chem 2002 though values may differ for RTB).')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -178,6 +186,12 @@ class ProDyRTB(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
@@ -189,17 +203,30 @@ class ProDyRTB(EMProtocol):
         if self.blockDef.get() == BLOCKS_FROM_RES:
             self.blocks, self.amap = prody.assignBlocks(atoms, res_per_block=self.res_per_block.get(),
                                                         shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get())
+                                                        longest_block=self.longest_block.get(),
+                                                        min_dist_cutoff=self.min_dist_cutoff.get())
         else:
             self.blocks, self.amap = prody.assignBlocks(atoms, secstr=True,
                                                         shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get())
+                                                        longest_block=self.longest_block.get(),
+                                                        min_dist_cutoff=self.min_dist_cutoff.get())
 
         prody.writePDB(self.pdbFileName, self.amap)
 
         self.rtb = prody.RTB()
-        self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(), gamma=self.gamma.get())
-        self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        try:
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                gamma=self.gamma.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
+            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+                                    gamma=self.gamma.get(), sparse=True)
+
+        try:
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+        except MemoryError as err:
+            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
+            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
 
         if self.zeros.get():
             self.startMode = 6
@@ -233,8 +260,20 @@ class ProDyRTB(EMProtocol):
                 fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
             else:
                 fhCmd.write("mol modcolor 0 0 Index\n")
-                if self.amap.ca.numAtoms() == self.amap.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+
+                if self.amap.select('name P') is not None:
+                    num_p_atoms = self.amap.select('name P').numAtoms()
+                else:
+                    num_p_atoms = 0
+
+                if self.amap.ca is not None:
+                    num_ca_atoms = self.amap.ca.numAtoms()
+                else:
+                    num_ca_atoms = 0
+
+                num_rep_atoms = num_ca_atoms + num_p_atoms
+                if num_rep_atoms == self.amap.numAtoms():
+                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
                 else:
@@ -339,6 +378,10 @@ class ProDyRTB(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
+        
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

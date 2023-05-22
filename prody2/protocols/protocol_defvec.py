@@ -105,6 +105,13 @@ class ProDyDefvec(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self, mobFn, tarFn):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         self.mob = prody.parsePDB(mobFn, alt='all')
         self.tar = prody.parsePDB(tarFn, alt='all')
 
@@ -136,8 +143,20 @@ class ProDyDefvec(EMProtocol):
         fhCmd.write("animate style Rock\n")
         fhCmd.write("display projection Orthographic\n")
         fhCmd.write("mol modcolor 0 0 Index\n")
-        if self.mob.ca.numAtoms() == self.mob.numAtoms():
-            fhCmd.write("mol modstyle 0 0 Beads 1.000000 8.000000\n")
+
+        if self.mob.select('name P') is not None:
+            num_p_atoms = self.mob.select('name P').numAtoms()
+        else:
+            num_p_atoms = 0
+
+        if self.mob.ca is not None:
+            num_ca_atoms = self.mob.ca.numAtoms()
+        else:
+            num_ca_atoms = 0
+
+        num_rep_atoms = num_ca_atoms + num_p_atoms
+        if num_rep_atoms == self.mob.numAtoms():
+            fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
             # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
             #         "2.600000 0\n")
         else:
@@ -172,6 +191,10 @@ class ProDyDefvec(EMProtocol):
             md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

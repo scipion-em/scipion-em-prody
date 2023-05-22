@@ -80,9 +80,8 @@ class ProDyGNM(EMProtocol):
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
                            'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance is recommended.')
+                           'For all atoms, a shorter distance is recommended.'
+                           'For fewer atoms or pseudoatoms, a longer distance is recommended.')
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
@@ -133,6 +132,13 @@ class ProDyGNM(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
@@ -229,6 +235,7 @@ class ProDyGNM(EMProtocol):
 
         for i in range(len(fnVec)):
             score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
+            
         i = 0
         for objId in mdOut:
             score[i] = float(score[i]) / (2.0 * l)
@@ -266,6 +273,7 @@ class ProDyGNM(EMProtocol):
                     md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
                 md.write(join(fnOutDir,"vec%d.xmd" % n))
                 fhIn.close()
+                
         md = MetaData()
         for i, _ in enumerate(maxShift):
             fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
@@ -274,6 +282,10 @@ class ProDyGNM(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
 
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))

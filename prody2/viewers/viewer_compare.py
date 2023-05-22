@@ -85,24 +85,24 @@ class ProDyComparisonsViewer(ProtocolViewer):
         group.addParam('displayBarsSet1', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix rows are shown as bars.')
-        group.addParam('modeNumSet1', IntParam, default=7,
+        group.addParam('modeNumSet1', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet1', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         group = form.addGroup('Single mode from set 2 (column)',
                               condition=have_matrix == True)
         group.addParam('displayBarsSet2', LabelParam, default=False,
                        label='Display bar graphs?',
                        help='Matrix columns are shown as bars.')
-        group.addParam('modeNumSet2', IntParam, default=7,
+        group.addParam('modeNumSet2', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet2', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
                        label='Display cumulative overlap?',
-                       help='Matrix rows are shown as bars.')
+                       help='Cumulative overlaps from matrix rows are shown as lines.')
 
         form.addParam('cumulOverlapMain', BooleanParam, default=False,
                       condition=(metric==NMA_METRIC_OVERLAP and have_matrix==False),
@@ -135,6 +135,14 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
     def _viewMatrix(self, paramName):
         """ visualisation for 2D mode comparisons""" 
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
         if self.abs:
@@ -173,11 +181,23 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             ax.yaxis.set_major_locator(locator)
             ax.yaxis.set_minor_locator(minor_locator)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
         
         return [plotter]
 
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
         if paramName == 'displayBarsSet1':
@@ -186,7 +206,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet1.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,
@@ -207,7 +227,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             modeNumber = self.modeNumSet2.get()
             mode = modes[modeNumber]
             
-            if modeNumber < 7 or mode is None:
+            if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
                                         "Display the output Normal Modes to see "
                                         "the availables ones." % modeNumber,
@@ -246,7 +266,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
         ax = plotter.figure.gca()
 
-        if max(matrix) <= 1:
+        if np.max(matrix) <= 1:
             if self.abs:
                 ax.set_ylim([0, 1])
             else:
@@ -267,6 +287,10 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_minor_locator(minor_locator)
-            
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=self.old_secondary, 
+                        verbosity='{0}'.format(self.old_verbosity))
+
         return [plotter]
 

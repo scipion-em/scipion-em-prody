@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"
 _logo = "icon.png"
 _references = ['Zhang2021']
 
@@ -40,18 +40,6 @@ _references = ['Zhang2021']
 class Plugin(pwem.Plugin):
     _supportedVersions = VERSIONS
     _url = "https://github.com/scipion-em/scipion-em-prody"
-
-    @classmethod
-    def _defineVariables(cls):
-        cls._defineVar(PRODY_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
-
-    @classmethod
-    def getProDyEnvActivation(cls):
-        """ Remove the scipion home and activate the conda environment. """
-        activation = cls.getVar(PRODY_ENV_ACTIVATION)
-        scipionHome = Config.SCIPION_HOME + os.path.sep
-
-        return activation.replace(scipionHome, "", 1)
 
     @classmethod
     def getEnviron(cls):
@@ -89,7 +77,8 @@ class Plugin(pwem.Plugin):
             installCmd.append('cd .. &&')
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
-                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy && cd ProDy &&')
+                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+            installCmd.append('cd ProDy &&')
 
         # Install downloaded code
         installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')
@@ -97,14 +86,18 @@ class Plugin(pwem.Plugin):
         if version == DEVEL:
             installCmd.append('cd .. && cd prody-github &&')
 
-        # configure ProDy to automatically handle secondary structure information
         installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
-        installCmd.append('python -c "import prody; prody.confProDy(auto_secondary=True)" &&')
 
         # Flag installation finished
         installCmd.append('touch %s' % PRODY_INSTALLED)
 
-        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]
+        # Install PDBFixer and OpenMM for ClustENM
+        OPEN_MM_INSTALLED = 'openmm_installed'
+        #installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
+
+        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)#,
+                          #(installOpenMM, OPEN_MM_INSTALLED)
+                          ]
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
@@ -130,18 +123,8 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getProgram(cls, program):
         """ Create ProDy command line. """
-        fullProgram = '%s %s && prody %s' % (
-            cls.getCondaActivationCmd(), cls.getProDyEnvActivation(),
+        fullProgram = '%s && prody %s' % (
+            cls.getCondaActivationCmd(),
             program)
 
         return fullProgram
-
-    @classmethod
-    def getActiveVersion(cls, *args):
-        """ Return the env name that is currently active. """
-        envVar = cls.getVar(PRODY_ENV_ACTIVATION)
-        return envVar.split()[-1]
-
-    @classmethod
-    def IS_V220(cls):
-        return cls.getActiveVersion().startswith(getProDyEnvName('2.2.0'))

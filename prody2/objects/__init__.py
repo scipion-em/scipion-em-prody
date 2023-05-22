@@ -1,8 +1,9 @@
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors: Yunior C. Fonseca Reyna    (cfonseca@cnb.csic.es)
 # *
-# * Centro Nacional de Biotecnologia, CSIC
+# *
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,13 +25,4 @@
 # *
 # **************************************************************************
 
-
-def getProDyEnvName(version):
-    return "prody-%s" % version
-
-DEVEL = 'github'
-LATEST = '2.3.1'
-VERSIONS = [DEVEL, LATEST]
-PRODY_DEFAULT_VER_NUM = LATEST
-
-PROJ_COEFFS = "_prodyProjCoefficients"
+from .data import *

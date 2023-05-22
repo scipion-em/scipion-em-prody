@@ -33,9 +33,11 @@ import os
 import numpy as np
 
 from pwem import *
-from pwem.objects import (AtomStruct, SetOfNormalModes, SetOfPrincipalComponents,
-                          String, EMFile)
-from pwem.protocols import EMProtocol, ProtImportFiles
+from pwem.objects import (String, AtomStruct, SetOfAtomStructs,
+                          SetOfNormalModes, SetOfPrincipalComponents)
+from pwem.protocols import ProtImportFiles
+
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 from pyworkflow.utils import *
 import pyworkflow.protocol.params as params
@@ -70,7 +72,8 @@ class ProDyImportModes(ProtImportFiles):
                       label='Import from',
                       help='Select the type of import.')
 
-        form.addParam('importType', params.EnumParam, choices=['prody nmd', 'prody npz', 'scipion', 'gromacs'],
+        form.addParam('importType', params.EnumParam,
+                      choices=['prody nmd', 'prody npz', 'scipion', 'gromacs'],
                       default=NMD,
                       label='Type of modes to import',
                       help='ProDy can support import of modes in various file formats: \n'
@@ -131,6 +134,13 @@ class ProDyImportModes(ProtImportFiles):
         self._insertFunctionStep('createOutputStep')
 
     def importModesStep(self):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        from pyworkflow import Config
+        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
+        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         files_paths = self.getMatchFiles()
 
         if self.importType == SCIPION:
@@ -167,7 +177,9 @@ class ProDyImportModes(ProtImportFiles):
             prody.writeNMD(self.nmdFileName, self.outModes, atoms)
         else:
             self.nmdFileName = self.pattern1
-
+            
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -195,9 +207,11 @@ ITERPOSE = 2
 
 class ProDyImportEnsemble(ProtImportFiles):
     """
-    This protocol will import a ProDy Ensemble or PDBEnsemble
+    This protocol will import and optionally trim a ProDy Ensemble
     """
-    _label = 'Import ensemble'
+    _label = 'Import/Trim Ensemble'
+    _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
+                        'outputNpz': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -217,13 +231,20 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='Select the type of import.')
 
         form.addParam('importType', params.EnumParam, choices=['pdb', 'dcd', 'ens.npz'],
-                      default=PDB,
+                      default=PDB, condition='importFrom==0',
+                      label='Type of ensemble file to import',
+                      help='ProDy can support import of ensembles in various file formats: \n'
+                           'pdb, dcd and the native ens.npz format')
+
+        form.addParam('importPointer', params.PointerParam,
+                      pointerClass='AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble',
+                      condition='importFrom!=0',
                       label='Type of ensemble file to import',
                       help='ProDy can support import of ensembles in various file formats: \n'
                            'pdb, dcd and the native ens.npz format')
 
         form.addParam('filesPath', params.PathParam,
-                      label="Files directory",
+                      label="Files directory", condition='importFrom==0',
                       help="Directory with the files you want to import.\n\n"
                            "The path can also contain wildcards to select"
                            "from several folders. \n\n"
@@ -239,8 +260,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                            "cannot appear in the actual path.)")
 
         form.addParam('filesPattern', params.StringParam,
-                      label='Pattern',
-                      condition="importType!=%d" % SCIPION,
+                      label='Pattern', condition='importFrom==0',
                       help="Pattern of the files to be imported.\n\n"
                            "The pattern can contain standard wildcards such as\n"
                            "*, ?, etc, or special ones like ### to mark some\n"
@@ -251,14 +271,27 @@ class ProDyImportEnsemble(ProtImportFiles):
                            "For gromacs modes, the first is for values and this is for vectors")
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
-                      pointerClass='AtomStruct', condition="importType==%d" % DCD,
+                      pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
                       help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+                           '(true PDB) or a pseudoatomic model '
+                           '(an EM volume converted into pseudoatoms) '
+                           'The input structure should have the same number of atoms '
+                           'as the original ensemble.')
 
         form.addParam('superpose', params.EnumParam, label="Superpose?",
                       choices=['No', 'Once', 'Iteratively'], default=NO_SUP,
-                      help='Elect whether and how to superpose the ensemble')        
+                      help='Elect whether and how to superpose the ensemble')
+
+        form.addParam('savePDBs', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Save PDB files?",
+                      help='This takes up storage and time, but '
+                           'may be helpful for interfacing with ContinuousFlex.')
+
+        form.addParam('selstr', params.StringParam, default="all",
+                      label="Selection string",
+                      help='Selection string for atoms to include in the ensemble.\n'
+                           'It is recommended to use "all" (default), "protein" or "name CA"')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -267,38 +300,91 @@ class ProDyImportEnsemble(ProtImportFiles):
         self._insertFunctionStep('createOutputStep')
 
     def importEnsembleStep(self):
-        files_paths = self.getMatchFiles()
-        folder_path = os.path.split(files_paths[0])[0]
-        self.pattern1 = os.path.split(files_paths[0])[1]
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        from pyworkflow import Config
+        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
+        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.importType == PDB:
-            if not (self.pattern1.endswith('.pdb') or self.pattern1.endswith('.cif')):
-                self.pattern1 += '.pdb'
-            self.atoms = prody.parsePDB(os.path.join(folder_path, self.pattern1))
-            self.outEns = prody.PDBEnsemble(self.atoms)
+        if self.importFrom.get() == 0:
+            files_paths = self.getMatchFiles()
+            folder_path = os.path.split(files_paths[0])[0]
+            self.pattern1 = os.path.split(files_paths[0])[1]
+            
+            if self.importType == PDB:
+                if not (self.pattern1.endswith('.pdb') or self.pattern1.endswith('.cif')):
+                    self.pattern1 += '.pdb'
+                self.atoms = prody.parsePDB(os.path.join(folder_path, self.pattern1))
+                self.outEns = prody.PDBEnsemble(self.atoms)
 
-        elif self.importType == DCD:
-            if not self.pattern1.endswith('.dcd'):
-                self.pattern1 += '.dcd'
-            self.outEns = prody.parseDCD(os.path.join(folder_path, self.pattern1))
+            elif self.importType == DCD:
+                if not self.pattern1.endswith('.dcd'):
+                    self.pattern1 += '.dcd'
+                self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folder_path, self.pattern1)))
+                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+            elif self.importType == ens_NPZ:
+                if not self.pattern1.endswith('.ens.npz'):
+                    self.pattern1 += '.ens.npz'
+                self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folder_path, self.pattern1)))
+                self.atoms = self.outEns.getAtoms()
+        else:
+            point = self.importPointer.get()
+            if isinstance(point, ProDyNpzEnsemble):
+                self.outEns = point.loadEnsemble()
+            elif isinstance(point, SetOfAtomStructs):
+                self.outEns = prody.PDBEnsemble(prody.parsePDB([struct.getFileName() for struct in point]))
+            else:
+                self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
+
             self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
-        elif self.importType == ens_NPZ:
-            if not self.pattern1.endswith('.ens.npz'):
-                self.pattern1 += '.ens.npz'
-            self.outEns = prody.loadEnsemble(os.path.join(folder_path, self.pattern1))
-            self.atoms = self.outEns.getAtoms()
-
         self.outEns.setAtoms(self.atoms)
+
+        selstr = self.selstr.get()
+        self.outEns.setAtoms(self.atoms.select(selstr))
+        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+
         if self.superpose == YES_SUP:
             self.outEns.superpose()
         elif self.superpose == ITERPOSE:
             self.outEns.iterpose()
-        
+            
+        if self.savePDBs.get():
+            self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+            for i, coordset in enumerate(self.outEns.getCoordsets()):
+                atoms = self.atoms.select(selstr).copy()
+                atoms.setCoords(coordset)
+                filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
+                prody.writePDB(filename, atoms)
+                pdb = AtomStruct(filename)
+                self.pdbs.append(pdb)
+
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
+        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
+        for j in range(self.outEns.numConfs()):
+            self.npz.append(TrajFrame((j+1, self.filename)))
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
     def createOutputStep(self):
-        outFile = EMFile(filename=self.filename)
-        self._defineOutputs(outputNpz=outFile)
-        #self._defineSourceRelation(self.inputStructure, nmSet)
+        if self.savePDBs.get():
+            self._defineOutputs(outputNpz=self.npz, outputStructures=self.pdbs)
+        else:
+            self._defineOutputs(outputNpz=self.npz)
+
+    def _summary(self):
+        if not hasattr(self, 'outputNPZ'):
+            sum = ['Output ensemble not ready yet']
+        else:
+            ens = self.outputNPZ.loadEnsemble()
+            sum = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
+                   ens.numConfs(), ens.numAtoms())]
+        return sum
+
+    def _getImportChoices(self):
+        return ['files', 'pointer']
+
