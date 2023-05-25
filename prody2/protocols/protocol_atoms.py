@@ -56,8 +56,8 @@ CUSTOM = 3
 # residue mapping methods
 NOTHING = 0 # stop trivial mapping if trivial mapping fails
 PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
-CEALIGN = 2 # combinatorial extension (CE) as in PyMOL. Not included as doesn't work well enough
-DEFAULT = 3 # try pwalign then CE. Not included because CE doesn't work well enough
+CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
+DEFAULT = 3 # try pwalign then CE
 
 class ProDySelect(EMProtocol):
     """
@@ -256,8 +256,10 @@ class ProDyAlign(EMProtocol):
                        help='Enter the desired chain order here.\n'
                             'Recover the chain order with the specified index from the match list.')
 
-
-        form.addParam('mapping', EnumParam, choices=['Nothing', 'Biopython pwalign local sequence alignment'],
+        form.addParam('mapping', EnumParam, choices=['Nothing',
+                                                     'Biopython pwalign local sequence alignment',
+                                                     'Combinatorial extension (CE) structural alignment',
+                                                     'Auto (try pwalign then ce)'],
                       default=PWALIGN,
                       expertLevel=LEVEL_ADVANCED,
                       label="Residue mapping function",
