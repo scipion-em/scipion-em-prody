@@ -46,6 +46,8 @@ import prody
 import time
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
+                                             DEFAULT)  # residue mapping methods
 
 STRUCTURE = 0
 INDEX = 1
@@ -191,6 +193,22 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                        help='Enter the desired chain order here.\n'
                             'Recover the chain order with the specified index from the match list.')
 
+        form.addParam('mapping', EnumParam, choices=['Nothing',
+                                                     'Biopython pwalign local sequence alignment',
+                                                     'Combinatorial extension (CE) structural alignment',
+                                                     'Auto (try pwalign then ce)'],
+                      default=PWALIGN, condition="inputType == %d" % STRUCTURE,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Residue mapping function",
+                      help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
+                           'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
+                           'for more details.')
+
+        form.addParam('rmsd_reject', FloatParam, default=15.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Rejection RMSD (A)",
+                      help='Alignments with worse RMSDs than this will be rejected.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # handle inputs
@@ -207,7 +225,15 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 else:
                     pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
 
-            mappings = 'auto'
+            if self.mapping.get() == DEFAULT:
+                mappings = 'auto'
+            elif self.mapping.get() == PWALIGN:
+                mappings = 'pwalign'
+            elif self.mapping.get() == CEALIGN:
+                mappings = 'ce'
+            else:
+                mappings = False
+
         else:
             idstr = self.id.get()
             dali_rec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
@@ -281,14 +307,16 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           seqid=self.seqid.get(),
                                           overlap=self.overlap.get(),
                                           mapping=mappings,
-                                          atommaps=atommaps)
+                                          atommaps=atommaps,
+                                          rmsd_reject=self.rmsd_reject.get())
 
             # instead use them later for selection
             ens_ref = ens.getAtoms()
             amap = prody.alignChains(ens_ref, ref.select(self.selstr.get()),
                                      seqid=self.seqid.get(),
                                      overlap=self.overlap.get(),
-                                     match_func=match_func)[0]
+                                     match_func=match_func,
+                                     rmsd_reject=self.rmsd_reject.get())[0]
             ens.setAtoms(amap)
 
         else:
@@ -322,7 +350,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          seqid=self.seqid.get(),
                                          overlap=self.overlap.get(),
                                          match_func=match_func,
-                                         atommaps=atommaps)
+                                         atommaps=atommaps,
+                                         rmsd_reject=self.rmsd_reject.get())
 
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
