@@ -118,19 +118,16 @@ class ProDySelect(EMProtocol):
 
             prody.pathPDBFolder("")
 
-            self.inputStructure = AtomStruct()
-            self.inputStructure.setFileName(inputFn)
-
         elif self.inputPdbData == self.IMPORT_FROM_FILES:
             inputFn = self.pdbFile.get()
             if not exists(inputFn):
                 raise Exception("Atomic structure not found at *%s*" % inputFn)
 
-            self.inputStructure = AtomStruct()
-            self.inputStructure.setFileName(inputFn)
-
         else:
             inputFn = self.inputStructure.get().getFileName()
+
+        self.inputStruct = AtomStruct()
+        self.inputStruct.setFileName(inputFn)
 
         self._insertFunctionStep('selectionStep', inputFn)
         self._insertFunctionStep('createOutputStep')
@@ -165,7 +162,7 @@ class ProDySelect(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             sum = ['Output structure not ready yet']
         else:
-            input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
+            input_ag = prody.parsePDB(self.inputStruct.getFileName())
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
             sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
                    output_ag.numAtoms(), input_ag.numAtoms())]
