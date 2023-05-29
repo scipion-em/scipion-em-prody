@@ -301,7 +301,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         atommaps = [] # output argument for collecting atommaps
 
-        if mappings != 'auto':
+        if self.inputType.get() != STRUCTURE:
             # from dali so don't use match func or ref
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
                                           seqid=self.seqid.get(),
