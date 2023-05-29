@@ -29,7 +29,7 @@ from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyANM, ProDyRTB,
+from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyANM, ProDyRTB,
                               ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
@@ -307,3 +307,36 @@ class TestProDy_core(TestWorkflow):
         
         self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
                         "prody auto_secondary changed")
+
+
+        # extract biomol from 4ake (dimer) from id
+        protBm1 = self.newProtocol(ProDyBiomol)
+        protBm1.inputPdbData.set(0)
+        protBm1.pdbId.set("4ake")
+        protBm1.setObjLabel('Biomol_4ake_id')
+        self.launchProtocol(protBm1)
+
+        num_structs = len(protBm1.outputStructures)
+        self.assertTrue(num_structs == 1, "Failed to extract 1 biomol from 4ake (dimer)")
+
+        ag = prody.parsePDB([struct.getFileName() for struct in protBm1.outputStructures])
+        self.assertTrue(ag.numResidues() == 575, 
+                        "4ake biomol 1 should have 575 residues, not {0}".format(ag.numResidues()))
+        self.assertTrue(ag.numChains() == 2, 
+                        "4ake biomol 1 should have 2 chains, not {0}".format(ag.numChains()))
+
+        # extract biomols from 1ake (2 monomers) from pointer
+        protBm2 = self.newProtocol(ProDyBiomol)
+        protBm2.inputPdbData.set(2)
+        protBm2.inputStructure.set(protImportPdb2.outputPdb)
+        protBm2.setObjLabel('Biomol_1ake_pointer')
+        self.launchProtocol(protBm2)
+
+        num_structs = len(protBm2.outputStructures)
+        self.assertTrue(num_structs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
+
+        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
+        self.assertTrue(ag.numResidues() == 456, 
+                        "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
+        self.assertTrue(ag.numChains() == 1, 
+                        "1ake biomol 1 should have 1 chain, not {0}".format(ag.numChains()))

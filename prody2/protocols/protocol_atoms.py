@@ -35,7 +35,7 @@ from os.path import basename, splitext
 from pyworkflow.protocol import params
 
 from pwem import *
-from pwem.objects import AtomStruct, Transform, String
+from pwem.objects import AtomStruct, Transform, SetOfAtomStructs, String, CsvList
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -453,3 +453,123 @@ class ProDyAlign(EMProtocol):
 
     def getInitialTargetChainOrder(self):
         return ''.join([ch.getChid() for ch in self.tar.iterChains()])
+
+
+
+class ProDyBiomol(EMProtocol):
+    """
+    This protocol will extract biomolecular assemblies
+    """
+    _label = 'extract biomol'
+    IMPORT_FROM_ID = 0
+    IMPORT_FROM_FILES = 1
+    USE_POINTER = 2
+
+    _possibleOutputs = {'outputStructure': AtomStruct}
+
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params
+        """
+        # You need a params to belong to a section:
+        form.addSection(label='ProDy Select')
+
+        form.addParam('inputPdbData', EnumParam, choices=['id', 'file', 'pointer'],
+                      label="Import atomic structure from",
+                      default=self.USE_POINTER,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='Import PDB or mmCIF data from online server or local file')
+        form.addParam('pdbId', StringParam,
+                      condition='inputPdbData == IMPORT_FROM_ID',
+                      label="Atomic structure ID ", allowsNull=True,
+                      help='Type a PDB ID (four alphanumeric characters).')
+        form.addParam('pdbFile', PathParam, label="File path",
+                      condition='inputPdbData == IMPORT_FROM_FILES',
+                      allowsNull=True,
+                      help='Specify a path to desired atomic structure.')
+        form.addParam('inputStructure', PointerParam, label="Input structure",
+                      condition='inputPdbData == USE_POINTER',
+                      pointerClass='AtomStruct',
+                      help='The input structure can be an atomic model '
+                           '(true PDB) or a pseudoatomic model\n'
+                           '(an EM volume converted into pseudoatoms)')
+
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+
+        if self.inputPdbData == self.IMPORT_FROM_ID:
+            prody.pathPDBFolder(self.getPath(""))
+            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
+            
+            if inputFn == None:
+                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
+                                         compressed=False)
+
+            prody.pathPDBFolder("")
+
+        elif self.inputPdbData == self.IMPORT_FROM_FILES:
+            inputFn = self.pdbFile.get()
+            if not exists(inputFn):
+                raise Exception("Atomic structure not found at *%s*" % inputFn)
+
+        else:
+            inputFn = self.inputStructure.get().getFileName()
+
+        self.inputStruct = AtomStruct()
+        self.inputStruct.setFileName(inputFn)
+
+        self._insertFunctionStep('extractionStep', inputFn)
+        self._insertFunctionStep('createOutputStep')
+
+    def extractionStep(self, inputFn):
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        old_secondary = prody.confProDy("auto_secondary")
+        old_verbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
+        ags = prody.parsePDB(inputFn, alt='all', compressed=False,
+                             biomol=True, extend_biomol=True)
+        if isinstance(ags, prody.AtomGroup):
+            ags =[ags] 
+
+        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+        for i, ag in enumerate(ags):
+            filename = self._getPath(splitext(basename(inputFn))[0] + '_atoms_{0}.pdb'.format(i))
+            prody.writePDB(filename, ag)
+            pdb = AtomStruct(filename)
+            self.pdbs.append(pdb)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+
+    def createOutputStep(self):
+        self._defineOutputs(outputStructures=self.pdbs)
+
+    def _summary(self):
+        if not hasattr(self, '_sum'):
+            self._sum = CsvList()
+
+        if not hasattr(self, 'outputStructures'):
+            self._sum = CsvList()
+            self._sum.append('Output structure not ready yet')
+        else:
+            if len(self._sum) == 0 or not self._sum[0].startswith('Extracted'): 
+                self._sum = CsvList()
+                num_structs = len(self.outputStructures)
+                self._sum.append('Extracted *{0}* biomolecular assemblies'.format(num_structs))
+
+                ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures])
+                if num_structs == 1:
+                    ags = [ags]
+                     
+                for i, ag in enumerate(ags):
+                    self._sum.append('New structure {0} has *{1}* residues '
+                                     'across *{2}* chains'.format(i+1, ag.numResidues(), 
+                                                                 ag.numChains()))
+        return self._sum
+

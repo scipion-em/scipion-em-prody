@@ -47,7 +47,7 @@ class TestProDy_GNM(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def test_ProDy_core(self):
+    def test_ProDy_gnm(self):
         """ Run GNM simple workflow for two Atomic structures. """
         
         old_verbosity = prody.confProDy("verbosity")
