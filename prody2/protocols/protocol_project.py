@@ -132,6 +132,6 @@ class ProDyProject(EMProtocol):
             sum = ['Projection not ready yet']
         else:
             sum = ['Projected *{0}* structures onto *{1}* components'.format(
-                   len(self.outputStructures), self.numModes.get())]
+                   len(self.outputStructures), self.numModes.get()+1)]
         return sum
         
