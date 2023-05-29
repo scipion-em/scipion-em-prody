@@ -564,6 +564,9 @@ class ProDyBiomol(EMProtocol):
                 self._sum.append('Extracted *{0}* biomolecular assemblies'.format(num_structs))
 
                 ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures])
+                if num_structs == 1:
+                    ags =[ags]
+                     
                 for i, ag in enumerate(ags):
                     self._sum.append('New structure {0} has *{1}* residues '
                                      'across *{2}* chains'.format(i+1, ag.numResidues(), 
