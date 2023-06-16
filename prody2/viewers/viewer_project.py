@@ -128,6 +128,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
         else:
             ensemble = inputEnsemble.loadEnsemble()
         
+        if ensemble.getLabels()[0].find('Selection') != -1:
+            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+
         if ensemble.getLabels()[0].endswith('_atoms_amap'):
             ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
 
