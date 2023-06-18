@@ -59,8 +59,7 @@ class ProDyPCA(ProDyModesBase):
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
     _label = 'PCA'
-    _possibleOutputs = {'outputFractVars': EMFile,
-                        'outputModes': SetOfPrincipalComponents}
+    _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -272,11 +271,12 @@ class ProDyPCA(ProDyModesBase):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-        
-        outputFractVars = EMFile(filename=self._getPath('pca_fract_vars.txt'))
 
-        self._defineOutputs(outFractVars=outputFractVars,
-                            outputModes=nmSet)
+        refPdb = self.pdbFileName
+        nmSet.setPdb(refPdb)
+
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.pdbFileName, nmSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
