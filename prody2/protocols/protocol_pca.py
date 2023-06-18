@@ -39,7 +39,7 @@ from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, EMFile
+from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
@@ -271,12 +271,7 @@ class ProDyPCA(ProDyModesBase):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-
-        refPdb = self.pdbFileName
-        nmSet.setPdb(refPdb)
-
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.pdbFileName, nmSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
