@@ -377,12 +377,13 @@ class ProDyImportEnsemble(ProtImportFiles):
             self._defineOutputs(outputNpz=self.npz)
 
     def _summary(self):
-        if not hasattr(self, 'outputNPZ'):
+        if not hasattr(self, 'outputNpz'):
             sum = ['Output ensemble not ready yet']
-        else:
-            ens = self.outputNPZ.loadEnsemble()
+        elif not hasattr(self, 'sumOutput'):
+            ens = self.outputNpz.loadEnsemble()
             sum = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
                    ens.numConfs(), ens.numAtoms())]
+            self.sumOutput = True
         return sum
 
     def _getImportChoices(self):
