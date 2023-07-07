@@ -143,7 +143,7 @@ class ProDyGNM(EMProtocol):
         prody.writePDB(self.pdbFileName, ag)
 
         args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz -o {1} ' \
-               '-p modes -n {2} -g {3} -c {4} - P {5}'.format(self.pdbFileName,
+               '-p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                               self._getPath(), n,
                                                               self.gamma.get(),
                                                               self.cutoff.get(),
