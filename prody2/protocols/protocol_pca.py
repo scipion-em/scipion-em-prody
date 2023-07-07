@@ -148,6 +148,9 @@ class ProDyPCA(ProDyModesBase):
 
         self.pdbFileName = self._getPath('atoms.pdb')
         prody.writePDB(self.pdbFileName, self.ens.getAtoms())
+        
+        self.inputStructure = AtomStruct()
+        self.inputStructure.setFileName(self.pdbFileName)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
@@ -271,7 +274,12 @@ class ProDyPCA(ProDyModesBase):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+
+        inputPdb = self.inputStructure
+        nmSet.setPdb(inputPdb)
+
         self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.inputStructure, nmSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
