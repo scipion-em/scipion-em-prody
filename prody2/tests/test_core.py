@@ -72,11 +72,23 @@ class TestProDy_core(TestWorkflow):
         protSel1.setObjLabel('Sel_4akeA_all_pointer')
         self.launchProtocol(protSel1)
 
-        # Launch ANM NMA for chain A (all atoms)
+        # Launch ANM NMA for chain A (all atoms) with zeros (default)
         protANM1 = self.newProtocol(ProDyANM, cutoff=8)
         protANM1.inputStructure.set(protSel1.outputStructure)
         protANM1.setObjLabel('ANM_all')
         self.launchProtocol(protANM1)
+
+        self.assertFalse(exists(protANM1._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertTrue(exists(protANM1._getExtraPath("animations/animated_mode_007.pdb")))
+
+        # Launch ANM NMA for selected atoms (CA) without zeros
+        protANM1b = self.newProtocol(ProDyANM)
+        protANM1b.inputStructure.set(protSel1.outputStructure)
+        protANM1b.zeros.set(False)
+        protANM1b.setObjLabel('ANM_CA')
+        self.launchProtocol(protANM1b)
+
+        self.assertTrue(exists(protANM1b._getExtraPath("animations/animated_mode_001.pdb")))
 
         # ------------------------------------------------
         # Step 1b. Select chain A from Filename

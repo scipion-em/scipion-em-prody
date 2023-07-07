@@ -33,7 +33,7 @@ import os
 import numpy as np
 
 from pwem import *
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
@@ -131,8 +131,10 @@ class ProDyEdit(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
-        self.nzero = 6
-        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
+        modes = prody.parseScipionModes(self.modes.get().getFileName())
+        self.nzero = len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0])
+
+        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
 
     def computeModesStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity

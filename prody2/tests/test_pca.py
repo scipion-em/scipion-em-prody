@@ -26,7 +26,7 @@
 # **************************************************************************
 
 import numpy as np
-from os.path import basename, split
+from os.path import exists, split
 
 from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
 from pwem.protocols import *
@@ -37,12 +37,13 @@ from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
                               ProDyImportEnsemble, ProDyPCA, ProDyCompare,
                               ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit)
 
+from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
 from prody2.protocols.protocol_import import SCIPION
 
 import prody
 
-class TestProDy_pca(TestWorkflow):
+class TestProDy_PCA(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
@@ -181,7 +182,7 @@ class TestProDy_pca(TestWorkflow):
 
         protPca3 = self.newProtocol(ProDyPCA, numberOfModes=3)
         protPca3.inputEnsemble.set(protEns3.outputNpz)
-        protPca3.setObjLabel('PCA_from_set_plus_sel_ref_idx')
+        protPca3.setObjLabel('PCA_3_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca3)
 
         self.assertSetSize(protPca3.outputModes, 3,
@@ -190,7 +191,7 @@ class TestProDy_pca(TestWorkflow):
 
         protPca4 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca4.inputEnsemble.set(protEns3.outputNpz)
-        protPca4.setObjLabel('PCA_from_set_plus_sel_ref_idx')
+        protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca4)
 
         self.assertSetSize(protPca4.outputModes, 2,
@@ -370,3 +371,22 @@ class TestProDy_pca(TestWorkflow):
 
         self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
                         "prody auto_secondary changed")
+
+        # ------------------------------------------------
+        # Step 8. Select chain C from PCA -> slice
+        # ------------------------------------------------
+        protSel6 = self.newProtocol(ProDySelect, selection="chain B")
+        protSel6.inputStructure.set(protPca2.refPdb)
+        protSel6.setObjLabel('Sel ref_B')
+        self.launchProtocol(protSel6)
+
+        self.assertTrue(exists(protSel6._getPath("atoms_atoms.pdb")))
+
+        protEdit1 = self.newProtocol(ProDyEdit, edit=NMA_SLICE)
+        protEdit1.modes.set(protPca2.outputModes)
+        protEdit1.newNodes.set(protSel6.outputStructure)
+        protEdit1.setObjLabel('Slice_to_B')
+        self.launchProtocol(protEdit1)
+
+        self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")))
+        
