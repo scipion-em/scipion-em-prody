@@ -373,7 +373,7 @@ class TestProDy_PCA(TestWorkflow):
                         "prody auto_secondary changed")
 
         # ------------------------------------------------
-        # Step 8. Select chain C from PCA -> slice
+        # Step 8. Select chain B from PCA -> slice
         # ------------------------------------------------
         protSel6 = self.newProtocol(ProDySelect, selection="chain B")
         protSel6.inputStructure.set(protPca2.refPdb)

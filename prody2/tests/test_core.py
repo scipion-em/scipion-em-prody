@@ -72,6 +72,18 @@ class TestProDy_core(TestWorkflow):
         protSel1.setObjLabel('Sel_4akeA_all_pointer')
         self.launchProtocol(protSel1)
 
+        self.assertTrue(exists(protSel1._getPath("4ake_atoms.pdb")))
+        self.assertTrue(hasattr(protSel1, "outputStructure"))
+
+        # Select chain C to show it doesn't work
+        protSel1a = self.newProtocol(ProDySelect, selection="chain C")
+        protSel1a.inputStructure.set(protImportPdb1.outputPdb)
+        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        self.launchProtocol(protSel1a)
+
+        self.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        self.assertFalse(hasattr(protSel1a, "outputStructure"))
+
         # Launch ANM NMA for chain A (all atoms) with zeros (default)
         protANM1 = self.newProtocol(ProDyANM, cutoff=8)
         protANM1.inputStructure.set(protSel1.outputStructure)
