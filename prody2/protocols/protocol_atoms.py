@@ -139,9 +139,12 @@ class ProDySelect(EMProtocol):
         self.runJob('prody', args)
 
     def createOutputStep(self):
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self.pdbFileName)
-        self._defineOutputs(outputStructure=outputPdb)   
+        if exists(self.pdbFileName):
+            outputPdb = AtomStruct()
+            outputPdb.setFileName(self.pdbFileName)
+            self._defineOutputs(outputStructure=outputPdb)
+        else:
+            self._defineOutputs(outputStructure=self.inputStruct)
 
     def _summary(self):
         if not hasattr(self, 'outputStructure'):
@@ -149,11 +152,15 @@ class ProDySelect(EMProtocol):
         else:
             input_ag = prody.parsePDB(self.inputStruct.getFileName())
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
-            sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                   output_ag.numAtoms(), input_ag.numAtoms())]
-            sum.append('The new structure has *{0}* protein residues '
-                        'from original *{1}* protein residues'.format(
-                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+
+            if output_ag.numAtoms() == input_ag.numAtoms():
+                sum = ['No atoms match selection so input structure is registered as output structure']
+            else:
+                sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
+                    output_ag.numAtoms(), input_ag.numAtoms())]
+                sum.append('The new structure has *{0}* protein residues '
+                            'from original *{1}* protein residues'.format(
+                            output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
         return sum
 
 
