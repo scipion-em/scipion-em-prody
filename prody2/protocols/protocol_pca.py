@@ -276,10 +276,11 @@ class ProDyPCA(ProDyModesBase):
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
         inputPdb = self.inputStructure
+        self._defineOutputs(refPdb=inputPdb)
         nmSet.setPdb(inputPdb)
 
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
+        self._defineSourceRelation(inputPdb, nmSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
