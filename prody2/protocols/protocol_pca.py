@@ -155,21 +155,13 @@ class ProDyPCA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
 
-        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
+        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
                                                                       self.pdbFileName,
                                                                       self._getPath(), n,
                                                                       self.numberOfThreads.get()))
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
-        
-        eigvecs = self.outModes.getEigvecs()
-        eigvals = self.outModes.getEigvals()
-        cov = prody.parseArray(self._getPath('modes_covariance.txt'))
-
-        self.outModes.setCovariance(cov)
-        self.outModes.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.outModes, self._getPath('modes.pca.npz'), matrices=True)
         
         plt.figure()
         prody.showFractVars(self.outModes)

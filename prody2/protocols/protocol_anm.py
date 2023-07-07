@@ -182,7 +182,7 @@ class ProDyANM(EMProtocol):
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
+        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
             '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                                        self._getPath(), n,
                                                                        self.gamma.get(),
@@ -207,14 +207,6 @@ class ProDyANM(EMProtocol):
         self.runJob('prody', args)
         
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
-        
-        eigvecs = self.anm.getEigvecs()
-        eigvals = self.anm.getEigvals()
-        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
-
-        self.anm.setHessian(hessian)
-        self.anm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrices=True)
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')

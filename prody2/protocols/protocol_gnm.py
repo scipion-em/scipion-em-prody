@@ -142,8 +142,8 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
-        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz -o {1} ' \
-               '-p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
+               '-o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                               self._getPath(), n,
                                                               self.gamma.get(),
                                                               self.cutoff.get(),
@@ -158,14 +158,6 @@ class ProDyGNM(EMProtocol):
         self.runJob('prody', args)
 
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
-        
-        eigvecs = self.gnm.getEigvecs()
-        eigvals = self.gnm.getEigvals()
-        kirchhoff = prody.parseArray(self._getPath('modes_kirchhoff.txt'))
-
-        self.gnm.setKirchhoff(kirchhoff)
-        self.gnm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
 
         covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
