@@ -143,24 +143,22 @@ class ProDySelect(EMProtocol):
             outputPdb = AtomStruct()
             outputPdb.setFileName(self.pdbFileName)
             self._defineOutputs(outputStructure=outputPdb)
-        else:
-            self._defineOutputs(outputStructure=self.inputStruct)
 
     def _summary(self):
         if not hasattr(self, 'outputStructure'):
-            sum = ['Output structure not ready yet']
+            if self.getStatus() != 'finished':
+                sum = ['Output structure not ready yet']
+            else:
+                sum = ['No atoms match selection so no output structure']
         else:
             input_ag = prody.parsePDB(self.inputStruct.getFileName())
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
 
-            if output_ag.numAtoms() == input_ag.numAtoms():
-                sum = ['No atoms match selection so input structure is registered as output structure']
-            else:
-                sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                    output_ag.numAtoms(), input_ag.numAtoms())]
-                sum.append('The new structure has *{0}* protein residues '
-                            'from original *{1}* protein residues'.format(
-                            output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+            sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
+                output_ag.numAtoms(), input_ag.numAtoms())]
+            sum.append('The new structure has *{0}* protein residues '
+                        'from original *{1}* protein residues'.format(
+                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
         return sum
 
 
