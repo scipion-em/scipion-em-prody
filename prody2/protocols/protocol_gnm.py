@@ -142,21 +142,21 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
+        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz -o {1} ' \
+               '-p modes -n {2} -g {3} -c {4} - P {5}'.format(self.pdbFileName,
+                                                              self._getPath(), n,
+                                                              self.gamma.get(),
+                                                              self.cutoff.get(),
+                                                              self.numberOfThreads.get())
+
         if self.zeros.get():
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
+            args += ' --zero-modes'
             self.startMode = 1
         else:
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
             self.startMode = 0
         
+        self.runJob('prody', args)
+
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
         
         eigvecs = self.gnm.getEigvecs()
