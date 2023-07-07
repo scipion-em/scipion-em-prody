@@ -133,25 +133,10 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
-        ag = prody.parsePDB(inputFn, alt='all', compressed=False)
-        selection = ag.select(str(self.selection))
-
-        logger.info("%d atoms selected from %d" % (selection.numAtoms(),
-                                                          ag.numAtoms()))
-
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        prody.writePDB(self.pdbFileName, selection)
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        args = 'select "{0}" {1} -o {2}'.format(str(self.selection), inputFn,
+                                                self.pdbFileName)
+        self.runJob('prody', args)
 
     def createOutputStep(self):
         outputPdb = AtomStruct()
