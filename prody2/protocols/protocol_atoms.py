@@ -35,7 +35,7 @@ from os.path import basename, splitext
 from pyworkflow.protocol import params
 
 from pwem import *
-from pwem.objects import AtomStruct, Transform, SetOfAtomStructs, String, CsvList
+from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *

@@ -35,8 +35,7 @@ from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.protocol.params import (PointerParam, StringParam,
-                                        FloatParam, IntParam, 
+from pyworkflow.protocol.params import (PointerParam, FloatParam, IntParam, 
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
