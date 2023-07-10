@@ -389,4 +389,5 @@ class TestProDy_PCA(TestWorkflow):
         self.launchProtocol(protEdit1)
 
         self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertTrue(exists(protEdit1._getExtraPath("distanceProfiles/vec1.xmd")))
         

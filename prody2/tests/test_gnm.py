@@ -83,11 +83,30 @@ class TestProDy_GNM(TestWorkflow):
         protSel2.setObjLabel('Sel_4akeA_CA')
         self.launchProtocol(protSel2)
 
-        # Launch GNM NMA for selected atoms (CA)
+        # Launch GNM NMA for selected atoms (CA) with zero mode (default)
         protGNM2 = self.newProtocol(ProDyGNM, cutoff=10)
         protGNM2.inputStructure.set(protSel2.outputStructure)
-        protGNM2.setObjLabel('GNM_CA')
-        self.launchProtocol(protGNM2)        
+        protGNM2.setObjLabel('GNM_CA_z')
+        self.launchProtocol(protGNM2)
+
+        self.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_002.pdb")))
+        # (no animations from GNM)
+
+        self.assertFalse(exists(protGNM2._getExtraPath("distanceProfiles/vec1.xmd")))
+        self.assertTrue(exists(protGNM2._getExtraPath("distanceProfiles/vec2.xmd")))
+
+        # Launch ANM NMA for selected atoms (CA) without zeros
+        protGNM2b = self.newProtocol(ProDyGNM)
+        protGNM2b.inputStructure.set(protSel2.outputStructure)
+        protGNM2b.zeros.set(False)
+        protGNM2b.setObjLabel('GNM_CA_n-z')
+        self.launchProtocol(protGNM2b)
+
+        self.assertFalse(exists(protGNM2b._getExtraPath("animations/animated_mode_001.pdb")))
+        # (no animations from GNM)
+
+        self.assertTrue(exists(protGNM2b._getExtraPath("distanceProfiles/vec1.xmd")))
 
         # ------------------------------------------------
         # Step 3. Slice -> Compare

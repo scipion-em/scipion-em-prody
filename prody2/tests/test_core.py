@@ -84,23 +84,11 @@ class TestProDy_core(TestWorkflow):
         self.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
         self.assertFalse(hasattr(protSel1a, "outputStructure"))
 
-        # Launch ANM NMA for chain A (all atoms) with zeros (default)
+        # Launch ANM NMA for chain A (all atoms)
         protANM1 = self.newProtocol(ProDyANM, cutoff=8)
         protANM1.inputStructure.set(protSel1.outputStructure)
         protANM1.setObjLabel('ANM_all')
         self.launchProtocol(protANM1)
-
-        self.assertFalse(exists(protANM1._getExtraPath("animations/animated_mode_001.pdb")))
-        self.assertTrue(exists(protANM1._getExtraPath("animations/animated_mode_007.pdb")))
-
-        # Launch ANM NMA for selected atoms (CA) without zeros
-        protANM1b = self.newProtocol(ProDyANM)
-        protANM1b.inputStructure.set(protSel1.outputStructure)
-        protANM1b.zeros.set(False)
-        protANM1b.setObjLabel('ANM_CA')
-        self.launchProtocol(protANM1b)
-
-        self.assertTrue(exists(protANM1b._getExtraPath("animations/animated_mode_001.pdb")))
 
         # ------------------------------------------------
         # Step 1b. Select chain A from Filename
@@ -129,11 +117,27 @@ class TestProDy_core(TestWorkflow):
         protSel2.setObjLabel('Sel_4akeA_CA')
         self.launchProtocol(protSel2)
 
-        # Launch ANM NMA for selected atoms (CA)
+        # Launch ANM NMA for selected atoms (CA) with zeros (default)
         protANM2 = self.newProtocol(ProDyANM)
         protANM2.inputStructure.set(protSel2.outputStructure)
-        protANM2.setObjLabel('ANM_CA')
-        self.launchProtocol(protANM2)        
+        protANM2.setObjLabel('ANM_CA_z')
+        self.launchProtocol(protANM2)
+
+        self.assertFalse(exists(protANM1._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertTrue(exists(protANM1._getExtraPath("animations/animated_mode_007.pdb")))
+
+        self.assertFalse(exists(protANM1._getExtraPath("distanceProfiles/vec1.xmd")))
+        self.assertTrue(exists(protANM1._getExtraPath("distanceProfiles/vec7.xmd")))
+
+        # Launch ANM NMA for selected atoms (CA) without zeros
+        protANM2b = self.newProtocol(ProDyANM)
+        protANM2b.inputStructure.set(protSel2.outputStructure)
+        protANM2b.zeros.set(False)
+        protANM2b.setObjLabel('ANM_CA_n-z')
+        self.launchProtocol(protANM2b)
+
+        self.assertTrue(exists(protANM2b._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertTrue(exists(protANM2b._getExtraPath("distanceProfiles/vec1.xmd")))
 
         # ------------------------------------------------
         # Step 3. Slice -> Compare

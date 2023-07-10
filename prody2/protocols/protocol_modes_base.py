@@ -144,7 +144,7 @@ class ProDyModesBase(EMProtocol):
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), nzeros)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self):
@@ -263,13 +263,12 @@ class ProDyModesBase(EMProtocol):
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
-    def computeAtomShiftsStep(self, numberOfModes):
+    def computeAtomShiftsStep(self, numberOfModes, nzero=6):
         fnOutDir = self._getExtraPath("distanceProfiles")
         makePath(fnOutDir)
         maxShift=[]
         maxShiftMode=[]
-
-        nzero = 1 if self.gnm else 6
+        
         nzp1 = nzero + 1
         
         for n in range(nzp1, numberOfModes+1):

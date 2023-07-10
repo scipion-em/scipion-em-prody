@@ -91,7 +91,7 @@ class ProDyPCA(ProDyModesBase):
                       'For no deselection, this parameter should be set to 0 . \n')
 
         form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=5,
+        form.addParam('rmsd', FloatParam, default=2,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
@@ -128,10 +128,13 @@ class ProDyPCA(ProDyModesBase):
         self.model_type = 'pca'
         n = self.numberOfModes.get()
 
+        self.gnm = False
+        nzeros = 0
+
         self._insertFunctionStep('computeModesStep', n)
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
@@ -139,8 +142,8 @@ class ProDyPCA(ProDyModesBase):
 
     def computeModesStep(self, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        self.old_secondary = prody.confProDy("auto_secondary")
+        self.old_verbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -153,7 +156,7 @@ class ProDyPCA(ProDyModesBase):
         self.inputStructure.setFileName(self.pdbFileName)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=self.old_secondary, verbosity='{0}'.format(self.old_verbosity))
 
         self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
@@ -227,40 +230,40 @@ class ProDyPCA(ProDyModesBase):
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
+    # def computeAtomShiftsStep(self, numberOfModes):
+    #     fnOutDir = self._getExtraPath("distanceProfiles")
+    #     makePath(fnOutDir)
+    #     maxShift=[]
+    #     maxShiftMode=[]
         
-        for n in range(7, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
-                        maxShift.append(d)
-                        maxShiftMode.append(7)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
+    #     for n in range(7, numberOfModes+1):
+    #         fnVec = self._getPath("modes", "vec.%d" % n)
+    #         if exists(fnVec):
+    #             fhIn = open(fnVec)
+    #             md = MetaData()
+    #             atomCounter = 0
+    #             for line in fhIn:
+    #                 x, y, z = map(float, line.split())
+    #                 d = math.sqrt(x*x+y*y+z*z)
+    #                 if n==7:
+    #                     maxShift.append(d)
+    #                     maxShiftMode.append(7)
+    #                 else:
+    #                     if d>maxShift[atomCounter]:
+    #                         maxShift[atomCounter]=d
+    #                         maxShiftMode[atomCounter]=n
+    #                 atomCounter+=1
+    #                 md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
+    #             md.write(join(fnOutDir,"vec%d.xmd" % n))
+    #             fhIn.close()
+    #     md = MetaData()
+    #     for i, _ in enumerate(maxShift):
+    #         fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+    #         if exists(fnVec):
+    #             objId = md.addObject()
+    #             md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
+    #             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
+    #     md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
