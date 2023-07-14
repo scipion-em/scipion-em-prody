@@ -72,8 +72,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
         form.addParam('label', BooleanParam, label="Label points?", default=True,
                       help='Select whether to label points.',
                       condition=self.numModes!=ONE)
+        
+        form.addParam('adjust_text', BooleanParam, label="Adjust labels?", default=True,
+                      help='Select whether to adjust labels on points to not overlap.',
+                      condition=self.numModes!=ONE)
 
-        form.addParam('kde', BooleanParam, label="Show density?",
+        form.addParam('density', BooleanParam, label="Show density?",
                       default=False, condition=self.numModes != THREE,
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
@@ -151,17 +155,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if self.numModes == ONE:
             prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                  rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                 show_density=self.kde.get())
+                                 show_density=self.density.get())
         else:
             if self.label.get():
                 prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                      text=ensemble.getLabels(),
                                      rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                     show_density=self.kde.get())
+                                     show_density=self.density.get(), 
+                                     adjust=self.adjust_text.get())
             else:
                 prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                      rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                     show_density=self.kde.get())
+                                     show_density=self.density.get(), 
+                                     adjust=self.adjust_text.get())
 
             ax = plotter.figure.gca()
             
