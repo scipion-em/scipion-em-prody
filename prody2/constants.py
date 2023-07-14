@@ -31,6 +31,6 @@ def getProDyEnvName(version):
 DEVEL = 'github'
 LATEST = '2.3.1'
 VERSIONS = [DEVEL, LATEST]
-PRODY_DEFAULT_VER_NUM = LATEST
+PRODY_DEFAULT_VER_NUM = DEVEL
 
 PROJ_COEFFS = "_prodyProjCoefficients"
