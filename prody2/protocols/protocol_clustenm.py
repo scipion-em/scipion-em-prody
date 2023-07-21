@@ -33,7 +33,7 @@ This module will provide the ClustENM hybrid simulation method from ProDy, combi
 from multiprocessing import cpu_count
 
 from pwem import *
-from pwem.objects import AtomStruct
+from pwem.objects import AtomStruct, SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
@@ -41,7 +41,6 @@ from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
-
 import prody
 
 IMP = 0
@@ -66,7 +65,7 @@ class ProDyClustENM(EMProtocol):
         form.addSection(label='ClustENM(D)')
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
-                      pointerClass='AtomStruct',
+                      pointerClass='AtomStruct,SetOfAtomStructs',
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
@@ -75,15 +74,14 @@ class ProDyClustENM(EMProtocol):
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms), but we suggest 3 to 5.')
-        form.addParam('n_gens', IntParam, default=5,
+        form.addParam('n_gens', IntParam, default=2,
                       label='Number of generations',
                       help='Number of generations of NMA, clustering and refinement')     
         form.addParam('n_confs', IntParam, default=50,
                       label='Number of conformers from each existing conformer',
                       help='Number of new conformers to be generated based on any conformer '
                            'from the previous generation')    
-        form.addParam('sim', BooleanParam, default=True,
-                      #expertLevel=LEVEL_ADVANCED,
+        form.addParam('sim', BooleanParam, default=False,
                       label="Whether to run a short MD simulation as well as minimisation",
                       help='This includes a heating-up phase until the desired temperature is reached plus '
                            'the numbers of steps set below.')
@@ -91,21 +89,21 @@ class ProDyClustENM(EMProtocol):
                       label='Whether to use parallel threads for conformer generation.',
                       help='This will only affect the ENM NMA steps')  
         form.addParam('rmsd', StringParam, default="1.",
-                      #expertLevel=LEVEL_ADVANCED,
                       label="Average RMSD (A) of the new conformers from source conformer",
                       help='Average RMSD of the new conformers with respect to the conformer'
                            'from which they are generated \n'
                            'A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.')
-        form.addParam('clusterMode', EnumParam, choices=['maxclust', 'threshold'],
+        form.addParam('clusterMode', EnumParam, choices=['maxclust', 'threshold'], default=0,
                       label="Method for clustering for each generation",
                       help='Either maxclust or RMSD threshold should be given! For large number of '
                            'generations and/or structures, specifying maxclust is more efficient.')
-        form.addParam('maxclust', StringParam, default="None",
+        form.addParam('maxclust', StringParam,
                       condition='clusterMode==0',
+                      default='None',
                       label="Maximum number of clusters for each generation",
                       help='A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')
-        form.addParam('threshold', StringParam, default="None",
-                      condition='clusterMode==1',
+        form.addParam('threshold', StringParam, condition='clusterMode==1',
+                      default='(1.0, 1.5)',
                       label="RMSD threshold (A) to apply when forming clusters",
                       help='A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.\n'
                            'This parameter has been used in ClustENMv1, setting it to 75%% of the maximum RMSD for sampling. '
@@ -140,7 +138,6 @@ class ProDyClustENM(EMProtocol):
         form.addSection(label='Simulation')
         form.addParam('solvent', EnumParam, choices=['implicit', 'explicit'],
                       label="Solvent type", default=IMP,
-                      #expertLevel=LEVEL_ADVANCED,
                       display=EnumParam.DISPLAY_HLIST,
                       help='Choose whether to use implicit or explicit solvent')
         form.addParam('padding', FloatParam, default=1.,
@@ -149,7 +146,6 @@ class ProDyClustENM(EMProtocol):
                       help='Padding distance to use for the solvent box')
         form.addParam('ionicStrength', FloatParam, default=0.,
                       condition="solvent==%d" % EXP,
-                      #expertLevel=LEVEL_ADVANCED, 
                       label="Total concentration of ions (both positive and negative) to add in mol/L",
                       help='This does not include ions that are added to neutralize the system.')
         form.addParam('force_field', StringParam, default="None",
@@ -202,19 +198,30 @@ class ProDyClustENM(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep('computeStep')
-        self._insertFunctionStep('createOutputStep')
 
-    def computeStep(self):
-        atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+
+        # Insert processing steps
+        inputStruct = self.inputStructure.get()
+        if isinstance(inputStruct, AtomStruct):
+            ags = [prody.parsePDB(inputStruct.getFileName())]
+        else:
+            ags = prody.parsePDB([struct.getFileName() for struct in inputStruct])
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
         else:
             self.solvent = 'exp'
 
+        for i, atoms in enumerate(ags):
+            self._insertFunctionStep('computeStep', i, atoms)
+
+        self._insertFunctionStep('createOutputStep')
+
+    def computeStep(self, i, atoms):
+
         nproc = self.numberOfThreads.get()
+
         if nproc:
             try:
                 from threadpoolctl import threadpool_limits
@@ -226,32 +233,41 @@ class ProDyClustENM(EMProtocol):
                 ens.setAtoms(atoms)
                 ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
                         n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
-                        cutoff=self.cutoff.get(), gamma=self.gamma.get(), 
+                        cutoff=self.cutoff.get(), gamma=self.gamma.get(),
                         maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
-                        solvent=self.solvent, force_field=eval(self.force_field.get()),  
+                        solvent=self.solvent, force_field=eval(self.force_field.get()),
                         sim=self.sim.get(), temp=self.temp.get(),
                         t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
                         outlier=self.outlier.get(), mzscore=self.mzscore.get(),
-                        sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(), 
+                        sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
                         parallel=self.parallel.get())
+        else:
+            ens = prody.ClustENM(str(atoms))
+            ens.setAtoms(atoms)
+            ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
+                    n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
+                    cutoff=self.cutoff.get(), gamma=self.gamma.get(),
+                    maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
+                    solvent=self.solvent, force_field=eval(self.force_field.get()),
+                    sim=self.sim.get(), temp=self.temp.get(),
+                    t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
+                    outlier=self.outlier.get(), mzscore=self.mzscore.get(),
+                    sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
+                    parallel=self.parallel.get())
 
-        self.outFileName = self._getPath('clustenm')
-        prody.saveEnsemble(ens, self.outFileName+'.ens.npz')
-        prody.writePDB(self.outFileName+'.pdb', ens)
-        prody.writeDCD(self.outFileName+'.dcd', ens)
+        filename = self._getPath('clustenm_{0}.pdb'.format(i))
+        prody.writePDB(filename, ens)
+        pdb = AtomStruct(filename)
+        self.pdbs.append(pdb)
 
     def createOutputStep(self):
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self.outFileName+'.pdb')
-        self._defineOutputs(outputStructure=outputPdb,
-                            outputNPZ=self.npz)
+        self._defineOutputs(outputTrajectories=self.pdbs)
 
     def _summary(self):
-        if not hasattr(self, 'outputNPZ'):
-            sum = ['Output ensemble not ready yet']
+        if not hasattr(self, 'outputTrajectories'):
+            summ = ['Output not ready yet']
         else:
-            ens = self.outputNPZ.loadEnsemble()
-            sum = ['ClustENM completed *{0}* generations and generated *{1}* structures of *{2}* atoms'.format(
-                    self.n_gens.get(), ens.numConfs(), ens.numAtoms())]
-        return sum
+            summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(
+                    self.n_gens.get(), len(self.outputTrajectories))]
+        return summ
 
