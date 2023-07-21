@@ -147,7 +147,7 @@ class TestProDyPCA(TestWorkflow):
         
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
-        protEns2.structures.set([protSetAS.outputStructures])
+        protEns2.structures.set([protSetAS.outputAtomStructs])
         protEns2.refIndex.set(idx)
         protEns2.setObjLabel('buildPDBEns_set_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns2)
@@ -170,7 +170,7 @@ class TestProDyPCA(TestWorkflow):
         protEns3 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
         protEns3.structures.set([protSel4.outputStructure,
-                                 protSetAS.outputStructures])
+                                 protSetAS.outputAtomStructs])
         protEns3.refIndex.set(1)
         protEns3.setObjLabel('buildPDBEns_set_plus_sel_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns3)
