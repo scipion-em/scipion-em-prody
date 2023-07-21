@@ -62,7 +62,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
     """
     _label = 'buildPDBEnsemble'
-    _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
+    _possibleOutputs = {'outputStructures': SetOfAtomStructs,
                         'outputNpz': ProDyNpzEnsemble,
                         'outAlignment': SetOfSequences}
 
@@ -393,7 +393,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        self._defineOutputs(outputAtomStructs=self.pdbs,
+        self._defineOutputs(outputStructures=self.pdbs,
                             outputNpz=self.npz,
                             outAlignment=outputSeqs)
 
