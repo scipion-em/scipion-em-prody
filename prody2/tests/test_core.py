@@ -25,7 +25,8 @@
 # *
 # **************************************************************************
 
-from pwem.protocols import *
+import os
+from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
@@ -40,10 +41,10 @@ import prody
 try:
     from prody import interpolateModel
     have_interp = True
-except:
+except ImportError:
     have_interp = False
 
-class TestProDy_core(TestWorkflow):
+class TestProDyCore(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
@@ -51,11 +52,11 @@ class TestProDy_core(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def test_ProDy_core(self):
+    def testProDyCore(self):
         """ Run NMA simple workflow for two Atomic structures. """
 
-        old_verbosity = prody.confProDy("verbosity")
-        old_secondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
 
         # --------------------------------------------------------------
         # Step 1a. Import a Pdb -> Select chain A from Pointer -> NMA
@@ -66,8 +67,10 @@ class TestProDy_core(TestWorkflow):
         protImportPdb1.setObjLabel('pwem import 4ake')
         self.launchProtocol(protImportPdb1)
 
+        chainAselstr = "protein and chain A"
+
         # Select Chain A
-        protSel1 = self.newProtocol(ProDySelect, selection="protein and chain A")
+        protSel1 = self.newProtocol(ProDySelect, selection=chainAselstr)
         protSel1.inputStructure.set(protImportPdb1.outputPdb)
         protSel1.setObjLabel('Sel_4akeA_all_pointer')
         self.launchProtocol(protSel1)
@@ -93,7 +96,7 @@ class TestProDy_core(TestWorkflow):
         # ------------------------------------------------
         # Step 1b. Select chain A from Filename
         # ------------------------------------------------
-        protSel1b = self.newProtocol(ProDySelect, selection="protein and chain A",
+        protSel1b = self.newProtocol(ProDySelect, selection=chainAselstr,
                                      inputPdbData=1)
         protSel1b.pdbFile.set(protImportPdb1.outputPdb.getFileName())
         protSel1b.setObjLabel('Sel_4akeA_all_file')
@@ -102,7 +105,7 @@ class TestProDy_core(TestWorkflow):
         # ----------------------------------------------------
         # Step 1c. Select chain A from PDB id (difficult case)
         # ----------------------------------------------------
-        protSel1c = self.newProtocol(ProDySelect, selection="protein and chain A",
+        protSel1c = self.newProtocol(ProDySelect, selection=chainAselstr,
                                      inputPdbData=0)
         protSel1c.pdbId.set("6xr8")
         protSel1c.setObjLabel('Sel_6xr8_A_all_id')
@@ -247,8 +250,8 @@ class TestProDy_core(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         self.launchProtocol(protComp5)  
 
-        comp5_matrix = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
-        self.assertTrue(max(comp5_matrix) <= 1, "Default defvec comparison didn't normalise")
+        compMatrix5 = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
+        self.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison didn't normalise")
 
         # Compare original CA NMA to defvec with raw overlaps
         protComp6 = self.newProtocol(ProDyCompare)
@@ -258,8 +261,8 @@ class TestProDy_core(TestWorkflow):
         protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
         self.launchProtocol(protComp6)  
 
-        comp6_matrix = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
-        self.assertTrue(max(comp6_matrix) > 1, "Raw defvec comparison didn't generate large numbers")
+        compMatrix6 = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
+        self.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
         # Step 8. Import ANM & compare scipion vs prody npz
@@ -267,12 +270,12 @@ class TestProDy_core(TestWorkflow):
         # ------------------------------------------------
         # Define path
         modes = protANM2.outputModes
-        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
 
         # Import modes from prody npz
         protImportModes1 = self.newProtocol(ProDyImportModes)
         protImportModes1.importType.set(modes_NPZ)
-        protImportModes1.filesPath.set(modes_path)
+        protImportModes1.filesPath.set(modesPath)
         protImportModes1.filesPattern.set("modes.anm.npz")
         protImportModes1.inputStructure.set(protSel2.outputStructure)
         protImportModes1.setObjLabel('import_npz_ANM_CA')
@@ -330,10 +333,10 @@ class TestProDy_core(TestWorkflow):
         protComp8.setObjLabel('Compare_ANM_to_RTB2')
         self.launchProtocol(protComp8)
 
-        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+        self.assertTrue(prody.confProDy("verbosity") == oldVerbosity, 
                         "prody verbosity changed")
         
-        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+        self.assertTrue(prody.confProDy("auto_secondary") == oldSecondary, 
                         "prody auto_secondary changed")
 
 
@@ -344,8 +347,8 @@ class TestProDy_core(TestWorkflow):
         protBm1.setObjLabel('Biomol_4ake_id')
         self.launchProtocol(protBm1)
 
-        num_structs = len(protBm1.outputStructures)
-        self.assertTrue(num_structs == 1, "Failed to extract 1 biomol from 4ake (dimer)")
+        numStructs = len(protBm1.outputStructures)
+        self.assertTrue(numStructs == 1, "Failed to extract 1 biomol from 4ake (dimer)")
 
         ag = prody.parsePDB([struct.getFileName() for struct in protBm1.outputStructures])
         self.assertTrue(ag.numResidues() == 575, 
@@ -360,8 +363,8 @@ class TestProDy_core(TestWorkflow):
         protBm2.setObjLabel('Biomol_1ake_pointer')
         self.launchProtocol(protBm2)
 
-        num_structs = len(protBm2.outputStructures)
-        self.assertTrue(num_structs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
+        numStructs = len(protBm2.outputStructures)
+        self.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
 
         ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
         self.assertTrue(ag.numResidues() == 456, 

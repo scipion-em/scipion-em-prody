@@ -26,10 +26,10 @@
 # **************************************************************************
 
 import numpy as np
-from os.path import exists, split
+from os.path import split
 
 from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
-from pwem.protocols import *
+from pwem.protocols import ProtImportPdb, ProtImportSetOfAtomStructs, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
@@ -43,7 +43,7 @@ from prody2.protocols.protocol_import import SCIPION
 
 import prody
 
-class TestProDy_PCA(TestWorkflow):
+class TestProDyPCA(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
@@ -51,11 +51,11 @@ class TestProDy_PCA(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def test_ProDy_pca(self):
+    def testProDyPCA(self):
         """ Run PCA simple workflow for two ways of building ensembles. """
         
-        old_verbosity = prody.confProDy("verbosity")
-        old_secondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
 
         # ---------------------------------------------------------------
         # Step 1. Import some structures -> Select CA from all but one
@@ -147,7 +147,7 @@ class TestProDy_PCA(TestWorkflow):
         
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
-        protEns2.structures.set([protSetAS.outputAtomStructs])
+        protEns2.structures.set([protSetAS.outputStructures])
         protEns2.refIndex.set(idx)
         protEns2.setObjLabel('buildPDBEns_set_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns2)
@@ -170,7 +170,7 @@ class TestProDy_PCA(TestWorkflow):
         protEns3 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
         protEns3.structures.set([protSel4.outputStructure,
-                                 protSetAS.outputAtomStructs])
+                                 protSetAS.outputStructures])
         protEns3.refIndex.set(1)
         protEns3.setObjLabel('buildPDBEns_set_plus_sel_ref_idx_{0}'.format(idx))
         self.launchProtocol(protEns3)
@@ -226,8 +226,8 @@ class TestProDy_PCA(TestWorkflow):
         protComp1.setObjLabel('Compare_A3_PCAs_same')
         self.launchProtocol(protComp1)
 
-        comp_matrix1 = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
-        self.assertTrue(np.allclose(comp_matrix1, np.ones(3)), "The modes aren't identical")
+        compMatrix1 = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
+        self.assertTrue(np.allclose(compMatrix1, np.ones(3)), "The modes aren't identical")
 
         # compare modes from different size sets
         protComp2 = self.newProtocol(ProDyCompare)
@@ -236,8 +236,8 @@ class TestProDy_PCA(TestWorkflow):
         protComp2.setObjLabel('Compare_A3_PCAs_2_vs_3')
         self.launchProtocol(protComp2)
 
-        comp_matrix2 = prody.parseArray(protComp2._getExtraPath('matrix.txt'))
-        self.assertEqual(comp_matrix2.shape, (3,2),
+        compMatrix2 = prody.parseArray(protComp2._getExtraPath('matrix.txt'))
+        self.assertEqual(compMatrix2.shape, (3,2),
                          "Comparing 3 and 2 modes doesn't give the 3x2 matrix")
 
         # ------------------------------------------------
@@ -366,10 +366,10 @@ class TestProDy_PCA(TestWorkflow):
         protComp3.setObjLabel('Compare_imported_2k39')
         self.launchProtocol(protComp3)
 
-        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+        self.assertTrue(prody.confProDy("verbosity") == oldVerbosity, 
                         "prody verbosity changed")
 
-        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+        self.assertTrue(prody.confProDy("auto_secondary") == oldSecondary, 
                         "prody auto_secondary changed")
 
         # ------------------------------------------------

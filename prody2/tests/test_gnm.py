@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 
-from pwem.protocols import *
+from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
@@ -39,7 +39,7 @@ from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
 
 import prody
 
-class TestProDy_GNM(TestWorkflow):
+class TestProDyGNM(TestWorkflow):
     """ Test protocol for ProDy Gaussian Normal Model Analysis. """
 
     @classmethod
@@ -47,11 +47,11 @@ class TestProDy_GNM(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def test_ProDy_gnm(self):
+    def testProDyGNM(self):
         """ Run GNM simple workflow for two Atomic structures. """
         
-        old_verbosity = prody.confProDy("verbosity")
-        old_secondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
 
         # ------------------------------------------------
         # Step 1. Import a Pdb -> Select chain A -> GNM
@@ -169,8 +169,8 @@ class TestProDy_GNM(TestWorkflow):
         protDomDec1.setObjLabel('DomainDecomp_CA')
         self.launchProtocol(protDomDec1)
 
-        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+        self.assertTrue(prody.confProDy("verbosity") == oldVerbosity, 
                         "prody verbosity changed")
 
-        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+        self.assertTrue(prody.confProDy("auto_secondary") == oldSecondary, 
                         "prody auto_secondary changed")
