@@ -44,7 +44,7 @@ import prody
 class ProDyDomainViewer(Viewer):
     """ Visualization of domains from GNM domain decomposition
     """    
-    _label = 'ProDy Dynamical domain viewer'
+    _label = 'Dynamical domain viewer'
     _targets = [ProDyDomainDecomp]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 

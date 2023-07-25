@@ -59,7 +59,7 @@ class ProDyGNMViewer(ProtocolViewer):
         Normally, modes with high collectivity and low 
         score are preferred.
     """
-    _label = 'viewer gnm'
+    _label = 'GNM viewer'
     _targets = [ProDyGNM]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
         

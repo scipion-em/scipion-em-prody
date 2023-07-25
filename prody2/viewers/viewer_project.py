@@ -42,7 +42,7 @@ import prody
 class ProDyProjectionsViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
     """    
-    _label = 'ProDy mode comparisons viewer'
+    _label = 'Projection viewer'
     _targets = [ProDyProject]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 

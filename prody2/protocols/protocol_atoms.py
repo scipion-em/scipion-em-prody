@@ -450,7 +450,7 @@ class ProDyBiomol(EMProtocol):
     """
     This protocol will extract biomolecular assemblies
     """
-    _label = 'extract biomol'
+    _label = 'Extract biomol'
     IMPORT_FROM_ID = 0
     IMPORT_FROM_FILES = 1
     USE_POINTER = 2
