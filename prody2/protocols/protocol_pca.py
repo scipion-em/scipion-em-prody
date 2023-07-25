@@ -29,22 +29,17 @@
 """
 This module will provide ProDy principal component analysis (PCA) using atomic structures
 """
-from pyworkflow.protocol import params
 
-from os.path import basename, exists, join
-import math
 from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
+                        MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
-from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import *
-from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
+from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
@@ -140,7 +135,7 @@ class ProDyPCA(ProDyModesBase):
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, n):
+    def computeModesStep(self, n=5):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.old_secondary = prody.confProDy("auto_secondary")
         self.old_verbosity = prody.confProDy("verbosity")
@@ -173,7 +168,7 @@ class ProDyPCA(ProDyModesBase):
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -207,7 +202,7 @@ class ProDyPCA(ProDyModesBase):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -223,47 +218,13 @@ class ProDyPCA(ProDyModesBase):
             score[i] = float(score[i]) / (2.0 * l)
             mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
             i += 1
-        mdOut.write("modes%s.xmd" % suffix)
+        mdOut.write("modes.xmd")
 
         self._leaveWorkingDir()
         
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
-    # def computeAtomShiftsStep(self, numberOfModes):
-    #     fnOutDir = self._getExtraPath("distanceProfiles")
-    #     makePath(fnOutDir)
-    #     maxShift=[]
-    #     maxShiftMode=[]
-        
-    #     for n in range(7, numberOfModes+1):
-    #         fnVec = self._getPath("modes", "vec.%d" % n)
-    #         if exists(fnVec):
-    #             fhIn = open(fnVec)
-    #             md = MetaData()
-    #             atomCounter = 0
-    #             for line in fhIn:
-    #                 x, y, z = map(float, line.split())
-    #                 d = math.sqrt(x*x+y*y+z*z)
-    #                 if n==7:
-    #                     maxShift.append(d)
-    #                     maxShiftMode.append(7)
-    #                 else:
-    #                     if d>maxShift[atomCounter]:
-    #                         maxShift[atomCounter]=d
-    #                         maxShiftMode[atomCounter]=n
-    #                 atomCounter+=1
-    #                 md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-    #             md.write(join(fnOutDir,"vec%d.xmd" % n))
-    #             fhIn.close()
-    #     md = MetaData()
-    #     for i, _ in enumerate(maxShift):
-    #         fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
-    #         if exists(fnVec):
-    #             objId = md.addObject()
-    #             md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-    #             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-    #     md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

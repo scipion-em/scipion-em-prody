@@ -31,9 +31,7 @@ This module will provide ProDy projection of structural ensembles on principal c
 """
 
 from pwem import *
-import pwem.emlib.metadata as md
-from pwem.objects import (SetOfPrincipalComponents, SetOfAtomStructs,
-                          String, EMFile)
+from pwem.objects import SetOfPrincipalComponents, SetOfAtomStructs, EMFile
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
