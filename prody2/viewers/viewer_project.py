@@ -147,6 +147,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if ensemble.getLabels()[0].startswith('Unknown_m'):
             ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
 
+        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
+            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
+
         modesPath = self.protocol.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modesPath)
 

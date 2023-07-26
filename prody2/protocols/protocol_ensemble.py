@@ -354,6 +354,24 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          atommaps=atommaps,
                                          rmsd_reject=self.rmsd_reject.get())
 
+        self.labels = ens.getLabels()
+        u, idx, inv, c = np.unique(self.labels, return_index=True,
+                                   return_inverse=True, return_counts=True)
+
+        for i, label in enumerate(self.labels):
+            if label.endswith('_ca'):
+                self.labels[i] = label[:-3]
+
+            if i in idx:
+                j = 0
+            else:
+                j += 1
+
+            if c[inv][i] > 1:
+                self.labels[i] = self.labels[i] + '_' + str(j)
+
+        ens._labels = self.labels
+
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
 
