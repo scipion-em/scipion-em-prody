@@ -20,6 +20,7 @@ from .protocol_ensemble import ProDyBuildPDBEnsemble
 from .protocol_import import ProDyImportEnsemble
 from .protocol_pca import ProDyPCA
 from .protocol_project import ProDyProject
+from .protocol_rmsd import ProDyRmsd
 
 try:
     from prody import addMissingAtoms
