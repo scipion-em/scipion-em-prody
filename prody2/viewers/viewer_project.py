@@ -147,8 +147,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if ensemble.getLabels()[0].startswith('Unknown_m'):
             ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
 
-        modes_path = self.protocol.inputModes.get().getFileName()
-        modes = prody.parseScipionModes(modes_path)
+        modesPath = self.protocol.inputModes.get().getFileName()
+        modes = prody.parseScipionModes(modesPath)
 
         plotter = EmPlotter()
 
@@ -173,27 +173,27 @@ class ProDyProjectionsViewer(ProtocolViewer):
             
             if self.xlim1.get() != -1 or self.xlim2.get() != -1:
                 xlims = ax.get_xlim()
-                if self.xlim1.get() != -1 and not self.xlim2.get() != -1:
+                if self.xlim1.get() != -1 and self.xlim2.get() == -1:
                     ax.set_xlim([self.xlim1.get(), xlims[1]])
-                elif not self.xlim1.get() != -1 and self.xlim2.get() != -1:
+                elif self.xlim1.get() == -1 and self.xlim2.get() != -1:
                     ax.set_xlim([xlims[0], self.xlim2.get()])
                 else:
                     ax.set_xlim([self.xlim1.get(), self.xlim2.get()])
 
             if self.ylim1.get() != -1 or self.ylim2.get() != -1:
                 ylims = ax.get_ylim()
-                if self.ylim1.get() != -1 and not self.ylim2.get() != -1:
+                if self.ylim1.get() != -1 and self.ylim2.get() == -1:
                     ax.set_ylim([self.ylim1.get(), ylims[1]])
-                elif not self.ylim1.get() != -1 and self.ylim2.get() != -1:
+                elif self.ylim1.get() == -1 and self.ylim2.get() != -1:
                     ax.set_ylim([ylims[0], self.ylim2.get()])
                 else:
                     ax.set_ylim([self.ylim1.get(), self.ylim2.get()])
 
             if self.zlim1.get() != -1 or self.zlim2.get() != -1:
                 zlims = ax.get_zlim()
-                if self.zlim1.get() != -1 and not self.zlim2.get() != -1:
+                if self.zlim1.get() != -1 and self.zlim2.get() == -1:
                     ax.set_zlim([self.zlim1.get(), zlims[1]])
-                elif not self.zlim1.get() != -1 and self.zlim2.get() != -1:
+                elif self.zlim1.get() == -1 and self.zlim2.get() != -1:
                     ax.set_zlim([zlims[0], self.zlim2.get()])
                 else:
                     ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
