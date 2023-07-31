@@ -60,7 +60,7 @@ except ImportError:
             elif t == int:
                 index, filename = first, args[1]
             else:
-                raise Exception('setLocation: unsupported type %s as input.' % t)
+                raise TypeError('setLocation: unsupported type %s as input.' % t)
 
             self.setIndex(index)
             self.setFileName(filename)
@@ -147,27 +147,27 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
     def loadEnsemble(self, orderBy='id', direction='ASC'):
         """Make a new ensemble with all the items and write a new ens.npz file"""
         filenames = list(self.getFiles())
-        old_ensembles = [prody.loadEnsemble(filename) for filename in filenames]
-        for i, ens in enumerate(old_ensembles):
+        oldEnsembles = [prody.loadEnsemble(filename) for filename in filenames]
+        for i, ens in enumerate(oldEnsembles):
             if not isinstance(ens, prody.PDBEnsemble):
-                old_ensembles[i] = prody.PDBEnsemble(ens)
+                oldEnsembles[i] = prody.PDBEnsemble(ens)
 
-        new_ensemble = prody.PDBEnsemble()
+        newEnsemble = prody.PDBEnsemble()
 
         for i, item in enumerate(self.iterItems(orderBy=orderBy,
                                                 direction=direction)):
-            fname_index = filenames.index(item.getFileName())
-            conf_index = item.getIndex() - 1 # back to python
+            fnameIndex = filenames.index(item.getFileName())
+            confIndex = item.getIndex() - 1 # back to python
 
-            ensemble = old_ensembles[fname_index]
-            coords = ensemble.getCoordsets(selected=False)[conf_index]
-            label = ensemble.getLabels()[conf_index]
-            weights = ensemble.getWeights(selected=False)[conf_index]
+            ensemble = oldEnsembles[fnameIndex]
+            coords = ensemble.getCoordsets(selected=False)[confIndex]
+            label = ensemble.getLabels()[confIndex]
+            weights = ensemble.getWeights(selected=False)[confIndex]
 
             if i == 0:
-                new_ensemble.setCoords(ensemble.getCoords(selected=False))
-                new_ensemble.setAtoms(ensemble.getAtoms())
+                newEnsemble.setCoords(ensemble.getCoords(selected=False))
+                newEnsemble.setAtoms(ensemble.getAtoms())
 
-            new_ensemble.addCoordset(coords, weights, label)
+            newEnsemble.addCoordset(coords, weights, label)
 
-        return new_ensemble
+        return newEnsemble

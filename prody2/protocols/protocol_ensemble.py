@@ -355,7 +355,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          rmsd_reject=self.rmsd_reject.get())
 
         self.labels = ens.getLabels()
-        u, idx, inv, c = np.unique(self.labels, return_index=True,
+        _, idx, inv, c = np.unique(self.labels, return_index=True,
                                    return_inverse=True, return_counts=True)
 
         for i, label in enumerate(self.labels):

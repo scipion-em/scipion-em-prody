@@ -32,14 +32,12 @@ This module will provide ProDy mode import tools.
 import os
 import numpy as np
 
-from pwem import *
 from pwem.objects import (String, AtomStruct, SetOfAtomStructs,
                           SetOfNormalModes, SetOfPrincipalComponents)
 from pwem.protocols import ProtImportFiles
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
-from pyworkflow.utils import *
 import pyworkflow.protocol.params as params
 
 import prody
@@ -49,6 +47,14 @@ NMD = 0
 modes_NPZ = 1
 SCIPION = 2
 GROMACS = 3
+
+filesPatternHelp = """Pattern of the files to be imported.\n\n
+The pattern can contain standard wildcards such as\n
+*, ?, etc, or special ones like ### to mark some\n
+digits in the filename as ID.\n\n
+NOTE: wildcards and special characters 
+('*', '?', '#', ':', '%') cannot appear in the actual path.\n\n
+For gromacs modes, the first is for values and this is for vectors"""
 
 class ProDyImportModes(ProtImportFiles):
     """
@@ -100,26 +106,12 @@ class ProDyImportModes(ProtImportFiles):
         form.addParam('filesPattern', params.StringParam,
                       label='File pattern',
                       condition="importType!=%d" % SCIPION,
-                      help="Pattern of the files to be imported.\n\n"
-                           "The pattern can contain standard wildcards such as\n"
-                           "*, ?, etc, or special ones like ### to mark some\n"
-                           "digits in the filename as ID.\n\n"
-                           "NOTE: wildcards and special characters "
-                           "('*', '?', '#', ':', '%') cannot appear in the "
-                           "actual path.\n\n"
-                           "For gromacs modes, the first is for values and this is for vectors")
+                      help=filesPatternHelp)
 
         form.addParam('filesPattern2', params.StringParam,
                       label='File pattern for eigenvalues',
                       condition="importType==%d" % GROMACS,
-                      help="Pattern of the files to be imported.\n\n"
-                           "The pattern can contain standard wildcards such as\n"
-                           "*, ?, etc, or special ones like ### to mark some\n"
-                           "digits in the filename as ID.\n\n"
-                           "NOTE: wildcards and special characters "
-                           "('*', '?', '#', ':', '%') cannot appear in the "
-                           "actual path.\n\n"
-                           "For gromacs modes, the first is for values and this is for vectors")
+                      help=filesPatternHelp)
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
                       pointerClass='AtomStruct', condition="importType!=%d" % NMD,
@@ -141,38 +133,38 @@ class ProDyImportModes(ProtImportFiles):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        files_paths = self.getMatchFiles()
+        filesPaths = self.getMatchFiles()
 
         if self.importType == SCIPION:
-            file_path = files_paths[0]
+            filePath = filesPaths[0]
         else:
-            folder_path = os.path.split(files_paths[0])[0]
-            self.pattern1 = os.path.split(files_paths[0])[1]
+            folderPath = os.path.split(filesPaths[0])[0]
+            self.pattern1 = os.path.split(filesPaths[0])[1]
 
-        pdb_filename = self.inputStructure.get().getFileName()
+        pdbFilename = self.inputStructure.get().getFileName()
         
         if self.importType == NMD:
             if not self.pattern1.endswith('.nmd'):
                 self.pattern1 += '.nmd'
-            self.outModes, _ = prody.parseNMD(os.path.join(folder_path, self.pattern1))
+            self.outModes, _ = prody.parseNMD(os.path.join(folderPath, self.pattern1))
 
         elif self.importType == modes_NPZ:
             if not self.pattern1.endswith('.npz'):
                 self.pattern1 += '.npz'
-            self.outModes = prody.loadModel(os.path.join(folder_path, self.pattern1))
+            self.outModes = prody.loadModel(os.path.join(folderPath, self.pattern1))
 
         elif self.importType == SCIPION:
-            self.outModes = prody.parseScipionModes(file_path, pdb=pdb_filename)
+            self.outModes = prody.parseScipionModes(filePath, pdb=pdbFilename)
 
         else:
             pattern2 = self.filesPattern2.get()
-            self.outModes = prody.parseGromacsModes(folder_path, eigval_fname=self.pattern1,
-                                                    eigvec_fname=pattern2, average_pdb=pdb_filename)
+            self.outModes = prody.parseGromacsModes(folderPath, eigval_fname=self.pattern1,
+                                                    eigvec_fname=pattern2, average_pdb=pdbFilename)
 
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         
         if self.importType != NMD:
-            atoms = prody.parsePDB(pdb_filename)
+            atoms = prody.parsePDB(pdbFilename)
             self.nmdFileName = self._getPath('modes.nmd')
             prody.writeNMD(self.nmdFileName, self.outModes, atoms)
         else:
@@ -231,7 +223,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='Select the type of import.')
 
         form.addParam('importType', params.EnumParam, choices=['pdb', 'dcd', 'ens.npz'],
-                      default=PDB, condition='importFrom==0',
+                      default=PDB, condition=filesCondition,
                       label='Type of ensemble file to import',
                       help='ProDy can support import of ensembles in various file formats: \n'
                            'pdb, dcd and the native ens.npz format')
@@ -244,7 +236,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                            'pdb, dcd and the native ens.npz format')
 
         form.addParam('filesPath', params.PathParam,
-                      label="Files directory", condition='importFrom==0',
+                      label="Files directory", condition=filesCondition,
                       help="Directory with the files you want to import.\n\n"
                            "The path can also contain wildcards to select"
                            "from several folders. \n\n"
@@ -260,15 +252,8 @@ class ProDyImportEnsemble(ProtImportFiles):
                            "cannot appear in the actual path.)")
 
         form.addParam('filesPattern', params.StringParam,
-                      label='Pattern', condition='importFrom==0',
-                      help="Pattern of the files to be imported.\n\n"
-                           "The pattern can contain standard wildcards such as\n"
-                           "*, ?, etc, or special ones like ### to mark some\n"
-                           "digits in the filename as ID.\n\n"
-                           "NOTE: wildcards and special characters "
-                           "('*', '?', '#', ':', '%') cannot appear in the "
-                           "actual path.\n\n"
-                           "For gromacs modes, the first is for values and this is for vectors")
+                      label='Pattern', condition=filesCondition,
+                      help=filesPatternHelp)
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
                       pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
@@ -308,26 +293,26 @@ class ProDyImportEnsemble(ProtImportFiles):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         if self.importFrom.get() == 0:
-            files_paths = self.getMatchFiles()
-            folder_path = os.path.split(files_paths[0])[0]
-            self.pattern1 = os.path.split(files_paths[0])[1]
+            filesPaths = self.getMatchFiles()
+            folderPath = os.path.split(filesPaths[0])[0]
+            self.pattern1 = os.path.split(filesPaths[0])[1]
             
             if self.importType == PDB:
                 if not (self.pattern1.endswith('.pdb') or self.pattern1.endswith('.cif')):
                     self.pattern1 += '.pdb'
-                self.atoms = prody.parsePDB(os.path.join(folder_path, self.pattern1))
+                self.atoms = prody.parsePDB(os.path.join(folderPath, self.pattern1))
                 self.outEns = prody.PDBEnsemble(self.atoms)
 
             elif self.importType == DCD:
                 if not self.pattern1.endswith('.dcd'):
                     self.pattern1 += '.dcd'
-                self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folder_path, self.pattern1)))
+                self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folderPath, self.pattern1)))
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif self.importType == ens_NPZ:
                 if not self.pattern1.endswith('.ens.npz'):
                     self.pattern1 += '.ens.npz'
-                self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folder_path, self.pattern1)))
+                self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folderPath, self.pattern1)))
                 self.atoms = self.outEns.getAtoms()
         else:
             point = self.importPointer.get()
@@ -378,13 +363,13 @@ class ProDyImportEnsemble(ProtImportFiles):
 
     def _summary(self):
         if not hasattr(self, 'outputNpz'):
-            sum = ['Output ensemble not ready yet']
+            summ = ['Output ensemble not ready yet']
         elif not hasattr(self, 'sumOutput'):
             ens = self.outputNpz.loadEnsemble()
-            sum = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
+            summ = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
                    ens.numConfs(), ens.numAtoms())]
             self.sumOutput = True
-        return sum
+        return summ
 
     def _getImportChoices(self):
         return ['files', 'pointer']
