@@ -30,12 +30,10 @@
 This module will provide ProDy projection of structural ensembles on principal component or normal modes
 """
 
-from pwem import *
 from pwem.objects import SetOfPrincipalComponents, SetOfAtomStructs, EMFile
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.utils import *
 from pyworkflow.protocol.params import PointerParam, EnumParam
 
 import prody
@@ -84,8 +82,8 @@ class ProDyProject(EMProtocol):
 
     def computeStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
@@ -98,19 +96,19 @@ class ProDyProject(EMProtocol):
         else:
             ens = inputEnsemble.loadEnsemble()
 
-        modes_path = self.inputModes.get().getFileName()
-        modes = prody.parseScipionModes(modes_path)
+        modesPath = self.inputModes.get().getFileName()
+        modes = prody.parseScipionModes(modesPath)
 
         self.proj = prody.calcProjection(ens, modes[:self.numModes.get()+1])
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         inputEnsemble = self.inputEnsemble.get()
         
-        input_class = type(inputEnsemble)
-        outSet = input_class().create(self._getExtraPath())
+        inputClass = type(inputEnsemble)
+        outSet = inputClass().create(self._getExtraPath())
         outSet.copyItems(inputEnsemble, updateItemCallback=self._setCoeffs)
         
         outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
@@ -127,9 +125,9 @@ class ProDyProject(EMProtocol):
 
     def _summary(self):
         if not hasattr(self, 'outputStructures'):
-            sum = ['Projection not ready yet']
+            summ = ['Projection not ready yet']
         else:
-            sum = ['Projected *{0}* structures onto *{1}* components'.format(
+            summ = ['Projected *{0}* structures onto *{1}* components'.format(
                    len(self.outputStructures), self.numModes.get()+1)]
-        return sum
+        return summ
         

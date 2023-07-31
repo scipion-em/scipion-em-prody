@@ -182,12 +182,12 @@ class ProDyRmsd(EMProtocol):
         
     def _summary(self):
         if not hasattr(self, 'outputModes'):
-            sum = ['Output modes not ready yet']
+            summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.inputEnsemble.get().loadEnsemble()
 
-            sum = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
-        return sum
+        return summ
 

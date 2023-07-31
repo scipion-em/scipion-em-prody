@@ -25,13 +25,10 @@
 # *
 # **************************************************************************
 
-from pwem.protocols import *
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble, ProDyClustENM)
-
-import prody
 
 class TestProDyClustENM(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -45,24 +42,21 @@ class TestProDyClustENM(TestWorkflow):
         """ Run ClustENM for one and both chains of 4ake, test single and multi input options """
 
         # --------------------------------------------------------------
-        # Step 1. Import a Pdb -> Select chain A and chain B
+        # Step 1. Import 4ake and 1ake and select chain A from each
         # --------------------------------------------------------------
-        # Import a PDB
-        protImportPdb = self.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
-        protImportPdb.setObjLabel('pwem import 4ake')
-        self.launchProtocol(protImportPdb)
 
         # Select Chain A
-        protSelA = self.newProtocol(ProDySelect, selection="protein and chain A")
-        protSelA.inputStructure.set(protImportPdb.outputPdb)
+        protSelA = self.newProtocol(ProDySelect, selection="protein and chain A", 
+                                    inputPdbData=0)
+        protSelA.pdbId.set("4ake")
         protSelA.setObjLabel('Sel_4akeA')
         self.launchProtocol(protSelA)
 
         # Select Chain A
-        protSelB = self.newProtocol(ProDySelect, selection="protein and chain B")
-        protSelB.inputStructure.set(protImportPdb.outputPdb)
-        protSelB.setObjLabel('Sel_4akeB')
+        protSelB = self.newProtocol(ProDySelect, selection="protein and chain A", 
+                                    inputPdbData=0)
+        protSelB.pdbId.set("1ake")
+        protSelB.setObjLabel('Sel_1akeA')
         self.launchProtocol(protSelB)
 
         # --------------------------------------------------------------

@@ -137,8 +137,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
         """ visualisation for 2D mode comparisons""" 
 
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
@@ -183,8 +183,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
             ax.yaxis.set_minor_locator(minor_locator)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
         
         return [plotter]
 
@@ -192,8 +192,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
         """ visualization for a selected mode. """
 
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
@@ -289,8 +289,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
             ax.xaxis.set_minor_locator(minor_locator)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
         return [plotter]
 

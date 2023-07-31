@@ -45,8 +45,8 @@ from prody2.protocols import ProDyGNM
 import os
 
 import prody
-old_secondary = prody.confProDy("auto_secondary")
-old_verbosity = prody.confProDy("verbosity")
+oldSecondary = prody.confProDy("auto_secondary")
+oldVerbosity = prody.confProDy("verbosity")
 
 from prody.utilities.drawtools import IndexFormatter
 from matplotlib.pyplot import *
@@ -78,10 +78,10 @@ class ProDyGNMViewer(ProtocolViewer):
 
         modes =  self.protocol.outputModes
 
-        modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-        self.atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"))
+        modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        self.atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
 
-        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modes_path+"/*atoms.pdb"))
+        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modesPath+"/*atoms.pdb"))
 
         if self.modes.getEigvals()[0] < prody.utilities.ZERO:
             self.startMode = 1
@@ -335,4 +335,4 @@ ProjectWindow.registerObjectCommand(OBJCMD_NMA_PLOTDIST,
 
 
 # configure ProDy to restore secondary structure information and verbosity
-prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))

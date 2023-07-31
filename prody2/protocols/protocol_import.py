@@ -128,8 +128,8 @@ class ProDyImportModes(ProtImportFiles):
     def importModesStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
         from pyworkflow import Config
-        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
-        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
+        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
@@ -171,7 +171,7 @@ class ProDyImportModes(ProtImportFiles):
             self.nmdFileName = self.pattern1
             
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -287,8 +287,8 @@ class ProDyImportEnsemble(ProtImportFiles):
     def importEnsembleStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
         from pyworkflow import Config
-        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
-        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
+        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
@@ -353,7 +353,7 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.npz.append(TrajFrame((j+1, self.filename)))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         if self.savePDBs.get():

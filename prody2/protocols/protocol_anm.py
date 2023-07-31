@@ -167,8 +167,8 @@ class ProDyANM(EMProtocol):
 
     def computeModesStep(self, inputFn, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -352,8 +352,8 @@ class ProDyANM(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -368,11 +368,11 @@ class ProDyANM(EMProtocol):
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
-            sum = ['Output modes not ready yet']
+            summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
 
-            sum = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
+            summ = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
                     modes.numModes(), modes.numAtoms())]
-        return sum
+        return summ
 

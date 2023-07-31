@@ -53,8 +53,8 @@ class ProDyModeViewer(Viewer):
     def _visualize(self, obj, **kwargs):
         """visualisation for mode sets"""
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
@@ -68,9 +68,9 @@ class ProDyModeViewer(Viewer):
 
         if not os.path.isfile(self.protocol._getPath("modes.nmd")):
             prody_modes = prody.parseScipionModes(modes.getFileName())
-            modes_path = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+            modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
 
-            atoms = prody.parsePDB(glob(modes_path+"/*atoms.pdb"), altloc="all")
+            atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"), altloc="all")
             if isinstance(atoms, list):
                 for atoms_i in atoms:
                     if atoms_i.numAtoms() == prody_modes.numAtoms():
@@ -79,10 +79,10 @@ class ProDyModeViewer(Viewer):
             else:
                 prody_atoms = atoms
 
-            prody.writeNMD(modes_path+"/modes.nmd", prody_modes, prody_atoms)
+            prody.writeNMD(modesPath+"/modes.nmd", prody_modes, prody_atoms)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
         
         return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
 

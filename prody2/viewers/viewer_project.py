@@ -50,8 +50,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 
         # configure ProDy to automatically handle secondary structure information and verbosity
         from pyworkflow import Config
-        global old_secondary; old_secondary = prody.confProDy("auto_secondary")
-        global old_verbosity; old_verbosity = prody.confProDy("verbosity")
+        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
+        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
@@ -75,7 +75,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         
         form.addParam('adjust_text', BooleanParam, label="Adjust labels?", default=True,
                       help='Select whether to adjust labels on points to not overlap.',
-                      condition=self.numModes!=ONE)
+                      condition="label==True")
 
         form.addParam('density', BooleanParam, label="Show density?",
                       default=False, condition=self.numModes != THREE,
@@ -202,6 +202,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
                 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
         return [plotter]

@@ -147,19 +147,19 @@ class ProDySelect(EMProtocol):
     def _summary(self):
         if not hasattr(self, 'outputStructure'):
             if self.getStatus() != 'finished':
-                sum = ['Output structure not ready yet']
+                summ = ['Output structure not ready yet']
             else:
-                sum = ['No atoms match selection so no output structure']
+                summ = ['No atoms match selection so no output structure']
         else:
             input_ag = prody.parsePDB(self.inputStruct.getFileName())
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
 
-            sum = ['Selected *{0}* atoms from original *{1}* atoms'.format(
+            summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
                 output_ag.numAtoms(), input_ag.numAtoms())]
             sum.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
                         output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
-        return sum
+        return summ
 
 
 class ProDyAlign(EMProtocol):
@@ -281,8 +281,8 @@ class ProDyAlign(EMProtocol):
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -382,7 +382,7 @@ class ProDyAlign(EMProtocol):
                 prody.writeArray(self.matrixFileName, self.T.getMatrix())
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
@@ -515,8 +515,8 @@ class ProDyBiomol(EMProtocol):
 
     def extractionStep(self, inputFn):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -535,21 +535,21 @@ class ProDyBiomol(EMProtocol):
             self.pdbs.append(pdb)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         self._defineOutputs(outputStructures=self.pdbs)
 
     def _summary(self):
         if not hasattr(self, '_sum'):
-            self._sum = CsvList()
+            self._summ = CsvList()
 
         if not hasattr(self, 'outputStructures'):
-            self._sum = CsvList()
+            self._summ = CsvList()
             self._sum.append('Output structure not ready yet')
         else:
             if len(self._sum) == 0 or not self._sum[0].startswith('Extracted'): 
-                self._sum = CsvList()
+                self._summ = CsvList()
                 num_structs = len(self.outputStructures)
                 self._sum.append('Extracted *{0}* biomolecular assemblies'.format(num_structs))
 

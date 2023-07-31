@@ -149,7 +149,7 @@ class ProDyModesBase(EMProtocol):
 
     def computeModesStep(self):
         # This gets defined in each child protocol
-        # self.old_verbosity and self.old_secondary should be defined and replaced therein
+        # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
@@ -305,8 +305,8 @@ class ProDyModesBase(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

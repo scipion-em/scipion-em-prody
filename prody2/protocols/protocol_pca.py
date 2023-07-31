@@ -143,8 +143,8 @@ class ProDyPCA(ProDyModesBase):
 
     def computeModesStep(self, n=5):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -157,7 +157,7 @@ class ProDyPCA(ProDyModesBase):
         self.inputStructure.setFileName(self.pdbFileName)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
         self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
@@ -246,12 +246,12 @@ class ProDyPCA(ProDyModesBase):
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
-            sum = ['Output modes not ready yet']
+            summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.inputEnsemble.get().loadEnsemble()
 
-            sum = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
-        return sum
+        return summ
 

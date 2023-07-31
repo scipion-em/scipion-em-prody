@@ -138,8 +138,8 @@ class ProDyEdit(ProDyModesBase):
 
     def computeModesStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -163,12 +163,12 @@ class ProDyEdit(ProDyModesBase):
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
-            modes_path = os.path.dirname(os.path.dirname(
+            modesPath = os.path.dirname(os.path.dirname(
                 self.modes.get()._getMapper().selectFirst().getModeFile()))
 
-            from_prody = len(glob(modes_path+"/*npz"))
+            from_prody = len(glob(modesPath+"/*npz"))
             if from_prody:
-                modes = prody.loadModel(glob(modes_path+"/*npz")[0])
+                modes = prody.loadModel(glob(modesPath+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(zeros=zeros)
