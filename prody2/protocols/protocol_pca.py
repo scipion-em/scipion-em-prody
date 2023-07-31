@@ -71,7 +71,12 @@ class ProDyPCA(ProDyModesBase):
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms.')
+                      'where all structures have the same number of atoms or a ProDy ensemble.')
+        form.addParam('degeneracy', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Take only first conformation from each structure/set",
+                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
+                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
         form.addParam('numberOfModes', IntParam, default=5,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -112,7 +117,8 @@ class ProDyPCA(ProDyModesBase):
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
+                                              overlap=0., superpose=False, degeneracy=self.degeneracy.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()

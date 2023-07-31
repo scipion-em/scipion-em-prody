@@ -89,6 +89,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition=inputTypeCheck % INDEX,
                       help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
 
+        form.addParam('degeneracy', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED, 
+                      label="Take only first conformation from each structure/set",
+                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
+                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
+
         form.addParam('lenCutoff', StringParam, label="lenCutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
                       expertLevel=LEVEL_ADVANCED,
@@ -352,7 +358,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          overlap=self.overlap.get(),
                                          matchFunc=matchFunc,
                                          atommaps=atommaps,
-                                         rmsd_reject=self.rmsd_reject.get())
+                                         rmsd_reject=self.rmsd_reject.get(),
+                                         degeneracy=self.degeneracy.get())
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
@@ -380,7 +387,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
         
-        aligned = prody.alignByEnsemble(self.tars, ens)
+        if not self.degeneracy.get():
+            tars = []
+            oldAmaps = atommaps
+            atommaps = []
+            for n, tar in enumerate(self.tars):
+                for i in range(tar.numCoordsets()):
+                    tarCopy = tar.copy()
+                    for j in range(tarCopy.numCoordsets()-1, 0, -1):
+                        tarCopy.delCoordset(j)
+                    tarCopy.setCoords(tar.getCoordsets()[i])
+                    tarCopy.setTitle(tar.getTitle()+"_{0}".format(i))
+                    tars.append(tarCopy)
+                    atommaps.append(oldAmaps[n])
+        else:
+            tars = self.tars
+
+        aligned = prody.alignByEnsemble(tars, ens)
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for i, ag in enumerate(aligned):
