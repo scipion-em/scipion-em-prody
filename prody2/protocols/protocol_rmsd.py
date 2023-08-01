@@ -143,11 +143,12 @@ class ProDyRmsd(EMProtocol):
         if self.doReorder.get():
             self.ens = self.ens[reordIndices]
             self.ensBaseName = self._getExtraPath('rmsd_reord_ensemble')
-            prody.writePDB(self.ensBaseName, self.ens)
-            prody.saveEnsemble(self.ens, self.ensBaseName)
             labels = reordLabels
         else:
             self.ensBaseName = self._getExtraPath('ensemble')
+
+        prody.writePDB(self.ensBaseName, self.ens)
+        prody.saveEnsemble(self.ens, self.ensBaseName)
 
         if not self.doCluster.get():
             idx = range(self.ens.numConfs())
