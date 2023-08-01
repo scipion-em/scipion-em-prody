@@ -63,17 +63,18 @@ class TestProDyClustENM(TestWorkflow):
         # Step 2. Build PDB ensemble to combine 
         # --------------------------------------------------------------
         protEns = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
-                                    matchFunc=0, selstr='all')
+                                    matchFunc=0, selstr='all', degeneracy=True)
         protEns.structures.set([protSelA.outputStructure,
                                 protSelB.outputStructure])
         protEns.setObjLabel('buildPDBEns_2_structs')
         self.launchProtocol(protEns)
 
         # --------------------------------------------------------------
-        # Step 3. ClustENM with chain A
+        # Step 3. ClustENM with 4ake A
         # --------------------------------------------------------------
         protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold=1)
+                                         clusterMode=1, threshold=1,
+                                         n_confs=5)
         protClustenm1.inputStructure.set(protSelA.outputStructure)
         protClustenm1.setObjLabel('ClustENM_4akeA')
         self.launchProtocol(protClustenm1)
@@ -82,7 +83,8 @@ class TestProDyClustENM(TestWorkflow):
         # Step 4. ClustENM with ensemble
         # --------------------------------------------------------------
         protClustenm2 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold=1)
+                                         clusterMode=1, threshold=1,
+                                         n_confs=5)
         protClustenm2.inputStructure.set(protEns.outputStructures)
         protClustenm2.setObjLabel('ClustENM_2_structs')
         self.launchProtocol(protClustenm2)
