@@ -231,7 +231,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         form.addParam('importPointer', params.PointerParam,
                       pointerClass='AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble',
                       condition='importFrom!=0',
-                      label='Type of ensemble file to import',
+                      label='Ensemble file to import',
                       help='ProDy can support import of ensembles in various file formats: \n'
                            'pdb, dcd and the native ens.npz format')
 
