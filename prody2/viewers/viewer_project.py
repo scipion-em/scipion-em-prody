@@ -73,7 +73,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Select whether to label points.',
                       condition=self.numModes!=ONE)
         
-        form.addParam('adjust_text', BooleanParam, label="Adjust labels?", default=True,
+        form.addParam('adjustText', BooleanParam, label="Adjust labels?", default=False,
                       help='Select whether to adjust labels on points to not overlap.',
                       condition="label==True")
 
@@ -172,12 +172,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                         text=ensemble.getLabels(),
                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
                                         show_density=self.density.get(), 
-                                        adjust=self.adjust_text.get())
+                                        adjust=self.adjustText.get())
                 else:
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
                                         show_density=self.density.get(), 
-                                        adjust=self.adjust_text.get())
+                                        adjust=self.adjustText.get())
 
             ax = plotter.figure.gca()
             
