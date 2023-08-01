@@ -33,7 +33,7 @@ from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
-from pwem.objects import SetOfAtomStructs
+from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 
@@ -124,53 +124,60 @@ class ProDyProjectionsViewer(ProtocolViewer):
     def _viewProjection(self, paramName):
         """visualisation for all projections"""  
 
-        inputEnsemble = self.protocol.inputEnsemble.get()
-        if isinstance(inputEnsemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            ensemble = inputEnsemble.loadEnsemble()
-        
-        if ensemble.getLabels()[0].find('Selection') != -1:
-            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+        inputEnsemble = self.protocol.inputEnsemble
 
-        if ensemble.getLabels()[0].endswith('_atoms_amap'):
-            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+        if isinstance(inputEnsemble.get(), Set):
+            inputEnsemble = [inputEnsemble]
 
-        if ensemble.getLabels()[0].endswith('_ca'):
-            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
+        for ensPointer in inputEnsemble:
+            ens = ensPointer.get()
             
-        if ensemble.getLabels()[0][:6].isnumeric():
-            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0].startswith('Unknown_m'):
-            ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
-            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
-
-        modesPath = self.protocol.inputModes.get().getFileName()
-        modes = prody.parseScipionModes(modesPath)
-
-        plotter = EmPlotter()
-
-        if self.numModes == ONE:
-            prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                 rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                 show_density=self.density.get())
-        else:
-            if self.label.get():
-                prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                     text=ensemble.getLabels(),
-                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                     show_density=self.density.get(), 
-                                     adjust=self.adjust_text.get())
+            if isinstance(ens, SetOfAtomStructs):
+                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
+                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+                # the ensemble gets built exactly as the input is setup and nothing gets rejected
             else:
+                ensemble = ens.loadEnsemble()
+        
+            if ensemble.getLabels()[0].find('Selection') != -1:
+                ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+
+            if ensemble.getLabels()[0].endswith('_atoms_amap'):
+                ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+
+            if ensemble.getLabels()[0].endswith('_ca'):
+                ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
+                
+            if ensemble.getLabels()[0][:6].isnumeric():
+                ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
+
+            if ensemble.getLabels()[0].startswith('Unknown_m'):
+                ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
+
+            if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
+                ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
+
+            modesPath = self.protocol.inputModes.get().getFileName()
+            modes = prody.parseScipionModes(modesPath)
+
+            plotter = EmPlotter()
+
+            if self.numModes == ONE:
                 prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                     show_density=self.density.get(), 
-                                     adjust=self.adjust_text.get())
+                                    rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                    show_density=self.density.get())
+            else:
+                if self.label.get():
+                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                        text=ensemble.getLabels(),
+                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                        show_density=self.density.get(), 
+                                        adjust=self.adjust_text.get())
+                else:
+                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                        show_density=self.density.get(), 
+                                        adjust=self.adjust_text.get())
 
             ax = plotter.figure.gca()
             

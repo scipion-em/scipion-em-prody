@@ -34,7 +34,7 @@ from pwem.objects import SetOfPrincipalComponents, SetOfAtomStructs, EMFile
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.protocol.params import PointerParam, EnumParam
+from pyworkflow.protocol.params import PointerParam, EnumParam, MultiPointerParam
 
 import prody
 from prody2.constants import PROJ_COEFFS
@@ -57,7 +57,7 @@ class ProDyProject(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         form.addSection(label='ProDy Projection')
-        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
                       important=True,
                       pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
@@ -70,9 +70,9 @@ class ProDyProject(EMProtocol):
                            'The first modes from this set will be used. To use other modes, make a subset.')
 
         form.addParam('numModes', EnumParam, choices=['1', '2', '3'],
-                      label='Number of modes',
+                      label='Number of modes', default=TWO,
                       help='1, 2 or 3 modes can be used for projection')
-                 
+
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -88,39 +88,47 @@ class ProDyProject(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        inputEnsemble = self.inputEnsemble.get()
-        if isinstance(inputEnsemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            ens = inputEnsemble.loadEnsemble()
-
         modesPath = self.inputModes.get().getFileName()
         modes = prody.parseScipionModes(modesPath)
 
-        self.proj = prody.calcProjection(ens, modes[:self.numModes.get()+1])
+        self.proj = []
+        for _, inputEnsemble in enumerate(self.inputEnsemble):
+            ensGot = inputEnsemble.get()
+            if isinstance(ensGot, SetOfAtomStructs):
+                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
+                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+                # the ensemble gets built exactly as the input is setup and nothing gets rejected
+            else:
+                ens = ensGot.loadEnsemble()
+
+            self.proj.append(prody.calcProjection(ens, modes[:self.numModes.get()+1]))
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
-        inputEnsemble = self.inputEnsemble.get()
-        
-        inputClass = type(inputEnsemble)
-        outSet = inputClass().create(self._getExtraPath())
-        outSet.copyItems(inputEnsemble, updateItemCallback=self._setCoeffs)
-        
-        outputProjection = EMFile(filename=self._getExtraPath('projection.txt'))
-        self._defineOutputs(outputProjection=outputProjection,
-                            outputStructures=outSet)
 
+        args = {}
+        for self.ensId, inputEnsemble in enumerate(self.inputEnsemble): 
+            ensGot = inputEnsemble.get()
+
+            suffix = str(self.ensId+1)
+
+            inputClass = type(ensGot)
+            outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
+            outSet.copyItems(ensGot, updateItemCallback=self._setCoeffs)
+
+            name = "outputEns" + suffix
+            
+            args[name] = outSet
+
+        self._defineOutputs(**args)
 
     # --------------------------- UTILS functions --------------------------------------------
     def _setCoeffs(self, item, row=None):
         # We provide data directly so don't need a row
         vector = pwobj.CsvList()
-        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[item.getObjId()-1])])
+        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()-1])])
         setattr(item, PROJ_COEFFS, vector)
 
     def _summary(self):
