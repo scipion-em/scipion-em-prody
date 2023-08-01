@@ -31,14 +31,13 @@ This module will provide the ClustENM hybrid simulation method from ProDy, combi
 """
 
 from multiprocessing import cpu_count
+import os
 
-from pwem import *
 from pwem.objects import AtomStruct, SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
-from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 import prody
@@ -51,7 +50,6 @@ class ProDyClustENM(EMProtocol):
     This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
     _label = 'ClustENM(D)'
-    _possibleOutputs = {'outputNpz': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -77,7 +75,7 @@ class ProDyClustENM(EMProtocol):
         form.addParam('n_gens', IntParam, default=2,
                       label='Number of generations',
                       help='Number of generations of NMA, clustering and refinement')     
-        form.addParam('n_confs', IntParam, default=50,
+        form.addParam('n_confs', IntParam, default=10,
                       label='Number of conformers from each existing conformer',
                       help='Number of new conformers to be generated based on any conformer '
                            'from the previous generation')    
@@ -165,19 +163,20 @@ class ProDyClustENM(EMProtocol):
                       help='If this is 0 (default), minimization is continued until the results converge without '
                            'regard to how many iterations it takes') 
 
+        simTrue = "sim==True"
         form.addParam('temp', FloatParam, default=303.15,
                       expertLevel=LEVEL_ADVANCED,
-                      condition="sim==True",
+                      condition=simTrue,
                       label="Temperature (K)",
                       help='Temperature (K) at which the simulations are conducted')                           
         form.addParam('t_steps_i', IntParam, default=1000,
                       expertLevel=LEVEL_ADVANCED,
-                      condition="sim==True",
+                      condition=simTrue,
                       label="Number of 2 fs MD time steps for the initial starting structure",
                       help='Default value is good for reducing possible drift from the starting structure') 
         form.addParam('t_steps_g', StringParam, default="7500",
                       expertLevel=LEVEL_ADVANCED,
-                      condition="sim==True",
+                      condition=simTrue,
                       label="Number of 2 fs MD time steps for each conformer from each generation",
                       help="A tuple of integers can be given, e.g. (3000, 5000, 7000) for subsequent generations.")
 
@@ -199,7 +198,7 @@ class ProDyClustENM(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
-        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+        self.args = {}
 
         # Insert processing steps
         inputStruct = self.inputStructure.get()
@@ -255,19 +254,25 @@ class ProDyClustENM(EMProtocol):
                     sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
                     parallel=self.parallel.get())
 
-        filename = self._getPath('clustenm_{0}.pdb'.format(i))
-        prody.writePDB(filename, ens)
-        pdb = AtomStruct(filename)
-        self.pdbs.append(pdb)
+        suffix = str(i+1)
+        direc = self._getPath('clustenm_{0}'.format(suffix))
+        ens.writePDB(direc, single=False)
+
+        structs = SetOfAtomStructs.create(self._getPath())
+        for filename in os.listdir(direc):
+            pdb = AtomStruct(os.path.join(direc, filename))
+            structs.append(pdb)
+
+        self.args["outputTraj" + suffix] = structs
 
     def createOutputStep(self):
-        self._defineOutputs(outputTrajectories=self.pdbs)
+        self._defineOutputs(**self.args)
 
     def _summary(self):
-        if not hasattr(self, 'outputTrajectories'):
+        if not hasattr(self, 'outputTraj1'):
             summ = ['Output not ready yet']
         else:
             summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(
-                    self.n_gens.get(), len(self.outputTrajectories))]
+                    self.n_gens.get(), self.numberOfSteps-1)]
         return summ
 
