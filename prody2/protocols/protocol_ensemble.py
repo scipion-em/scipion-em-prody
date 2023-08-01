@@ -170,8 +170,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         matchFuncCheck = 'matchFunc == %d'
         group = form.addGroup('custom chain orders', condition=matchFuncCheck % CUSTOM)
         
-        group.addParam('chainOrders', TextParam, width=40, readOnly=True,
-                       condition=matchFuncCheck % CUSTOM,
+        group.addParam('chainOrders', TextParam, width=50,
+                       condition=matchFuncCheck % CUSTOM, default="{}",
                        label='Custom chain match list',
                        help='Defined order of chains from custom matching. \nManual modification will have no '
                             'effect, use the wizards to add / delete the entries')
@@ -322,7 +322,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             amap = prody.alignChains(ensRef, ref.select(self.selstr.get()),
                                      seqid=self.seqid.get(),
                                      overlap=self.overlap.get(),
-                                     matchFunc=matchFunc,
+                                     match_func=matchFunc,
                                      rmsd_reject=self.rmsd_reject.get())[0]
             ens.setAtoms(amap)
 
@@ -356,7 +356,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          ref=ref,
                                          seqid=self.seqid.get(),
                                          overlap=self.overlap.get(),
-                                         matchFunc=matchFunc,
+                                         match_func=matchFunc,
                                          atommaps=atommaps,
                                          rmsd_reject=self.rmsd_reject.get(),
                                          degeneracy=self.degeneracy.get())
@@ -450,27 +450,22 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
         pdbs = []
-        for i, obj in enumerate(self.structures):
+        for _, obj in enumerate(self.structures):
             if isinstance(obj.get(), AtomStruct):
                 pdbs.append(obj.get().getFileName())
             else:
                 pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
         
-        try:
-            self.matchDic = eval(self.chainOrders.get())
-            self.labels = list(self.matchDic.keys())
-            self.orders = list(self.matchDic.values())
-            
-            # reinitialise to update with new keys
-            # that are still ordered correctly
-            self.matchDic = OrderedDict()
-        except AttributeError:
-            self.matchDic = OrderedDict()
-            self.labels = []
-            self.orders = []
+        self.matchDic = eval(self.chainOrders.get())
+        self.labels = list(self.matchDic.keys())
+        self.orders = list(self.matchDic.values())
 
+        # reinitialise to update with new keys
+        # that are still ordered correctly
+        self.matchDic = OrderedDict()
+
+        if self.labels == []:
             tars = prody.parsePDB(pdbs, alt='all')
-
             for ag in tars:
                 title = ag.getTitle()
                 self.labels.append(title)
