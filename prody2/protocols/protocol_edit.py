@@ -166,12 +166,12 @@ class ProDyEdit(ProDyModesBase):
             modesPath = os.path.dirname(os.path.dirname(
                 self.modes.get()._getMapper().selectFirst().getModeFile()))
 
-            from_prody = len(glob(modesPath+"/*npz"))
-            if from_prody:
+            fromPrody = len(glob(modesPath+"/*npz"))
+            if fromPrody:
                 modes = prody.loadModel(glob(modesPath+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
                 zeros = bool(np.any(modes.getEigvals() < ZERO))
-                self.outModes.calcModes(zeros=zeros)
+                self.outModes.calcModes(modes.numModes(), zeros=zeros)
             else:
                 logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
                 self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
