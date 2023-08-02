@@ -39,7 +39,7 @@ from pwem.protocols import EMProtocol
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
-                                        BooleanParam, EnumParam, LEVEL_ADVANCED)
+                                        BooleanParam, EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 import prody
 
 IMP = 0
@@ -50,6 +50,7 @@ class ProDyClustENM(EMProtocol):
     This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
     _label = 'ClustENM(D)'
+    _possibleOutputs = {'outputTraj1': SetOfAtomStructs}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -61,9 +62,9 @@ class ProDyClustENM(EMProtocol):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ClustENM(D)')
-        form.addParam('inputStructure', PointerParam, label="Input structure",
+        form.addParam('inputStructure', MultiPointerParam, label="Input structure",
                       important=True,
-                      pointerClass='AtomStruct,SetOfAtomStructs',
+                      pointerClass='AtomStruct',
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
@@ -201,11 +202,9 @@ class ProDyClustENM(EMProtocol):
         self.args = {}
 
         # Insert processing steps
-        inputStruct = self.inputStructure.get()
-        if isinstance(inputStruct, AtomStruct):
-            ags = [prody.parsePDB(inputStruct.getFileName())]
-        else:
-            ags = prody.parsePDB([struct.getFileName() for struct in inputStruct])
+        ags = prody.parsePDB([struct.get().getFileName() for struct in self.inputStructure])
+        if isinstance(ags, prody.Atomic):
+            ags = [ags]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
