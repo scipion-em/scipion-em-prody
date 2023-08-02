@@ -151,14 +151,14 @@ class ProDySelect(EMProtocol):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            input_ag = prody.parsePDB(self.inputStruct.getFileName())
-            output_ag = prody.parsePDB(self.outputStructure.getFileName())
+            inputAg = prody.parsePDB(self.inputStruct.getFileName())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName())
 
             summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                output_ag.numAtoms(), input_ag.numAtoms())]
-            sum.append('The new structure has *{0}* protein residues '
+                outputAg.numAtoms(), inputAg.numAtoms())]
+            summ.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
-                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
         return summ
 
 
@@ -541,25 +541,25 @@ class ProDyBiomol(EMProtocol):
         self._defineOutputs(outputStructures=self.pdbs)
 
     def _summary(self):
-        if not hasattr(self, '_sum'):
+        if not hasattr(self, '_summ'):
             self._summ = CsvList()
 
         if not hasattr(self, 'outputStructures'):
             self._summ = CsvList()
-            self._sum.append('Output structure not ready yet')
+            self._summ.append('Output structure not ready yet')
         else:
-            if len(self._sum) == 0 or not self._sum[0].startswith('Extracted'): 
+            if len(self._summ) == 0 or not self._summ[0].startswith('Extracted'):
                 self._summ = CsvList()
-                num_structs = len(self.outputStructures)
-                self._sum.append('Extracted *{0}* biomolecular assemblies'.format(num_structs))
+                numStructs = len(self.outputStructures)
+                self._summ.append('Extracted *{0}* biomolecular assemblies'.format(numStructs))
 
                 ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures])
-                if num_structs == 1:
+                if numStructs == 1:
                     ags = [ags]
                      
                 for i, ag in enumerate(ags):
-                    self._sum.append('New structure {0} has *{1}* residues '
+                    self._summ.append('New structure {0} has *{1}* residues '
                                      'across *{2}* chains'.format(i+1, ag.numResidues(), 
                                                                  ag.numChains()))
-        return self._sum
+        return self._summ
 
