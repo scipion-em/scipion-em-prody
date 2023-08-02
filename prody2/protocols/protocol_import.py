@@ -319,7 +319,11 @@ class ProDyImportEnsemble(ProtImportFiles):
             if isinstance(point, ProDyNpzEnsemble):
                 self.outEns = point.loadEnsemble()
             elif isinstance(point, SetOfAtomStructs):
-                self.outEns = prody.PDBEnsemble(prody.parsePDB([struct.getFileName() for struct in point]))
+                ags = prody.parsePDB([struct.getFileName() for struct in point])
+                self.outEns = prody.PDBEnsemble()
+                self.outEns.setCoords(ags[0])
+                for ag in ags:
+                    self.outEns.addCoordset(ag)
             else:
                 self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
 
