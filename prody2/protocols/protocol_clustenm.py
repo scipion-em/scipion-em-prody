@@ -27,7 +27,7 @@
 
 
 """
-This module will provide the ClustENM hybrid simulation method from ProDy, combining clustering, ENM NMA and MD.
+This module will provide the ClustENM(D) hybrid simulation method from ProDy, combining clustering, ENM NMA and MD.
 """
 
 from multiprocessing import cpu_count
@@ -220,7 +220,7 @@ class ProDyClustENM(EMProtocol):
 
         nproc = self.numberOfThreads.get()
 
-        if nproc:
+        if nproc > 1:
             try:
                 from threadpoolctl import threadpool_limits
             except ImportError:
