@@ -115,7 +115,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       '(must be an integer up to 100 or a float between 0 and 1).')
 
         form.addParam('refType', EnumParam, choices=['structure', 'index'], 
-                      default=STRUCTURE, condition=inputTypeCheck % STRUCTURE,
+                      default=INDEX, condition=inputTypeCheck % STRUCTURE,
                       label="Reference structure selection type",
                       help='The reference structure can be a separate structure or indexed from the set')
 
@@ -147,6 +147,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1')
 
+        form.addParam('rmsd_reject', FloatParam, default=15.,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Rejection RMSD (A)",
+                      help='Alignments with worse RMSDs than this will be rejected.')
+
         form.addParam('selstr', StringParam, default="name CA",
                       expertLevel=LEVEL_ADVANCED,
                       label="Selection string",
@@ -172,7 +177,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         group.addParam('chainOrders', TextParam, width=50,
                        condition=matchFuncCheck % CUSTOM, default="{}",
-                       label='Custom chain match list',
+                       label='Custom chain match dictionary',
                        help='Defined order of chains from custom matching. \nManual modification will have no '
                             'effect, use the wizards to add / delete the entries')
         
@@ -211,10 +216,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                            'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
                            'for more details.')
 
-        form.addParam('rmsd_reject', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Rejection RMSD (A)",
-                      help='Alignments with worse RMSDs than this will be rejected.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
