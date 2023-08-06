@@ -95,7 +95,7 @@ class ProDyPDBFixer(EMProtocol):
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
             summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
                    output_ag.numAtoms(), input_ag.numAtoms())]
-            sum.append('The new structure has *{0}* protein residues '
+            summ.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
                         output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
         return summ
