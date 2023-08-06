@@ -28,6 +28,7 @@
 This module implements wrappers around the ProDy tools 
 for plotting projections of ensembles onto modes.
 """
+import matplotlib.pyplot as plt
 
 from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
@@ -82,6 +83,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
 
+        form.addParam('separatePlots', BooleanParam, label="Separate plots?",
+                      default=False, condition=self.numModes != THREE,
+                      help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
+                           'The alternative is to show points for 2D and an ordered series in 1D.')
+
         groupX = form.addGroup('xlim')
         groupX.addParam('xlim1', FloatParam, label="x-axis limit 1", default=-1,
                       help='Enter values here and below to specify x-axis-limits.\n'
@@ -129,7 +135,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if isinstance(inputEnsemble.get(), Set):
             inputEnsemble = [inputEnsemble]
 
-        for ensPointer in inputEnsemble:
+        for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
             
             if isinstance(ens, SetOfAtomStructs):
@@ -160,24 +166,28 @@ class ProDyProjectionsViewer(ProtocolViewer):
             modesPath = self.protocol.inputModes.get().getFileName()
             modes = prody.parseScipionModes(modesPath)
 
-            plotter = EmPlotter()
+            if i == 0 or self.separatePlots.get():
+                plotter = EmPlotter()
+                c = 'b'
+            else:
+                c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
             if self.numModes == ONE:
                 prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                    show_density=self.density.get())
+                                    show_density=self.density.get(), c=c)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                         text=ensemble.getLabels(),
                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
                                         show_density=self.density.get(), 
-                                        adjust=self.adjustText.get())
+                                        adjust=self.adjustText.get(), c=c)
                 else:
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
                                         show_density=self.density.get(), 
-                                        adjust=self.adjustText.get())
+                                        adjust=self.adjustText.get(), c=c)
 
             ax = plotter.figure.gca()
             
