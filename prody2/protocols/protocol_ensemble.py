@@ -116,7 +116,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         form.addParam('refType', EnumParam, choices=['structure', 'index'], 
                       default=INDEX, condition=inputTypeCheck % STRUCTURE,
-                      label="Reference structure selection type",
+                      label="Reference structure type",
                       help='The reference structure can be a separate structure or indexed from the set')
 
         form.addParam('refStructure', PointerParam, label="Reference structure",
@@ -147,7 +147,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Alignment mapping with lower sequence coverage will not be accepted.\n'
                            'This can be a number between 0 and 100 or a decimal between 0 and 1')
 
-        form.addParam('rmsd_reject', FloatParam, default=15.,
+        form.addParam('rmsdReject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Rejection RMSD (A)",
                       help='Alignments with worse RMSDs than this will be rejected.')
@@ -316,7 +316,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           overlap=self.overlap.get(),
                                           mapping=mappings,
                                           atommaps=atommaps,
-                                          rmsd_reject=self.rmsd_reject.get())
+                                          rmsd_reject=self.rmsdReject.get())
 
             # instead use them later for selection
             ensRef = ens.getAtoms()
@@ -324,7 +324,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                      seqid=self.seqid.get(),
                                      overlap=self.overlap.get(),
                                      match_func=matchFunc,
-                                     rmsd_reject=self.rmsd_reject.get())[0]
+                                     rmsd_reject=self.rmsdReject.get())[0]
             ens.setAtoms(amap)
 
         else:
@@ -359,7 +359,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          overlap=self.overlap.get(),
                                          match_func=matchFunc,
                                          atommaps=atommaps,
-                                         rmsd_reject=self.rmsd_reject.get(),
+                                         rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get())
 
         self.labels = ens.getLabels()

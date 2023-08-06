@@ -84,11 +84,11 @@ class ProDyANM(EMProtocol):
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
         form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact.\n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases.\n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases although '
+                           '18 A may sometimes be better, see Eyal et al., Bioinformatics 2006.\n'
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended, see Tirion et al., Phys Rev Lett 1996.\n'
                            'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n')
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
