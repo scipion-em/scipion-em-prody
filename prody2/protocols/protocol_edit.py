@@ -32,10 +32,9 @@ This module will provide ProDy mode editing tools.
 import os
 import numpy as np
 
-from pwem import *
 from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         FloatParam, IntParam, LEVEL_ADVANCED)
 
@@ -44,7 +43,7 @@ from prody.utilities import ZERO
 try:
     from prody import interpolateModel
     have_interp = True
-except:
+except ImportError:
     have_interp = False
 
 import logging
@@ -149,13 +148,13 @@ class ProDyEdit(ProDyModesBase):
         modes = prody.parseScipionModes(self.modes.get().getFileName(),
                                         pdb=self.inputStructure.getFileName())
 
-        old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
-        new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
+        oldNodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
+        newNodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
 
-        nodes_list = [old_nodes, new_nodes]
-        n_atoms_arr = np.array([nodes.numAtoms() for nodes in nodes_list])
-        smaller = nodes_list[np.argmin(n_atoms_arr)]
-        bigger = nodes_list[np.argmax(n_atoms_arr)]
+        nodesList = [oldNodes, newNodes]
+        numAtomsArr = np.array([nodes.numAtoms() for nodes in nodesList])
+        smaller = nodesList[np.argmin(numAtomsArr)]
+        bigger = nodesList[np.argmax(numAtomsArr)]
 
         amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid)[0]
         
