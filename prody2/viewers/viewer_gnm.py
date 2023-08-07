@@ -92,7 +92,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
         group = form.addGroup('All non-zero modes')
         group.addParam('displayModes', LabelParam,
-                      label="Display output Normal Modes?", important=True)
+                      label="Display output GNM modes in DataViewer?", important=True)
         group.addParam('displayMaxDistanceProfile', LabelParam,
                       label="Plot max distance profile?",
                       help="Maximum unitary shift of each atom or pseudoatom over all computed modes.") 
