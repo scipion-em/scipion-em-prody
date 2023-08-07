@@ -33,14 +33,13 @@ This module will provide ProDy normal mode analysis (NMA) using the Gaussian net
 from os.path import basename, exists, join
 import math
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
 from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
@@ -205,7 +204,7 @@ class ProDyGNM(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
