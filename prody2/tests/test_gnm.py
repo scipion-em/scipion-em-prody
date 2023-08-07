@@ -69,7 +69,7 @@ class TestProDyGNM(TestWorkflow):
         self.launchProtocol(protSel1)
 
         # Launch GNM NMA for chain A (all atoms)
-        protGNM1 = self.newProtocol(ProDyGNM, cutoff=10)
+        protGNM1 = self.newProtocol(ProDyGNM, cutoff=4)
         protGNM1.inputStructure.set(protSel1.outputStructure)
         protGNM1.setObjLabel('GNM_all')
         self.launchProtocol(protGNM1)
