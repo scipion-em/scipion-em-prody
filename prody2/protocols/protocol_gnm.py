@@ -83,7 +83,7 @@ class ProDyGNM(EMProtocol):
                            'For all atoms, a shorter distance is recommended.'
                            'For fewer atoms or pseudoatoms, a longer distance is recommended.')
 
-        form.addParam('gamma', FloatParam, default=1.,
+        form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
