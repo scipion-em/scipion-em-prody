@@ -30,14 +30,15 @@ from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyGNM, ProDyRTB,
-                              ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes, ProDyDomainDecomp)
+from prody2.protocols import (ProDySelect, ProDyGNM, ProDyEdit, ProDyCompare,
+                              ProDyDomainDecomp)
 
-from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
-from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
+from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
+from prody2.objects import SetOfGnmModes
 
 import prody
+
+gnmModesTypeWarning = "GNM modes should be parsed as a SetOfGnmModes, not {0}"
 
 class TestProDyGNM(TestWorkflow):
     """ Test protocol for ProDy Gaussian Normal Model Analysis. """
@@ -73,6 +74,9 @@ class TestProDyGNM(TestWorkflow):
         protGNM1.inputStructure.set(protSel1.outputStructure)
         protGNM1.setObjLabel('GNM_all')
         self.launchProtocol(protGNM1)
+
+        self.assertTrue(isinstance(protGNM1.outputModes, SetOfGnmModes),
+                        gnmModesTypeWarning.format(type(protGNM1.outputModes)))
 
         # ------------------------------------------------
         # Step 2. Select CA -> GNM NMA
@@ -116,14 +120,17 @@ class TestProDyGNM(TestWorkflow):
         protEdit1.modes.set(protGNM1.outputModes)
         protEdit1.newNodes.set(protSel2.outputStructure)
         protEdit1.setObjLabel('Slice_to_CA')
-        self.launchProtocol(protEdit1)        
+        self.launchProtocol(protEdit1)
+
+        self.assertTrue(isinstance(protEdit1.outputModes, SetOfGnmModes),
+                        gnmModesTypeWarning.format(type(protEdit1.outputModes)))
 
         # Compare sliced and original CA NMA
         protComp1 = self.newProtocol(ProDyCompare)
         protComp1.modes1.set(protGNM2.outputModes)
         protComp1.modes2.set(protEdit1.outputModes)
         protComp1.setObjLabel('Compare_slcAA_to_CA')
-        self.launchProtocol(protComp1)           
+        self.launchProtocol(protComp1)
 
         # ------------------------------------------------
         # Step 4. Reduce -> Compare
@@ -133,14 +140,14 @@ class TestProDyGNM(TestWorkflow):
         protEdit2.modes.set(protGNM1.outputModes)
         protEdit2.newNodes.set(protSel2.outputStructure)
         protEdit2.setObjLabel('Reduce_to_CA')
-        self.launchProtocol(protEdit2)        
+        self.launchProtocol(protEdit2)
 
         # Compare reduced and original CA NMA
         protComp2 = self.newProtocol(ProDyCompare)
         protComp2.modes1.set(protGNM2.outputModes)
         protComp2.modes2.set(protEdit2.outputModes)
         protComp2.setObjLabel('Compare_redAA_to_CA')
-        self.launchProtocol(protComp2)           
+        self.launchProtocol(protComp2)
 
         # ------------------------------------------------
         # Step 5. Extend -> Compare
@@ -150,7 +157,7 @@ class TestProDyGNM(TestWorkflow):
         protEdit3.modes.set(protGNM2.outputModes)
         protEdit3.newNodes.set(protSel1.outputStructure)
         protEdit3.setObjLabel('Extend_to_AA')
-        self.launchProtocol(protEdit3)        
+        self.launchProtocol(protEdit3)
 
         # Compare original AA GNM NMA and extended CA GNM NMA
         # Test matching too
@@ -158,7 +165,10 @@ class TestProDyGNM(TestWorkflow):
         protComp3.modes1.set(protGNM1.outputModes)
         protComp3.modes2.set(protEdit3.outputModes)
         protComp3.setObjLabel('Compare_AA_to_extCA')
-        self.launchProtocol(protComp3)           
+        self.launchProtocol(protComp3)
+
+        self.assertTrue(isinstance(protComp3.outputModes, SetOfGnmModes),
+                        gnmModesTypeWarning.format(type(protComp3.outputModes)))
 
         # ------------------------------------------------
         # Step 6. CA -> Domain Decomposition

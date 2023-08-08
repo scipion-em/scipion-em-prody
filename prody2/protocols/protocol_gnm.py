@@ -36,7 +36,7 @@ import math
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
+from pwem.objects import AtomStruct, String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob, redStr
@@ -45,6 +45,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2.objects import SetOfGnmModes
 
 class ProDyGNM(EMProtocol):
     """
@@ -272,7 +273,7 @@ class ProDyGNM(EMProtocol):
         outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
 
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
+        nmSet = SetOfGnmModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
         inputPdb = self.inputStructure.get()

@@ -1,7 +1,7 @@
 import os
 import prody
 from pwem.objects import (EMObject, EMSet, Pointer, Integer,
-                          String)
+                          String, SetOfNormalModes)
 import logging
 logger = logging.getLogger(__name__)
 
@@ -171,3 +171,6 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
             newEnsemble.addCoordset(coords, weights, label)
 
         return newEnsemble
+
+class SetOfGnmModes(SetOfNormalModes):
+    pass

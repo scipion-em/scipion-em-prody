@@ -194,7 +194,8 @@ class ProDyCompare(EMProtocol):
 
         if self.match:
             fnSqlite = self._getPath('modes.sqlite')
-            nmSet = SetOfNormalModes(filename=fnSqlite)
+            inputClass = type(self.modes1.get())
+            nmSet = inputClass(filename=fnSqlite)
             nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
             outputPdb = AtomStruct()

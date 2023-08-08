@@ -83,18 +83,22 @@ class ProDyANM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=15.,
+        form.addParam('cutoff', StringParam, default=15.,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact.\n'
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases although '
                            '18 A may sometimes be better, see Eyal et al., Bioinformatics 2006.\n'
                            'For all atoms, a shorter distance such as 5 or 7 A is recommended, see Tirion et al., Phys Rev Lett 1996.\n'
-                           'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n')
-        form.addParam('gamma', FloatParam, default=1.,
+                           'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n'
+                           'It is also possible to use other functions for the cutoff e.g. 2.9 * math.log(numResidues) - 2.9 for ed-ENM, '
+                           'replacing numResidues with the actual number of residues')
+        form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
+                           'Besides pre-defined Gamma functions such as GammaStructureBased from Lezon et al., PLoS Comput Biol 2010 '
+                           'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
+                           'more sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
         form.addParam('sparse', BooleanParam, default=False,
@@ -183,7 +187,7 @@ class ProDyANM(EMProtocol):
         prody.writePDB(self.pdbFileName, self.atoms)
 
         args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+            '--npz -o {1} -p modes -n {2} -g {3} -c "{4}" -P {5}'.format(self.pdbFileName,
                                                                        self._getPath(), n,
                                                                        self.gamma.get(),
                                                                        self.cutoff.get(),

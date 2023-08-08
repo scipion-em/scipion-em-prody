@@ -49,7 +49,7 @@ oldVerbosity = prody.confProDy("verbosity")
 
 OBJCMD_NMA_PLOTDIST = "Plot distance profile"
 
-_atomIndexStr = 'atom index'
+_atomIndexStr = 'residue index'
 _invalidInputStr = 'Invalid input'
 
 class ProDyGNMViewer(ProtocolViewer):
@@ -58,7 +58,7 @@ class ProDyGNMViewer(ProtocolViewer):
         score are preferred.
     """
     _label = 'GNM viewer'
-    _targets = [ProDyGNM]
+    _targets = [ProDyGNM, SetOfGnmModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
 
