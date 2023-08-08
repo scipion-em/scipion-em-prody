@@ -25,7 +25,9 @@
 # *
 # **************************************************************************
 
+import math
 import os
+
 from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
@@ -38,11 +40,6 @@ from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
 
 import prody
-try:
-    from prody import interpolateModel
-    have_interp = True
-except ImportError:
-    have_interp = False
 
 class TestProDyCore(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -142,6 +139,15 @@ class TestProDyCore(TestWorkflow):
         self.assertTrue(exists(protANM2b._getExtraPath("animations/animated_mode_001.pdb")))
         self.assertTrue(exists(protANM2b._getExtraPath("distanceProfiles/vec1.xmd")))
 
+        # Launch ed-ENM NMA for selected atoms (CA) without zeros
+        protANM3 = self.newProtocol(ProDyANM)
+        protANM3.inputStructure.set(protSel2.outputStructure)
+        protANM3.zeros.set(False)
+        protANM3.gamma.set("GammaED")
+        protANM3.cutoff.set("2.9 * math.log(214) - 2.9")
+        protANM3.setObjLabel('edENM_CA_n-z')
+        self.launchProtocol(protANM3)
+
         # ------------------------------------------------
         # Step 3. Slice -> Compare
         # ------------------------------------------------
@@ -194,23 +200,22 @@ class TestProDyCore(TestWorkflow):
         protComp3.setObjLabel('Compare_AA_to_extCA')
         self.launchProtocol(protComp3)           
 
-        if have_interp:
-            # ------------------------------------------------
-            # Step 6. Interpolate -> Compare
-            # ------------------------------------------------
-            # Interpolate CA NMA to all-atoms
-            protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
-            protEdit4.modes.set(protANM2.outputModes)
-            protEdit4.newNodes.set(protSel1.outputStructure)
-            protEdit4.setObjLabel('Interp_to_AA')
-            self.launchProtocol(protEdit4)        
+        # ------------------------------------------------
+        # Step 6. Interpolate -> Compare
+        # ------------------------------------------------
+        # Interpolate CA NMA to all-atoms
+        protEdit4 = self.newProtocol(ProDyEdit, edit=NMA_INTERP)
+        protEdit4.modes.set(protANM2.outputModes)
+        protEdit4.newNodes.set(protSel1.outputStructure)
+        protEdit4.setObjLabel('Interp_to_AA')
+        self.launchProtocol(protEdit4)
 
-            # Compare original AA ANM NMA and interpolated CA ANM NMA
-            protComp4 = self.newProtocol(ProDyCompare)
-            protComp4.modes1.set(protANM1.outputModes)
-            protComp4.modes2.set(protEdit4.outputModes)
-            protComp4.setObjLabel('Compare_AA_to_intCA')
-            self.launchProtocol(protComp4)
+        # Compare original AA ANM NMA and interpolated CA ANM NMA
+        protComp4 = self.newProtocol(ProDyCompare)
+        protComp4.modes1.set(protANM1.outputModes)
+        protComp4.modes2.set(protEdit4.outputModes)
+        protComp4.setObjLabel('Compare_AA_to_intCA')
+        self.launchProtocol(protComp4)
 
         # ------------------------------------------------
         # Step 7. Import other Pdb -> Select chain A and CA
