@@ -143,7 +143,7 @@ class TestProDyPCA(TestWorkflow):
         # -------------------------------------------------------------------
 
         ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
-        idx = ens1.getLabels().index("3o21_ca") + 1
+        idx = ens1.getLabels().index("3o21") + 1
         
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
@@ -244,58 +244,58 @@ class TestProDyPCA(TestWorkflow):
         # Step 5. Project 1D, 2D and 3D
         # ------------------------------------------------
         protProj1 = self.newProtocol(ProDyProject)
-        protProj1.inputEnsemble.set(protEns2.outputNpz)
+        protProj1.inputEnsemble.set([protEns2.outputNpz])
         protProj1.inputModes.set(protPca2.outputModes)
         protProj1.numModes.set(ONE)
         protProj1.setObjLabel('Project 1D')
         self.launchProtocol(protProj1)
 
-        self.assertTrue(hasattr(protProj1.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj1.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "1D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj1.outputStructures.getFirstItem()._prodyProjCoefficients), 1,
+        self.assertEqual(len(protProj1.outputEns1.getFirstItem()._prodyProjCoefficients), 1,
                         "1D Project protocol didn't add 1 coefficient to first item")
 
         protProj2 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj2.inputEnsemble.set(protEns2.outputNpz)
+        protProj2.inputEnsemble.set([protEns2.outputNpz])
         protProj2.inputModes.set(protPca2.outputModes)
         protProj2.numModes.set(TWO)
         protProj2.setObjLabel('Project 2D')
         self.launchProtocol(protProj2)
 
-        self.assertTrue(hasattr(protProj2.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj2.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "2D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj2.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+        self.assertEqual(len(protProj2.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
                         "2D Project protocol didn't add 2 coefficient to first item")
 
         protProj3 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj3.inputEnsemble.set(protEns2.outputNpz)
+        protProj3.inputEnsemble.set([protEns2.outputNpz])
         protProj3.inputModes.set(protPca2.outputModes)
         protProj3.numModes.set(THREE)
         protProj3.setObjLabel('Project 3D')
         self.launchProtocol(protProj3)
 
-        self.assertTrue(hasattr(protProj3.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj3.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "3D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj3.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+        self.assertEqual(len(protProj3.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
                         "3D Project protocol didn't add 2 coefficients to first item when given 2 components")
 
         protProj4 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj4.inputEnsemble.set(protEns3.outputNpz)
+        protProj4.inputEnsemble.set([protEns3.outputNpz])
         protProj4.inputModes.set(protPca3.outputModes)
         protProj4.numModes.set(THREE)
         protProj4.setObjLabel('Project 3D')
         self.launchProtocol(protProj4)
 
-        self.assertTrue(hasattr(protProj4.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj4.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "3D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj4.outputStructures.getFirstItem()._prodyProjCoefficients), 3,
+        self.assertEqual(len(protProj4.outputEns1.getFirstItem()._prodyProjCoefficients), 3,
                         "3D Project protocol didn't add 3 coefficients to first item when given 3 components")
 
         # -------------------------------------------------------
