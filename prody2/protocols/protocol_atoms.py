@@ -133,10 +133,16 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
+        oldSecondary = prody.confProDy("auto_secondary")
+        prody.confProDy(auto_secondary=True)
+
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = 'select "{0}" {1} -o {2}'.format(str(self.selection), inputFn,
                                                 self.pdbFileName)
         self.runJob('prody', args)
+
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=oldSecondary)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):
@@ -265,7 +271,7 @@ class ProDyAlign(EMProtocol):
         form.addParam('use_trans', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       label="Use existing transformation?",
-                      help='Select to True to select a previously-calculated transformation.')
+                      help='Set to True to select a previously-calculated transformation.')
         form.addParam('transformation', PointerParam,
                       pointerClass='Transform',
                       expertLevel=LEVEL_ADVANCED,
@@ -464,7 +470,7 @@ class ProDyBiomol(EMProtocol):
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy Select')
+        form.addSection(label='ProDy Biomol')
 
         form.addParam('inputPdbData', EnumParam, choices=['id', 'file', 'pointer'],
                       label="Import atomic structure from",
@@ -582,7 +588,7 @@ class ProDyAddPDBs(EMProtocol):
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy Select')
+        form.addSection(label='ProDy Add PDBs')
 
         form.addParam('inputStructure', MultiPointerParam, label="Input structures",
                       important=True,
