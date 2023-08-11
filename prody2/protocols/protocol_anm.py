@@ -173,10 +173,6 @@ class ProDyANM(EMProtocol):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
@@ -209,6 +205,10 @@ class ProDyANM(EMProtocol):
             args += ' --turbo'
 
         self.runJob('prody', args)
+
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
 
@@ -236,17 +236,17 @@ class ProDyANM(EMProtocol):
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
                 if self.atoms.select('name P') is not None:
-                    num_p_atoms = self.atoms.select('name P').numAtoms()
+                    numPhosAtoms = self.atoms.select('name P').numAtoms()
                 else:
-                    num_p_atoms = 0
+                    numPhosAtoms = 0
 
                 if self.atoms.ca is not None:
-                    num_ca_atoms = self.atoms.ca.numAtoms()
+                    numCaAtoms = self.atoms.ca.numAtoms()
                 else:
-                    num_ca_atoms = 0
+                    numCaAtoms = 0
 
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.atoms.numAtoms():
+                numRepAtoms = numCaAtoms + numPhosAtoms
+                if numRepAtoms == self.atoms.numAtoms():
                     fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")

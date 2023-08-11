@@ -130,10 +130,6 @@ class ProDyGNM(EMProtocol):
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
         
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-        
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
@@ -156,6 +152,10 @@ class ProDyGNM(EMProtocol):
             self.startMode = 0
         
         self.runJob('prody', args)
+
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
 
