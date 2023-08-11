@@ -41,7 +41,7 @@ from pwem.protocols import EMProtocol
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         BooleanParam, EnumParam, TextParam,
-                                        PathParam, LEVEL_ADVANCED)
+                                        PathParam, MultiPointerParam, LEVEL_ADVANCED)
 
 import prody
 import logging
@@ -563,3 +563,65 @@ class ProDyBiomol(EMProtocol):
                                                                  ag.numChains()))
         return self._summ
 
+
+class ProDyAddPDBs(EMProtocol):
+    """
+    This protocol will add pdb/mmcif files together into a single pdb file
+    """
+    _label = 'Add PDBs'
+    IMPORT_FROM_ID = 0
+    IMPORT_FROM_FILES = 1
+    USE_POINTER = 2
+
+    _possibleOutputs = {'outputStructure': AtomStruct}
+
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params
+        """
+        # You need a params to belong to a section:
+        form.addSection(label='ProDy Select')
+
+        form.addParam('inputStructure', MultiPointerParam, label="Input structures",
+                      important=True,
+                      pointerClass='AtomStruct',
+                      help='Each input structures should be an atomic model '
+                           '(true PDB) or a pseudoatomic model\n'
+                           '(an EM volume converted into pseudoatoms)')
+
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+
+        self._insertFunctionStep('additionStep')
+        self._insertFunctionStep('createOutputStep')
+
+    def additionStep(self):
+        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
+
+        ags = prody.parsePDB(pdbs)
+
+        outAg = ags[0]
+        for ag in ags[1:]:
+            outAg += ag
+
+        self.pdbFileName = self._getPath('joined_atoms.pdb')
+        prody.writePDB(self.pdbFileName, outAg)
+
+    def createOutputStep(self):
+        if exists(self.pdbFileName):
+            outputPdb = AtomStruct()
+            outputPdb.setFileName(self.pdbFileName)
+            self._defineOutputs(outputStructure=outputPdb)
+
+    def _summary(self):
+        if not hasattr(self, 'outputStructure'):
+            summ = ['Output structure not ready yet']
+        else:
+            outputAg = prody.parsePDB(self.outputStructure.getFileName())
+
+            summ = ['The new structure has *{0}* protein residues '
+                     'and *{1}* atoms'.format(
+                     outputAg.ca.numAtoms(), outputAg.numAtoms())]
+        return summ

@@ -8,7 +8,7 @@ from .protocol_rtb import ProDyRTB
 from .protocol_gnm import ProDyGNM
 from .protocol_domdec import ProDyDomainDecomp 
 
-from .protocol_atoms import ProDySelect, ProDyAlign, ProDyBiomol
+from .protocol_atoms import ProDySelect, ProDyAlign, ProDyBiomol, ProDyAddPDBs
 from .protocol_compare import ProDyCompare
 from .protocol_edit import ProDyEdit
 from .protocol_defvec import ProDyDefvec
