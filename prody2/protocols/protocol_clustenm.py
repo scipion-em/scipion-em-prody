@@ -36,11 +36,12 @@ import os
 from pwem.objects import AtomStruct, SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
-from prody2.objects import ProDyNpzEnsemble, TrajFrame
+import pyworkflow.object as pwobj
+from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, BooleanParam,
+                                        EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
-                                        BooleanParam, EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 import prody
+from prody2.constants import CLUSTENM_WEIGHTS
 
 IMP = 0
 EXP = 1
@@ -62,12 +63,10 @@ class ProDyClustENM(EMProtocol):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ClustENM(D)')
-        form.addParam('inputStructure', MultiPointerParam, label="Input structure",
+        form.addParam('inputStructure', MultiPointerParam, label="Input structures",
                       important=True,
                       pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+                      help='Each input structures should be an atomic model')
         form.addParam('numberOfModes', IntParam, default=3,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -80,7 +79,7 @@ class ProDyClustENM(EMProtocol):
                       label='Number of conformers from each existing conformer',
                       help='Number of new conformers to be generated based on any conformer '
                            'from the previous generation')    
-        form.addParam('sim', BooleanParam, default=False,
+        form.addParam('sim', BooleanParam, default=True,
                       label="Whether to run a short MD simulation as well as minimisation",
                       help='This includes a heating-up phase until the desired temperature is reached plus '
                            'the numbers of steps set below.')
@@ -102,7 +101,7 @@ class ProDyClustENM(EMProtocol):
                       label="Maximum number of clusters for each generation",
                       help='A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')
         form.addParam('threshold', StringParam, condition='clusterMode==1',
-                      default='(1.0, 1.5)',
+                      default='None',
                       label="RMSD threshold (A) to apply when forming clusters",
                       help='A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.\n'
                            'This parameter has been used in ClustENMv1, setting it to 75%% of the maximum RMSD for sampling. '
@@ -202,67 +201,71 @@ class ProDyClustENM(EMProtocol):
         self.args = {}
 
         # Insert processing steps
-        ags = prody.parsePDB([struct.get().getFileName() for struct in self.inputStructure])
-        if isinstance(ags, prody.Atomic):
-            ags = [ags]
+        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
         else:
             self.solvent = 'exp'
 
-        for i, atoms in enumerate(ags):
-            self._insertFunctionStep('computeStep', i, atoms)
+        for i, pdb in enumerate(pdbs):
+            self._insertFunctionStep('computeStep', i, pdb)
 
         self._insertFunctionStep('createOutputStep')
 
-    def computeStep(self, i, atoms):
-
-        nproc = self.numberOfThreads.get()
-
-        if nproc > 1:
-            try:
-                from threadpoolctl import threadpool_limits
-            except ImportError:
-                raise ImportError('Please install threadpoolctl to control threads')
-
-            with threadpool_limits(limits=nproc, user_api="blas"):
-                ens = prody.ClustENM(str(atoms))
-                ens.setAtoms(atoms)
-                ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
-                        n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
-                        cutoff=self.cutoff.get(), gamma=self.gamma.get(),
-                        maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
-                        solvent=self.solvent, force_field=eval(self.force_field.get()),
-                        sim=self.sim.get(), temp=self.temp.get(),
-                        t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
-                        outlier=self.outlier.get(), mzscore=self.mzscore.get(),
-                        sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
-                        parallel=self.parallel.get())
-        else:
-            ens = prody.ClustENM(str(atoms))
-            ens.setAtoms(atoms)
-            ens.run(n_gens=self.n_gens.get(), n_modes=self.numberOfModes.get(),
-                    n_confs=self.n_confs.get(), rmsd=eval(self.rmsd.get()),
-                    cutoff=self.cutoff.get(), gamma=self.gamma.get(),
-                    maxclust=eval(self.maxclust.get()), threshold=eval(self.threshold.get()),
-                    solvent=self.solvent, force_field=eval(self.force_field.get()),
-                    sim=self.sim.get(), temp=self.temp.get(),
-                    t_steps_i=self.t_steps_i.get(), t_steps_g=eval(self.t_steps_g.get()),
-                    outlier=self.outlier.get(), mzscore=self.mzscore.get(),
-                    sparse=self.sparse.get(), kdtree=self.kdtree.get(), turbo=self.turbo.get(),
-                    parallel=self.parallel.get())
+    def computeStep(self, i, pdb):
 
         suffix = str(i+1)
         direc = self._getPath('clustenm_{0}'.format(suffix))
-        ens.writePDB(direc, single=False)
+        if not os.path.exists(direc):
+            os.mkdir(direc)
 
-        structs = SetOfAtomStructs.create(self._getPath())
-        for filename in os.listdir(direc):
-            pdb = AtomStruct(os.path.join(direc, filename))
+        args = 'clustenm {0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
+               '--solvent {9} --force_field {10} --ionicStrength {11} --padding {12} --temp {13} --t_steps_i {14} --t_steps_g {15} ' \
+               '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
+                    self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(), 
+                    self.maxclust.get(), self.threshold.get(),
+                    self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
+                    self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
+                    self.tolerance.get(), self.maxIterations.get(), direc)
+        
+        if self.sim.get() is False:
+            args += ' --no-sim'
+
+        if self.sparse.get():
+            args += ' --sparse-hessian'
+
+        if self.kdtree.get():
+            args += ' --use-kdtree'
+
+        if self.turbo.get():
+            args += ' --turbo'
+
+        if self.parallel.get():
+            args += ' --parallel'
+
+        if self.outlier.get():
+            args += ' --mzscore {0}'.format(self.mzscore.get())
+        else:
+            args += ' --no-outlier'
+
+        self.runJob('prody', args)
+
+        structs = SetOfAtomStructs.create(self._getExtraPath())
+        for filename in os.listdir(os.path.join(direc, 'pdbs')):
+            pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
-        self.args["outputTraj" + suffix] = structs
+        ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
+        self.weights = ens.getSizes()
+        outSet = SetOfAtomStructs().create(self._getPath())
+        outSet.copyItems(structs, updateItemCallback=self._setWeights)
+
+        self.args["outputTraj" + suffix] = outSet
+
+    def _setWeights(self, item, row=None):
+            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            setattr(item, CLUSTENM_WEIGHTS, weight)
 
     def createOutputStep(self):
         self._defineOutputs(**self.args)

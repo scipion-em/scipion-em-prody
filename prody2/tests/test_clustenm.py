@@ -60,21 +60,21 @@ class TestProDyClustENM(TestWorkflow):
         self.launchProtocol(protSelB)
 
         # --------------------------------------------------------------
-        # Step 2. ClustENM with 4ake A
+        # Step 2. ClustENM with 4ake A and maxclust
         # --------------------------------------------------------------
-        protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold=1,
-                                         n_confs=5)
+        protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=2, 
+                                         clusterMode=0, maxclust='(2, 3)',
+                                         n_confs=5, sim=False, outlier=True)
         protClustenm1.inputStructure.set([protSelA.outputStructure])
         protClustenm1.setObjLabel('ClustENM_4akeA')
         self.launchProtocol(protClustenm1)
 
         # --------------------------------------------------------------
-        # Step 3. ClustENM with both
+        # Step 3. ClustENM with both structures and rmsd threshold
         # --------------------------------------------------------------
         protClustenm2 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold=1,
-                                         n_confs=5)
+                                         clusterMode=1, threshold='1.',
+                                         n_confs=2, sim=False, outlier=True)
         protClustenm2.inputStructure.set([protSelA.outputStructure,
                                           protSelB.outputStructure])
         protClustenm2.setObjLabel('ClustENM_2_structs')
