@@ -1,3 +1,4 @@
-from .test_prody_core import *
-from .test_prody_pca import *
-from .test_prody_gnm import *
+from .test_core import *
+from .test_pca import *
+from .test_gnm import *
+from .test_clustenm import *

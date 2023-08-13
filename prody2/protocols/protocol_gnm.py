@@ -33,19 +33,19 @@ This module will provide ProDy normal mode analysis (NMA) using the Gaussian net
 from os.path import basename, exists, join
 import math
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String, EMFile
+from pwem.objects import AtomStruct, String, EMFile
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2.objects import SetOfGnmModes
 
 class ProDyGNM(EMProtocol):
     """
@@ -80,11 +80,10 @@ class ProDyGNM(EMProtocol):
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
                            'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
-                           'For pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002). \n'
-                           'For all atoms, a shorter distance is recommended.')
+                           'For all atoms, a shorter distance is recommended.'
+                           'For fewer atoms or pseudoatoms, a longer distance is recommended.')
 
-        form.addParam('gamma', FloatParam, default=1.,
+        form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
@@ -128,12 +127,8 @@ class ProDyGNM(EMProtocol):
 
     def computeModesStep(self, inputFn, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
@@ -143,30 +138,26 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
+        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
+               '-o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+                                                              self._getPath(), n,
+                                                              self.gamma.get(),
+                                                              self.cutoff.get(),
+                                                              self.numberOfThreads.get())
+
         if self.zeros.get():
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --zero-modes --kirchhoff '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
+            args += ' --zero-modes'
             self.startMode = 1
         else:
-            self.runJob('prody', 'gnm {0} -s "all" --altloc "all" --kirchhoff '
-                        '--export-scipion --npz -o {1} -p modes -n {2} -g {3} -c {4}'.format(self.pdbFileName,
-                                                                                             self._getPath(), n,
-                                                                                             self.gamma.get(),
-                                                                                             self.cutoff.get()))
             self.startMode = 0
         
-        self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
-        
-        eigvecs = self.gnm.getEigvecs()
-        eigvals = self.gnm.getEigvals()
-        kirchhoff = prody.parseArray(self._getPath('modes_kirchhoff.txt'))
+        self.runJob('prody', args)
 
-        self.gnm.setKirchhoff(kirchhoff)
-        self.gnm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.gnm, self._getPath('modes.gnm.npz'), matrices=True)
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
+        self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
 
         covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
@@ -214,7 +205,7 @@ class ProDyGNM(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -274,15 +265,15 @@ class ProDyGNM(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
         outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
 
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
+        nmSet = SetOfGnmModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
         inputPdb = self.inputStructure.get()

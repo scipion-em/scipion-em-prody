@@ -32,21 +32,13 @@ This module will provide ProDy mode editing tools.
 import os
 import numpy as np
 
-from pwem import *
-from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
+from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         FloatParam, IntParam, LEVEL_ADVANCED)
 
 import prody
-from prody.utilities import ZERO
-try:
-    from prody import interpolateModel
-    have_interp = True
-except:
-    have_interp = False
 
 import logging
 logger = logging.getLogger(__name__)
@@ -73,31 +65,21 @@ class ProDyEdit(ProDyModesBase):
         # You need a params to belong to a section:
         form.addSection(label='ProDy edit')
 
-        if have_interp:
-            form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
-                        default=NMA_SLICE,
-                        label='Type of edit',
-                        help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                        'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
-                        'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
-                        'The number of nodes can be increased by extending (copying) eigenvector values '
-                        'from nodes of the same residue or by through-space thin plate splines interpolation')
-        else:
-            form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend'],
-                        default=NMA_SLICE,
-                        label='Type of edit',
-                        help='Modes can have the number of nodes decreased using either eigenvector slicing '
-                        'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
-                        'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
-                        'The number of nodes can be increased by extending (copying) eigenvector values '
-                        'from nodes of the same residue')
-
-
-        form.addParam('modes', PointerParam, label='Input SetOfNormalModes',
+        form.addParam('modes', PointerParam, label='Input set of modes',
                       pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).')
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.')
+
+        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
+                    default=NMA_SLICE,
+                    label='Type of edit',
+                    help='Modes can have the number of nodes decreased using either eigenvector slicing '
+                    'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                    'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
+                    'The number of nodes can be increased by extending (copying) eigenvector values '
+                    'from nodes of the same residue or by through-space thin plate splines interpolation')
 
         form.addParam('newNodes', PointerParam,
                       label='new nodes',
@@ -131,49 +113,47 @@ class ProDyEdit(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
-        self.nzero = 6
-        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()))
+        modes = prody.parseScipionModes(self.modes.get().getFileName())
+        self.nzero = len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0])
+
+        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
 
     def computeModesStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
-        print('protocol edit, old_verbosity: ' + self.old_verbosity)
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
-        modes_path = os.path.dirname(os.path.dirname(self.modes.get()._getMapper().selectFirst().getModeFile()))
         
-        from_prody = len(glob(modes_path+"/*npz"))
-        if from_prody:
-            modes = prody.loadModel(glob(modes_path+"/*npz")[0])
-        else:
-            fn_sqlite = self.modes.get().getFileName()
-            modes = prody.parseScipionModes(fn_sqlite)
-
         self.inputStructure = self.modes.get().getPdb()
-        structureEM = self.inputStructure.getPseudoAtoms()
+        modes = prody.parseScipionModes(self.modes.get().getFileName(),
+                                        pdb=self.inputStructure.getFileName())
 
-        old_nodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
-        new_nodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
+        oldNodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
+        newNodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
 
-        nodes_list = [old_nodes, new_nodes]
-        n_atoms_arr = np.array([nodes.numAtoms() for nodes in nodes_list])
-        smaller = nodes_list[np.argmin(n_atoms_arr)]
-        bigger = nodes_list[np.argmax(n_atoms_arr)]
+        nodesList = [oldNodes, newNodes]
+        numAtomsArr = np.array([nodes.numAtoms() for nodes in nodesList])
+        smaller = nodesList[np.argmin(numAtomsArr)]
+        bigger = nodesList[np.argmax(numAtomsArr)]
 
-        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid, pwalign=False)[0]
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid)[0]
         
         if self.edit == NMA_SLICE:
             self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
 
         elif self.edit == NMA_REDUCE:
-            if from_prody:
+            modesPath = os.path.dirname(os.path.dirname(
+                self.modes.get()._getMapper().selectFirst().getModeFile()))
+
+            fromPrody = len(glob(modesPath+"/*npz"))
+            if fromPrody:
+                modes = prody.loadModel(glob(modesPath+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
-                zeros = bool(np.any(modes.getEigvals() < ZERO))
-                self.outModes.calcModes(zeros=zeros)
+                zeros = bool(np.any(modes.getEigvals() < prody.utilities.ZERO))
+                self.outModes.calcModes(modes.numModes(), zeros=zeros)
             else:
                 logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
                 self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
@@ -181,7 +161,7 @@ class ProDyEdit(ProDyModesBase):
         elif self.edit == NMA_EXTEND:
             self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
 
-        elif have_interp:
+        else:
             self.outModes, self.atoms = prody.interpolateModel(modes, amap, bigger, norm=True)
 
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
@@ -190,7 +170,9 @@ class ProDyEdit(ProDyModesBase):
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
+
+        inputClass = type(self.modes.get())
+        nmSet = inputClass(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
         nmSet.setPdb(self.newNodes.get())
 
