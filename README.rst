@@ -49,6 +49,9 @@ Protocols
 
 * ProDySelect for atom selection
 * ProDyAlign for alignment two structures, including atom matching and superposition
+* ProDyBiomol for building biologically relevant molecular assemblies
+* ProDyAddPDBs for adding multiple structures into one PDB file
+* ProDyPDBFixer for fixing missing atoms
 
 * ProDyImportModes for importing modes calculated outside Scipion, including from Gromacs
 
@@ -60,6 +63,10 @@ Protocols
 
 * ProDyGNM for Gaussian network model (GNM) analysis
 * ProDyDomainDecomp for dynamical domain decomposition based on GNM modes
+
+* ProDyClustENM for ClustENM and ClustENMD hybrid Simulations
+
+* ProDyRMSD for RMSD clustering and reordering
 
 Viewers
 ----------
@@ -75,6 +82,7 @@ Viewers
 References
 -----------
 
-1. Zhang S, Krieger JM, Zhang Y, Kaya C, Kaynak B, Mikulska-Ruminska K, Doruker P, Li H, Bahar I (2021). ProDy 2.0: Increased scale and scope after 10 years of protein dynamics modelling with Python. Bioinformatics, btab187.
-2. Bakan A, Meireles LM, Bahar I ProDy: Protein Dynamics Inferred from Theory and Experiments 2011 Bioinformatics 27(11):1575-1577
-3. Bakan A, Dutta A, Mao W, Liu Y, Chennubhotla C, Lezon TR, Bahar I Evol and ProDy for Bridging Protein Sequence Evolution and Structural Dynamics 2014 Bioinformatics 30(18):2681-2683
+1. Krieger, J.M.; S. Sorzano, C.O.; Carazo, J.M. Scipion-EM-ProDy: A Graphical Interface for the ProDy Python Package within the Scipion Workflow Engine enabling Integration of Databases, Simulations and Cryo-Electron Microscopy Image Processing. Preprints 2023, 2023080828
+2. Zhang S, Krieger JM, Zhang Y, Kaya C, Kaynak B, Mikulska-Ruminska K, Doruker P, Li H, Bahar I (2021). ProDy 2.0: Increased scale and scope after 10 years of protein dynamics modelling with Python. Bioinformatics, btab187.
+3. Bakan A, Meireles LM, Bahar I ProDy: Protein Dynamics Inferred from Theory and Experiments 2011 Bioinformatics 27(11):1575-1577
+4. Bakan A, Dutta A, Mao W, Liu Y, Chennubhotla C, Lezon TR, Bahar I Evol and ProDy for Bridging Protein Sequence Evolution and Structural Dynamics 2014 Bioinformatics 30(18):2681-2683
