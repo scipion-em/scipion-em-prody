@@ -30,7 +30,7 @@ from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDyBiomol, ProDySelect, ProDyANM, ProDyGNM)
 
-class TestProDyClustENM(TestWorkflow):
+class TestProDyMembrane(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
