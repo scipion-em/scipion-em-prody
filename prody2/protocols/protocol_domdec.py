@@ -31,13 +31,11 @@ This module will provide ProDy Dynamical Domain Decomposition using the Gaussian
 """
 
 import os
-import numpy as np
 
-from pwem import *
 from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob
 from pyworkflow.protocol.params import PointerParam, IntParam
 
 import prody
@@ -75,46 +73,47 @@ class  ProDyDomainDecomp(EMProtocol):
 
     def computeDecompStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        modes_GNM_path = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
+        modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
 
-        modes_GNM = prody.parseScipionModes(self.modesGNM.get().getFileName(),
-                                            pdb=glob(modes_GNM_path+"/*atoms.pdb"))
+        modes = prody.parseScipionModes(self.modesGNM.get().getFileName(),
+                                            pdb=glob(modesPath+"/*atoms.pdb"))
 
-        n_modes = self.modeNumber.get()
+        numModes = self.modeNumber.get()
         
         try:
-            mode = modes_GNM[:n_modes] 
+            mode = modes[:numModes] 
         except IndexError:
             return [self.errorMessage("Invalid number of modes *%d*\n"
-                                    "Display the output Normal Modes to see "
-                                    "the availables ones." % modeNumber,
-                                    title="Invalid input")] 
-        atoms = prody.parsePDB(glob(modes_GNM_path+"/*atoms.pdb"))
+                                      "Display the output Normal Modes to see "
+                                      "the availables ones." % numModes,
+                                      title="Invalid input")] 
+        atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
 
         domains = prody.calcGNMDomains(mode)
 
-        prody.writePDB(self._getPath("atoms.pdb"), atoms, beta=domains)
+        self.pdbFilename = self._getPath("atoms.pdb")
+        prody.writePDB(self.pdbFilename, atoms, beta=domains)
     
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
-    def createOutputStep(self):        
+    def createOutputStep(self):
         fhCmd=open(self._getPath("domains.vmd"),'w')
-        fhCmd.write("mol new %s\n" % self._getPath("atoms.pdb"))
+        fhCmd.write("mol new %s\n" % self.pdbFilename)
         fhCmd.write("mol modcolor 0 0 Beta\n")
         fhCmd.write("mol modstyle 0 0 Beads\n")
         fhCmd.close()
 
         outputPdb = AtomStruct()
-        outputPdb.setFileName(self._getPath("atoms.pdb"))
+        outputPdb.setFileName(self.pdbFilename)
 
         outputvmd = EMFile()
         outputvmd.setFileName(self._getPath("domains.vmd"))

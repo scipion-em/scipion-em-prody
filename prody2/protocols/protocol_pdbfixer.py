@@ -89,13 +89,13 @@ class ProDyPDBFixer(EMProtocol):
 
     def _summary(self):
         if not hasattr(self, 'outputStructure'):
-            sum = ['Output structure not ready yet']
+            summ = ['Output structure not ready yet']
         else:
             input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
             output_ag = prody.parsePDB(self.outputStructure.getFileName())
-            sum = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
+            summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
                    output_ag.numAtoms(), input_ag.numAtoms())]
-            sum.append('The new structure has *{0}* protein residues '
+            summ.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
                         output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
-        return sum
+        return summ

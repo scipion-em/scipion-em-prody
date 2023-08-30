@@ -113,8 +113,8 @@ class ProDyCompare(EMProtocol):
 
     def compareModesStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
@@ -187,14 +187,15 @@ class ProDyCompare(EMProtocol):
         prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix, format=format_str)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
 
         if self.match:
             fnSqlite = self._getPath('modes.sqlite')
-            nmSet = SetOfNormalModes(filename=fnSqlite)
+            inputClass = type(self.modes1.get())
+            nmSet = inputClass(filename=fnSqlite)
             nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
             outputPdb = AtomStruct()

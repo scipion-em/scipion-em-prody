@@ -131,7 +131,7 @@ class ProDyModesBase(EMProtocol):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n):
+    def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
         #n = self.numberOfModes.get()
 
@@ -143,36 +143,31 @@ class ProDyModesBase(EMProtocol):
                                  structureEM=False, suffix='')
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 6)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+                                 self.neg.get(), self.pos.get(), nzeros)
+        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self):
         # This gets defined in each child protocol
-        # self.old_verbosity and self.old_secondary should be defined and replaced therein
+        # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
         self.nzero = nzero
-        
-        try:
-            prody.traverseMode(self.outModes[nzero], self.atoms, rmsd=rmsd, n_steps=n_steps,
-                               pos=pos, neg=neg)
-        except ValueError:
+
+        if isinstance(self.outModes, prody.GNM):
             self.gnm = True
-            if nzero > 0:
-                self.nzero = 1
         else:
             animations_dir = self._getExtraPath('animations')
             makePath(animations_dir)
             for i, mode in enumerate(self.outModes[nzero:]):
-                modenum = i+7
+                modenum = i+nzero+1
                 fnAnimation = join(animations_dir, "animated_mode_%03d"
                                 % modenum)
                 prody.writePDB(fnAnimation+".pdb", 
-                            prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
-                                                pos=pos, neg=neg)
-                            )
+                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                                                  pos=pos, neg=neg)
+                              )
 
                 fhCmd=open(fnAnimation+".vmd",'w')
                 fhCmd.write("mol new %s.pdb\n" % fnAnimation)
@@ -268,13 +263,12 @@ class ProDyModesBase(EMProtocol):
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
-    def computeAtomShiftsStep(self, numberOfModes):
+    def computeAtomShiftsStep(self, numberOfModes, nzero=6):
         fnOutDir = self._getExtraPath("distanceProfiles")
         makePath(fnOutDir)
         maxShift=[]
         maxShiftMode=[]
-
-        nzero = 1 if self.gnm else 6
+        
         nzp1 = nzero + 1
         
         for n in range(nzp1, numberOfModes+1):
@@ -311,8 +305,8 @@ class ProDyModesBase(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

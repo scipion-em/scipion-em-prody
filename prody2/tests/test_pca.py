@@ -26,10 +26,10 @@
 # **************************************************************************
 
 import numpy as np
-from os.path import basename, split
+from os.path import split
 
 from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
-from pwem.protocols import *
+from pwem.protocols import ProtImportPdb, ProtImportSetOfAtomStructs, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
@@ -37,12 +37,13 @@ from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
                               ProDyImportEnsemble, ProDyPCA, ProDyCompare,
                               ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit)
 
+from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
 from prody2.protocols.protocol_import import SCIPION
 
 import prody
 
-class TestProDy_pca(TestWorkflow):
+class TestProDyPCA(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
     @classmethod
@@ -50,11 +51,11 @@ class TestProDy_pca(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def test_ProDy_pca(self):
+    def testProDyPCA(self):
         """ Run PCA simple workflow for two ways of building ensembles. """
         
-        old_verbosity = prody.confProDy("verbosity")
-        old_secondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        oldSecondary = prody.confProDy("auto_secondary")
 
         # ---------------------------------------------------------------
         # Step 1. Import some structures -> Select CA from all but one
@@ -142,7 +143,7 @@ class TestProDy_pca(TestWorkflow):
         # -------------------------------------------------------------------
 
         ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
-        idx = ens1.getLabels().index("3o21_ca") + 1
+        idx = ens1.getLabels().index("3o21") + 1
         
         protEns2 = self.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
@@ -181,7 +182,7 @@ class TestProDy_pca(TestWorkflow):
 
         protPca3 = self.newProtocol(ProDyPCA, numberOfModes=3)
         protPca3.inputEnsemble.set(protEns3.outputNpz)
-        protPca3.setObjLabel('PCA_from_set_plus_sel_ref_idx')
+        protPca3.setObjLabel('PCA_3_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca3)
 
         self.assertSetSize(protPca3.outputModes, 3,
@@ -190,7 +191,7 @@ class TestProDy_pca(TestWorkflow):
 
         protPca4 = self.newProtocol(ProDyPCA, numberOfModes=2)
         protPca4.inputEnsemble.set(protEns3.outputNpz)
-        protPca4.setObjLabel('PCA_from_set_plus_sel_ref_idx')
+        protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
         self.launchProtocol(protPca4)
 
         self.assertSetSize(protPca4.outputModes, 2,
@@ -225,8 +226,8 @@ class TestProDy_pca(TestWorkflow):
         protComp1.setObjLabel('Compare_A3_PCAs_same')
         self.launchProtocol(protComp1)
 
-        comp_matrix1 = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
-        self.assertTrue(np.allclose(comp_matrix1, np.ones(3)), "The modes aren't identical")
+        compMatrix1 = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
+        self.assertTrue(np.allclose(compMatrix1, np.ones(3)), "The modes aren't identical")
 
         # compare modes from different size sets
         protComp2 = self.newProtocol(ProDyCompare)
@@ -235,66 +236,66 @@ class TestProDy_pca(TestWorkflow):
         protComp2.setObjLabel('Compare_A3_PCAs_2_vs_3')
         self.launchProtocol(protComp2)
 
-        comp_matrix2 = prody.parseArray(protComp2._getExtraPath('matrix.txt'))
-        self.assertEqual(comp_matrix2.shape, (3,2),
+        compMatrix2 = prody.parseArray(protComp2._getExtraPath('matrix.txt'))
+        self.assertEqual(compMatrix2.shape, (3,2),
                          "Comparing 3 and 2 modes doesn't give the 3x2 matrix")
 
         # ------------------------------------------------
         # Step 5. Project 1D, 2D and 3D
         # ------------------------------------------------
         protProj1 = self.newProtocol(ProDyProject)
-        protProj1.inputEnsemble.set(protEns2.outputNpz)
+        protProj1.inputEnsemble.set([protEns2.outputNpz])
         protProj1.inputModes.set(protPca2.outputModes)
         protProj1.numModes.set(ONE)
         protProj1.setObjLabel('Project 1D')
         self.launchProtocol(protProj1)
 
-        self.assertTrue(hasattr(protProj1.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj1.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "1D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj1.outputStructures.getFirstItem()._prodyProjCoefficients), 1,
+        self.assertEqual(len(protProj1.outputEns1.getFirstItem()._prodyProjCoefficients), 1,
                         "1D Project protocol didn't add 1 coefficient to first item")
 
         protProj2 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj2.inputEnsemble.set(protEns2.outputNpz)
+        protProj2.inputEnsemble.set([protEns2.outputNpz])
         protProj2.inputModes.set(protPca2.outputModes)
         protProj2.numModes.set(TWO)
         protProj2.setObjLabel('Project 2D')
         self.launchProtocol(protProj2)
 
-        self.assertTrue(hasattr(protProj2.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj2.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "2D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj2.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+        self.assertEqual(len(protProj2.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
                         "2D Project protocol didn't add 2 coefficient to first item")
 
         protProj3 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj3.inputEnsemble.set(protEns2.outputNpz)
+        protProj3.inputEnsemble.set([protEns2.outputNpz])
         protProj3.inputModes.set(protPca2.outputModes)
         protProj3.numModes.set(THREE)
         protProj3.setObjLabel('Project 3D')
         self.launchProtocol(protProj3)
 
-        self.assertTrue(hasattr(protProj3.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj3.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "3D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj3.outputStructures.getFirstItem()._prodyProjCoefficients), 2,
+        self.assertEqual(len(protProj3.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
                         "3D Project protocol didn't add 2 coefficients to first item when given 2 components")
 
         protProj4 = self.newProtocol(ProDyProject,
                                      byFrame=True)
-        protProj4.inputEnsemble.set(protEns3.outputNpz)
+        protProj4.inputEnsemble.set([protEns3.outputNpz])
         protProj4.inputModes.set(protPca3.outputModes)
         protProj4.numModes.set(THREE)
         protProj4.setObjLabel('Project 3D')
         self.launchProtocol(protProj4)
 
-        self.assertTrue(hasattr(protProj4.outputStructures.getFirstItem(), "_prodyProjCoefficients"),
+        self.assertTrue(hasattr(protProj4.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
                         "3D Project protocol didn't add coefficients to SetOfAtomStructs")
 
-        self.assertEqual(len(protProj4.outputStructures.getFirstItem()._prodyProjCoefficients), 3,
+        self.assertEqual(len(protProj4.outputEns1.getFirstItem()._prodyProjCoefficients), 3,
                         "3D Project protocol didn't add 3 coefficients to first item when given 3 components")
 
         # -------------------------------------------------------
@@ -365,8 +366,28 @@ class TestProDy_pca(TestWorkflow):
         protComp3.setObjLabel('Compare_imported_2k39')
         self.launchProtocol(protComp3)
 
-        self.assertTrue(prody.confProDy("verbosity") == old_verbosity, 
+        self.assertTrue(prody.confProDy("verbosity") == oldVerbosity, 
                         "prody verbosity changed")
 
-        self.assertTrue(prody.confProDy("auto_secondary") == old_secondary, 
+        self.assertTrue(prody.confProDy("auto_secondary") == oldSecondary, 
                         "prody auto_secondary changed")
+
+        # ------------------------------------------------
+        # Step 8. Select chain B from PCA -> slice
+        # ------------------------------------------------
+        protSel6 = self.newProtocol(ProDySelect, selection="chain B")
+        protSel6.inputStructure.set(protPca2.refPdb)
+        protSel6.setObjLabel('Sel ref_B')
+        self.launchProtocol(protSel6)
+
+        self.assertTrue(exists(protSel6._getPath("atoms_atoms.pdb")))
+
+        protEdit1 = self.newProtocol(ProDyEdit, edit=NMA_SLICE)
+        protEdit1.modes.set(protPca2.outputModes)
+        protEdit1.newNodes.set(protSel6.outputStructure)
+        protEdit1.setObjLabel('Slice_to_B')
+        self.launchProtocol(protEdit1)
+
+        self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")))
+        self.assertTrue(exists(protEdit1._getExtraPath("distanceProfiles/vec1.xmd")))
+        

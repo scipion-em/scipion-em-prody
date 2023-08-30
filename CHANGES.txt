@@ -1,8 +1,9 @@
-29 March 2023 - major release v3.3.0
+13 August 2023 - major release v3.3.0
     Substantial integration and improvements of everything:
     1. Improved ensembles and alignments including custom chain matching
     2. New ProDyNpzEnsemble object, making everything work more smoothly
     3. General improvements including protocol summaries
+    4. Several new protocols including biomol assemblies, missing atom fixing, RMSD clustering and ClustENM
 
 29 July 2022 - major release v3.2.0
     Whole new working pipelines with tests:

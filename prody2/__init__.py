@@ -77,7 +77,7 @@ class Plugin(pwem.Plugin):
             installCmd.append('cd .. &&')
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
-                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+                installCmd.append('git clone -b master https://github.com/prody/ProDy.git ProDy &&')
             installCmd.append('cd ProDy &&')
 
         # Install downloaded code
@@ -93,11 +93,10 @@ class Plugin(pwem.Plugin):
 
         # Install PDBFixer and OpenMM for ClustENM
         OPEN_MM_INSTALLED = 'openmm_installed'
-        #installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
+        installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
 
-        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)#,
-                          #(installOpenMM, OPEN_MM_INSTALLED)
-                          ]
+        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED),
+                          (installOpenMM, OPEN_MM_INSTALLED)]
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")

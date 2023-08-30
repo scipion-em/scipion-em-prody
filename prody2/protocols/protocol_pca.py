@@ -29,22 +29,17 @@
 """
 This module will provide ProDy principal component analysis (PCA) using atomic structures
 """
-from pyworkflow.protocol import params
 
-from os.path import basename, exists, join
-import math
 from multiprocessing import cpu_count
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, EMFile
-from pwem.protocols import EMProtocol
+                        MDL_NMA_EIGENVAL)
+from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
 
 from pyworkflow.utils import *
-from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
+from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
@@ -59,8 +54,7 @@ class ProDyPCA(ProDyModesBase):
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
     _label = 'PCA'
-    _possibleOutputs = {'outputFractVars': EMFile,
-                        'outputModes': SetOfPrincipalComponents}
+    _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -77,7 +71,12 @@ class ProDyPCA(ProDyModesBase):
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms.')
+                      'where all structures have the same number of atoms or a ProDy ensemble.')
+        form.addParam('degeneracy', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Take only first conformation from each structure/set",
+                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
+                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
         form.addParam('numberOfModes', IntParam, default=5,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -92,7 +91,7 @@ class ProDyPCA(ProDyModesBase):
                       'For no deselection, this parameter should be set to 0 . \n')
 
         form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=5,
+        form.addParam('rmsd', FloatParam, default=2,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
@@ -118,7 +117,8 @@ class ProDyPCA(ProDyModesBase):
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
+                                              overlap=0., superpose=False, degeneracy=self.degeneracy.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
@@ -129,19 +129,22 @@ class ProDyPCA(ProDyModesBase):
         self.model_type = 'pca'
         n = self.numberOfModes.get()
 
+        self.gnm = False
+        nzeros = 0
+
         self._insertFunctionStep('computeModesStep', n)
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, n):
+    def computeModesStep(self, n=5):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        old_secondary = prody.confProDy("auto_secondary")
-        old_verbosity = prody.confProDy("verbosity")
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
         
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
@@ -149,25 +152,20 @@ class ProDyPCA(ProDyModesBase):
 
         self.pdbFileName = self._getPath('atoms.pdb')
         prody.writePDB(self.pdbFileName, self.ens.getAtoms())
+        
+        self.inputStructure = AtomStruct()
+        self.inputStructure.setFileName(self.pdbFileName)
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=old_secondary, verbosity='{0}'.format(old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion'
+        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
                                                                       self.pdbFileName,
                                                                       self._getPath(), n,
                                                                       self.numberOfThreads.get()))
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
-        
-        eigvecs = self.outModes.getEigvecs()
-        eigvals = self.outModes.getEigvals()
-        cov = prody.parseArray(self._getPath('modes_covariance.txt'))
-
-        self.outModes.setCovariance(cov)
-        self.outModes.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.outModes, self._getPath('modes.pca.npz'), matrices=True)
         
         plt.figure()
         prody.showFractVars(self.outModes)
@@ -176,7 +174,7 @@ class ProDyPCA(ProDyModesBase):
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -210,7 +208,7 @@ class ProDyPCA(ProDyModesBase):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -226,66 +224,34 @@ class ProDyPCA(ProDyModesBase):
             score[i] = float(score[i]) / (2.0 * l)
             mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
             i += 1
-        mdOut.write("modes%s.xmd" % suffix)
+        mdOut.write("modes.xmd")
 
         self._leaveWorkingDir()
         
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        
-        for n in range(7, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==7:
-                        maxShift.append(d)
-                        maxShiftMode.append(7)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-        
-        outputFractVars = EMFile(filename=self._getPath('pca_fract_vars.txt'))
 
-        self._defineOutputs(outFractVars=outputFractVars,
-                            outputModes=nmSet)
+        inputPdb = self.inputStructure
+        self._defineOutputs(refPdb=inputPdb)
+        nmSet.setPdb(inputPdb)
+
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(inputPdb, nmSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
-            sum = ['Output modes not ready yet']
+            summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.inputEnsemble.get().loadEnsemble()
 
-            sum = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
-        return sum
+        return summ
 

@@ -83,18 +83,22 @@ class ProDyANM(EMProtocol):
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
-        form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
+        form.addParam('cutoff', StringParam, default=15.,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact.\n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases.\n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
-                           'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n')
-        form.addParam('gamma', FloatParam, default=1.,
+                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases although '
+                           '18 A may sometimes be better, see Eyal et al., Bioinformatics 2006.\n'
+                           'For all atoms, a shorter distance such as 5 or 7 A is recommended, see Tirion et al., Phys Rev Lett 1996.\n'
+                           'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n'
+                           'It is also possible to use other functions for the cutoff e.g. 2.9 * math.log(numResidues) - 2.9 for ed-ENM, '
+                           'replacing numResidues with the actual number of residues')
+        form.addParam('gamma', StringParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
+                           'Besides pre-defined Gamma functions such as GammaStructureBased from Lezon et al., PLoS Comput Biol 2010 '
+                           'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
+                           'more sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
         form.addParam('sparse', BooleanParam, default=False,
@@ -173,12 +177,8 @@ class ProDyANM(EMProtocol):
 
     def computeModesStep(self, inputFn, n):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.old_secondary = prody.confProDy("auto_secondary")
-        self.old_verbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        self.oldSecondary = prody.confProDy("auto_secondary")
+        self.oldVerbosity = prody.confProDy("verbosity")
 
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
@@ -188,8 +188,8 @@ class ProDyANM(EMProtocol):
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
+            '--npz -o {1} -p modes -n {2} -g {3} -c "{4}" -P {5}'.format(self.pdbFileName,
                                                                        self._getPath(), n,
                                                                        self.gamma.get(),
                                                                        self.cutoff.get(),
@@ -214,16 +214,12 @@ class ProDyANM(EMProtocol):
             args += ' --membrane'
 
         self.runJob('prody', args)
+
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
-        
-        eigvecs = self.anm.getEigvecs()
-        eigvals = self.anm.getEigvals()
-        hessian = prody.parseArray(self._getPath('modes_hessian.txt'))
-
-        self.anm.setHessian(hessian)
-        self.anm.setEigens(eigvecs, eigvals)
-        prody.saveModel(self.anm, self._getPath('modes.anm.npz'), matrices=True)
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')
@@ -249,17 +245,17 @@ class ProDyANM(EMProtocol):
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
                 if self.atoms.select('name P') is not None:
-                    num_p_atoms = self.atoms.select('name P').numAtoms()
+                    numPhosAtoms = self.atoms.select('name P').numAtoms()
                 else:
-                    num_p_atoms = 0
+                    numPhosAtoms = 0
 
                 if self.atoms.ca is not None:
-                    num_ca_atoms = self.atoms.ca.numAtoms()
+                    numCaAtoms = self.atoms.ca.numAtoms()
                 else:
-                    num_ca_atoms = 0
+                    numCaAtoms = 0
 
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.atoms.numAtoms():
+                numRepAtoms = numCaAtoms + numPhosAtoms
+                if numRepAtoms == self.atoms.numAtoms():
                     fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
@@ -369,8 +365,8 @@ class ProDyANM(EMProtocol):
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
         # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.old_secondary, 
-                        verbosity='{0}'.format(self.old_verbosity))
+        prody.confProDy(auto_secondary=self.oldSecondary, 
+                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -385,11 +381,11 @@ class ProDyANM(EMProtocol):
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
-            sum = ['Output modes not ready yet']
+            summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
 
-            sum = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
+            summ = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
                     modes.numModes(), modes.numAtoms())]
-        return sum
+        return summ
 
