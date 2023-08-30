@@ -156,7 +156,7 @@ class ProDyGNM(EMProtocol):
             self.startMode = 1
         else:
             self.startMode = 0
-
+        
         if self.membrane.get():
             args += ' --membrane'
 
