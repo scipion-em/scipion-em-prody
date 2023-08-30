@@ -161,8 +161,6 @@ class ProDyGNM(EMProtocol):
             args += ' --membrane'
 
         self.runJob('prody', args)
-        
-        self.runJob('prody', args)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
