@@ -454,9 +454,10 @@ class ProDyAlign(EMProtocol):
 
 class ProDyBiomol(EMProtocol):
     """
-    This protocol will extract biomolecular assemblies
+    This protocol will extract biologically relevant molecular assemblies,
+    including orientations of proteins in membranes from OPM.
     """
-    _label = 'Extract biomol'
+    _label = 'Biomol'
     IMPORT_FROM_ID = 0
     IMPORT_FROM_FILES = 1
     USE_POINTER = 2
@@ -491,13 +492,23 @@ class ProDyBiomol(EMProtocol):
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
+        
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition='inputPdbData == IMPORT_FROM_ID',
+                      label="Download membrane placement model?",
+                      help='Use the OPM database to to model placement in the membrane.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
         if self.inputPdbData == self.IMPORT_FROM_ID:
             prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
+
+            if self.membrane.get():
+                inputFn = prody.fetchPDBfromOPM(self.pdbId.get(), filename=self.getPath(self.pdbId.get()+'-opm.pdb'))
+            else:
+                inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
             
             if inputFn == None:
                 inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
@@ -531,7 +542,7 @@ class ProDyBiomol(EMProtocol):
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                              biomol=True, extend_biomol=True)
         if isinstance(ags, prody.AtomGroup):
-            ags =[ags] 
+            ags = [ags] 
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for i, ag in enumerate(ags):

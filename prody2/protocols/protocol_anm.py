@@ -212,6 +212,9 @@ class ProDyANM(EMProtocol):
 
         if self.membrane.get():
             args += ' --membrane'
+            filename = 'modes.exanm.npz'
+        else:
+            filename = 'modes.anm.npz'
 
         self.runJob('prody', args)
 
@@ -219,7 +222,7 @@ class ProDyANM(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        self.anm = prody.loadModel(self._getPath(filename))
 
     def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
         animations_dir = self._getExtraPath('animations')

@@ -28,7 +28,7 @@
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyClustENM)
+from prody2.protocols import (ProDyBiomol, ProDySelect, ProDyANM, ProDyGNM)
 
 class TestProDyClustENM(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -38,44 +38,41 @@ class TestProDyClustENM(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def testProDyClustENM(self):
-        """ Run ClustENM for one and both chains of 4ake, test single and multi input options """
+    def testProDyMembrane(self):
+        """ Run membrane ANM and GNM for 3kg2 downloaded from OPM"""
 
         # --------------------------------------------------------------
-        # Step 1. Import 4ake and 1ake and select chain A from each
+        # Step 1. Import 3kg2 biologically relevant assembly in membrane
         # --------------------------------------------------------------
-
-        # Select Chain A
-        protSelA = self.newProtocol(ProDySelect, selection="protein and chain A", 
-                                    inputPdbData=0)
-        protSelA.pdbId.set("4ake")
-        protSelA.setObjLabel('Sel_4akeA')
-        self.launchProtocol(protSelA)
 
         # Select Chain A
-        protSelB = self.newProtocol(ProDySelect, selection="protein and chain A", 
-                                    inputPdbData=0)
-        protSelB.pdbId.set("1ake")
-        protSelB.setObjLabel('Sel_1akeA')
-        self.launchProtocol(protSelB)
+        protBM = self.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
+        protBM.pdbId.set("2NWL")
+        protBM.setObjLabel('Biomol_2NWL-opm')
+        self.launchProtocol(protBM)
+
+        # ------------------------------------------------
+        # Step 2. Select CA
+        # ------------------------------------------------
+        # Select Calpha atoms
+        protSel = self.newProtocol(ProDySelect, selection="name CA",
+                                   inputPdbData=1) # import from files
+        protSel.pdbFile.set(protBM.outputStructures.getFirstItem().getFileName())
+        protSel.setObjLabel('Sel_2NWL-opm_CA')
+        self.launchProtocol(protSel)
 
         # --------------------------------------------------------------
-        # Step 2. ClustENM with 4ake A and maxclust
+        # Step 3. Membrane ANM
         # --------------------------------------------------------------
-        protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=2, 
-                                         clusterMode=0, maxclust='(2, 3)',
-                                         n_confs=5, sim=False, outlier=True)
-        protClustenm1.inputStructure.set([protSelA.outputStructure])
-        protClustenm1.setObjLabel('ClustENM_4akeA')
-        self.launchProtocol(protClustenm1)
+        protANM = self.newProtocol(ProDyANM, membrane=True)
+        protANM.inputStructure.set(protSel.outputStructure)
+        protANM.setObjLabel('exANM_2NWL')
+        self.launchProtocol(protANM)
 
         # --------------------------------------------------------------
-        # Step 3. ClustENM with both structures and rmsd threshold
+        # Step 4. Membrane GNM
         # --------------------------------------------------------------
-        protClustenm2 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold='1.',
-                                         n_confs=2, sim=False, outlier=True)
-        protClustenm2.inputStructure.set([protSelA.outputStructure,
-                                          protSelB.outputStructure])
-        protClustenm2.setObjLabel('ClustENM_2_structs')
-        self.launchProtocol(protClustenm2)
+        protGNM = self.newProtocol(ProDyGNM, membrane=True)
+        protGNM.inputStructure.set(protSel.outputStructure)
+        protGNM.setObjLabel('exGNM_2NWL')
+        self.launchProtocol(protGNM)
