@@ -40,6 +40,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
 from prody2.protocols import ProDyGNM
+from prody2.objects import SetOfGnmModes
 
 import os
 
