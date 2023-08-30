@@ -91,6 +91,12 @@ class ProDyGNM(EMProtocol):
                            'the resulting modes can be imported back into Scipion.\n'
                            'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
 
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
+
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
@@ -151,6 +157,9 @@ class ProDyGNM(EMProtocol):
         else:
             self.startMode = 0
         
+        if self.membrane.get():
+            args += ' --membrane'
+
         self.runJob('prody', args)
 
         from pyworkflow import Config

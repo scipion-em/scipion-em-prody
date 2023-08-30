@@ -110,6 +110,12 @@ class ProDyANM(EMProtocol):
                       label="Use KDTree for building Hessian matrix?",
                       help='This takes more computational time.')
 
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
+
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
                       label='Threshold on collectivity',
@@ -135,7 +141,7 @@ class ProDyANM(EMProtocol):
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
+        form.addParam('numSteps', IntParam, default=10,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
@@ -164,7 +170,7 @@ class ProDyANM(EMProtocol):
                                  self.collectivityThreshold.get(),
                                  self.structureEM)
         self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
+                                 self.rmsd.get(), self.numSteps.get(),
                                  self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
@@ -204,24 +210,30 @@ class ProDyANM(EMProtocol):
         if self.turbo.get():
             args += ' --turbo'
 
+        if self.membrane.get():
+            args += ' --membrane'
+            filename = 'modes.exanm.npz'
+        else:
+            filename = 'modes.anm.npz'
+
         self.runJob('prody', args)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        self.anm = prody.loadModel(self._getPath(filename))
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
+    def animateModesStep(self, numberOfModes, rmsd, numSteps, pos, neg):
+        animationsDir = self._getExtraPath('animations')
+        makePath(animationsDir)
         for i, mode in enumerate(self.anm[self.startMode:]):
             modenum = i+self.startMode+1
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
+            fnAnimation = join(animationsDir, "animated_mode_%03d"
                                % modenum)
              
             self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
-                                               n_steps=n_steps,
+                                               n_steps=numSteps,
                                                pos=pos, neg=neg)
             prody.writePDB(fnAnimation+".pdb", self.outAtoms)
 
