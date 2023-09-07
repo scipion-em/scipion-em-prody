@@ -92,11 +92,13 @@ class ProDyRTB(EMProtocol):
                       help='All blocks will have this number of residues except the last one')
 
         form.addParam('shortest_block', IntParam, default=4,
+                      expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in shortest block',
                       help='Blocks with fewer residues will be combined into the previous block. '
                            'Fewer than 4 can be problematic.')
 
         form.addParam('longest_block', IntParam, default=20,
+                      expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in longest block',
                       help='Blocks with more residues will be split in half')
 
@@ -108,7 +110,6 @@ class ProDyRTB(EMProtocol):
                            'This is calculated using ProDy function findSubgroups.')
 
         form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact.\n'
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
