@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import prody
 from pwem.objects import (EMObject, EMSet, Pointer, Integer,
@@ -153,7 +154,7 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
                 oldEnsembles[i] = prody.PDBEnsemble(ens)
 
         newEnsemble = prody.PDBEnsemble()
-
+        newSizes = []
         for i, item in enumerate(self.iterItems(orderBy=orderBy,
                                                 direction=direction)):
             fnameIndex = filenames.index(item.getFileName())
@@ -162,13 +163,25 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
             ensemble = oldEnsembles[fnameIndex]
             coords = ensemble.getCoordsets(selected=False)[confIndex]
             label = ensemble.getLabels()[confIndex]
-            weights = ensemble.getWeights(selected=False)[confIndex]
+
+            weights = ensemble.getWeights(selected=False)
+            if weights is not None:
+                weights = weights[confIndex]
+            else:
+                weights = 1.
+
+            if ensemble.getData('size') is not None:
+                newSizes.append(ensemble.getData('size')[confIndex])
+            else:
+                newSizes.append(np.zeros(ensemble.numCoordsets())[confIndex])
 
             if i == 0:
                 newEnsemble.setCoords(ensemble.getCoords(selected=False))
                 newEnsemble.setAtoms(ensemble.getAtoms())
 
             newEnsemble.addCoordset(coords, weights, label)
+
+        newEnsemble.setData('size', newSizes)
 
         return newEnsemble
 

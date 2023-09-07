@@ -32,13 +32,15 @@ This module will provide ProDy principal component analysis (PCA) using atomic s
 
 import numpy as np
 
-from pwem.objects import SetOfAtomStructs, String, AtomStruct
+from pwem.objects import SetOfAtomStructs, AtomStruct
 from pwem.protocols import EMProtocol
 
 from pyworkflow.protocol.params import (PointerParam, EnumParam, FloatParam,
-                                        StringParam, BooleanParam, LEVEL_ADVANCED)
+                                        StringParam, BooleanParam)
+import pyworkflow.object as pwobj
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.constants import ENSEMBLE_WEIGHTS
 
 import prody
 import matplotlib.pyplot as plt
@@ -147,19 +149,26 @@ class ProDyRmsd(EMProtocol):
         else:
             self.ensBaseName = self._getExtraPath('ensemble')
 
-        prody.writePDB(self.ensBaseName, self.ens)
-        prody.saveEnsemble(self.ens, self.ensBaseName)
-
         if not self.doCluster.get():
             idx = range(self.ens.numConfs())
         else:
-            # replace with clustering code
-            idx = []
             subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
-            for sg in subgroups:
+            self.weights = np.zeros(len(subgroups), dtype=int)
+            all_weights = np.zeros(self.ens.numCoordsets(), dtype=int)
+            idx = np.zeros(len(subgroups), dtype=int)
+            for i, sg in enumerate(subgroups):
                 sgIdx = [labels.index(label) for label in sg]
                 submatrix = matrix[sgIdx, :][:, sgIdx]
-                idx.append(sgIdx[np.argmin(np.mean(submatrix, axis=0))])
+                idx[i] = sgIdx[np.argmin(np.mean(submatrix, axis=0))]
+
+                weight = len(sg)
+                self.weights[i] = weight
+                all_weights[idx[i]] = weight
+
+        prody.writePDB(self.ensBaseName, self.ens)
+
+        self.ens.setData('size', all_weights)
+        prody.saveEnsemble(self.ens, self.ensBaseName)
 
         ag = self.ens.getAtoms().copy()
 
@@ -178,17 +187,25 @@ class ProDyRmsd(EMProtocol):
             self.pdbs.append(pdb)
 
     def createOutputStep(self):
-        self._defineOutputs(outputStructures=self.pdbs,
-                            outputNpz=self.npz)
+
+        outSetAS = SetOfAtomStructs().create(self._getPath())
+        outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
+
+        outNpz = ProDyNpzEnsemble().create(self._getPath())
+        outNpz.copyItems(self.npz, updateItemCallback=self._setWeights)        
+
+        self._defineOutputs(outputStructures=outSetAS,
+                            outputNpz=outNpz)
         
     def _summary(self):
-        if not hasattr(self, 'outputModes'):
-            summ = ['Output modes not ready yet']
+        if not hasattr(self, 'outputNpz'):
+            summ = ['Output ensemble not ready yet']
         else:
-            modes = prody.parseScipionModes(self.outputModes.getFileName())
-            ens = self.inputEnsemble.get().loadEnsemble()
-
-            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
-                    modes.numModes(), ens.numConfs(), ens.numAtoms())]
+            ens = self.outputNpz.loadEnsemble()
+            summ = ['Output ensemble has *{0}* structures of *{1}* atoms'.format(
+                   ens.numConfs(), ens.numAtoms())]
         return summ
 
+    def _setWeights(self, item, row=None):
+            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            setattr(item, ENSEMBLE_WEIGHTS, weight)
