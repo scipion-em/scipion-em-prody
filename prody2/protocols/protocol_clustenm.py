@@ -41,7 +41,8 @@ from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, Boole
                                         EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 
 import prody
-from prody2.constants import CLUSTENM_WEIGHTS
+from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
 
 IMP = 0
 EXP = 1
@@ -258,20 +259,29 @@ class ProDyClustENM(EMProtocol):
 
         ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
         self.weights = ens.getSizes()
-        outSet = SetOfAtomStructs().create(self._getPath())
-        outSet.copyItems(structs, updateItemCallback=self._setWeights)
 
-        self.args["outputTraj" + suffix] = outSet
+        outSetAS = SetOfAtomStructs().create(self._getPath())
+        outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
+        self.args["outputStructures" + suffix] = outSetAS
+
+        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
+        for j in range(ens.numCoordsets()):
+            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=ens.getLabels()[j])
+            self.npz.append(frame)
+
+        outNpz = ProDyNpzEnsemble().create(self._getPath())
+        outNpz.copyItems(structs, updateItemCallback=self._setWeights)
+        self.args["outputNpz" + suffix] = outNpz
 
     def _setWeights(self, item, row=None):
             weight = pwobj.Integer(self.weights[item.getObjId()-1])
-            setattr(item, CLUSTENM_WEIGHTS, weight)
+            setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def createOutputStep(self):
         self._defineOutputs(**self.args)
 
     def _summary(self):
-        if not hasattr(self, 'outputTraj1'):
+        if not hasattr(self, 'outputStructures1'):
             summ = ['Output not ready yet']
         else:
             summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(

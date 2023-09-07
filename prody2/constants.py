@@ -34,4 +34,4 @@ VERSIONS = [DEVEL, LATEST]
 PRODY_DEFAULT_VER_NUM = LATEST
 
 PROJ_COEFFS = "_prodyProjCoefficients"
-CLUSTENM_WEIGHTS = "_prodyWeight"
+ENSEMBLE_WEIGHTS = "_prodyWeights"

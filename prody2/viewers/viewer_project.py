@@ -29,6 +29,7 @@ This module implements wrappers around the ProDy tools
 for plotting projections of ensembles onto modes.
 """
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
@@ -70,7 +71,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
                       help='Select whether to scale projections to RMSDs.')
         
-        form.addParam('label', BooleanParam, label="Label points?", default=True,
+        form.addParam('label', BooleanParam, label="Label points?", default=False,
                       help='Select whether to label points.',
                       condition=self.numModes!=ONE)
         
@@ -82,6 +83,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       default=False, condition=self.numModes != THREE,
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
+        
+        form.addParam('useWeights', BooleanParam, label="Use cluster weights?",
+                      default=False, condition=self.numModes != THREE,
+                      help='Select whether to use cluster weights to rescale 1D histogram or 2D kernel density estimate'
+                           ' or point size.\n')
 
         form.addParam('separatePlots', BooleanParam, label="Separate plots?",
                       default=False, condition=self.numModes != THREE,
@@ -139,9 +145,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
             ens = ensPointer.get()
             
             if isinstance(ens, SetOfAtomStructs):
+                # the ensemble gets built exactly as the input is setup and nothing gets rejected
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
                 ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
             else:
                 ensemble = ens.loadEnsemble()
         
@@ -172,22 +178,34 @@ class ProDyProjectionsViewer(ProtocolViewer):
             else:
                 c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
+            sizes = ensemble.getData('size')
+            if sizes is None:
+                weights = np.ones(ensemble.numCoordsets())
+            else:
+                if self.density.get() or sizes.max() == 0:
+                    weights = sizes
+                else:
+                    weights = sizes * 100/sizes.max()
+
             if self.numModes == ONE:
                 prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                    rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                    show_density=self.density.get(), c=c)
+                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                     show_density=self.density.get(), c=c,
+                                     use_weights=self.useWeights.get(), weights=weights)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                        text=ensemble.getLabels(),
-                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                        show_density=self.density.get(), 
-                                        adjust=self.adjustText.get(), c=c)
+                                         text=ensemble.getLabels(),
+                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                         show_density=self.density.get(), 
+                                         adjust=self.adjustText.get(), c=c,
+                                         use_weights=self.useWeights.get(), weights=weights)
                 else:
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                        rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                        show_density=self.density.get(), 
-                                        adjust=self.adjustText.get(), c=c)
+                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                         show_density=self.density.get(), 
+                                         adjust=self.adjustText.get(), c=c,
+                                         use_weights=self.useWeights.get(), weights=weights)
 
             ax = plotter.figure.gca()
             
