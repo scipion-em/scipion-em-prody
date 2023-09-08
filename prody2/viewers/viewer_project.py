@@ -84,6 +84,10 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
         
+        form.addParam('points', BooleanParam, label="Show points?",
+                      default=False, condition='density == True and numModes == %d' % TWO,
+                      help='Select whether to show points too.')
+        
         form.addParam('useWeights', BooleanParam, label="Use cluster weights?",
                       default=False, condition=self.numModes != THREE,
                       help='Select whether to use cluster weights to rescale 1D histogram or 2D kernel density estimate'
@@ -141,6 +145,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if isinstance(inputEnsemble.get(), Set):
             inputEnsemble = [inputEnsemble]
 
+        modesPath = self.protocol.inputModes.get().getFileName()
+        modes = prody.parseScipionModes(modesPath)
+
         for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
             
@@ -150,27 +157,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
             else:
                 ensemble = ens.loadEnsemble()
-        
-            if ensemble.getLabels()[0].find('Selection') != -1:
-                ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
 
-            if ensemble.getLabels()[0].endswith('_atoms_amap'):
-                ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
-
-            if ensemble.getLabels()[0].endswith('_ca'):
-                ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
-                
-            if ensemble.getLabels()[0][:6].isnumeric():
-                ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
-
-            if ensemble.getLabels()[0].startswith('Unknown_m'):
-                ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
-
-            if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
-                ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
-
-            modesPath = self.protocol.inputModes.get().getFileName()
-            modes = prody.parseScipionModes(modesPath)
+            ensemble = self._cleanLabels(ensemble)
 
             if i == 0 or self.separatePlots.get():
                 plotter = EmPlotter()
@@ -206,6 +194,13 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
+                    
+                if self.points.get():
+                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                         show_density=False, 
+                                         adjust=self.adjustText.get(), c=c,
+                                         use_weights=self.useWeights.get(), weights=weights)                    
 
             ax = plotter.figure.gca()
             
@@ -240,3 +235,25 @@ class ProDyProjectionsViewer(ProtocolViewer):
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
         return [plotter]
+
+    def _cleanLabels(self, ensemble):
+
+        if ensemble.getLabels()[0].find('Selection') != -1:
+            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0].endswith('_atoms_amap'):
+            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0].endswith('_ca'):
+            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0][:6].isnumeric():
+            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0].startswith('Unknown_m'):
+            ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
+
+        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
+            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
+
+        return ensemble
