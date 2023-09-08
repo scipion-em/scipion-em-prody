@@ -73,7 +73,7 @@ class Plugin(pwem.Plugin):
         installCmd = []
 
         if version == DEVEL:
-            # Use latest scipion branch of prody on my github
+            # Use latest prody on github
             installCmd.append('cd .. &&')
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
