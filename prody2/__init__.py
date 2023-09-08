@@ -34,7 +34,7 @@ from .constants import *
 
 __version__ = "3.3.0"
 _logo = "icon.png"
-_references = ['Zhang2021']
+_references = ['ProDy2']
 
 
 class Plugin(pwem.Plugin):
