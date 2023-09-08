@@ -173,7 +173,7 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
             if ensemble.getData('size') is not None:
                 newSizes.append(ensemble.getData('size')[confIndex])
             else:
-                newSizes.append(np.zeros(ensemble.numCoordsets())[confIndex])
+                newSizes.append(np.ones(ensemble.numCoordsets())[confIndex])
 
             if i == 0:
                 newEnsemble.setCoords(ensemble.getCoords(selected=False))

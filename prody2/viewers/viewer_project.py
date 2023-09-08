@@ -162,15 +162,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
             if i == 0 or self.separatePlots.get():
                 plotter = EmPlotter()
-                c = 'b'
-            else:
-                c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
+
+            c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
             sizes = ensemble.getData('size')
             if sizes is None:
                 weights = np.ones(ensemble.numCoordsets())
             else:
-                if self.density.get() or sizes.max() == 0:
+                if self.density.get() or sizes.max() == 1:
                     weights = sizes
                 else:
                     weights = sizes * 100/sizes.max()
