@@ -103,15 +103,17 @@ class ProDyDistance(EMProtocol):
             else:
                 ens = ensGot.loadEnsemble()
 
-            atoms = ens.getAtoms()
+            atomsCopy = ens.getAtoms().copy()
 
-            ens.select(selstr1)
+            ens.setAtoms(atomsCopy)
+            ens.setAtoms(atomsCopy.select(selstr1))
             centers1 = prody.calcCenter(ens.getCoordsets())
-            ens.setAtoms(atoms)
 
-            ens.select(selstr2)
+            ens.setAtoms(atomsCopy)
+            ens.setAtoms(atomsCopy.select(selstr2))
             centers2 = prody.calcCenter(ens.getCoordsets())
-            ens.setAtoms(atoms)
+
+            ens.setAtoms(atomsCopy)
 
             self.distances.append(prody.calcDistance(centers1, centers2))
 
