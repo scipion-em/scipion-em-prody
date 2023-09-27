@@ -56,6 +56,12 @@ SAME_CHID = 1
 SAME_POS = 2
 CUSTOM = 3
 
+try:
+    from pwchem.objects import MDSystem
+    imported_chem = True
+except ImportError:
+    imported_chem = False
+
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
     This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
@@ -216,6 +222,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                            'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
                            'for more details.')
 
+        form.addParam('writeDCDFile', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=imported_chem==True,
+                      label="Whether to write DCD trajectory file",
+                      help='This will be registered as output too')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -431,14 +442,26 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
+        if self.writeDCDFile.get():
+            prody.writeDCD(self._getPath('ensemble.dcd'), ens)
+            prody.writePDB(self._getPath('refStructure.pdb'), ens.getAtoms())
+
     def createOutputStep(self):
         
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        self._defineOutputs(outputStructures=self.pdbs,
-                            outputNpz=self.npz,
-                            outAlignment=outputSeqs)
+        outputs = {"outputStructures": self.pdbs,
+                   "outputNpz": self.npz,
+                   "outAlignment": outputSeqs}
+        
+        if self.writeDCDFile.get():
+            outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
+            outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
+            outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+            outputs["outputTrajectory"] = outMDSystem
+
+        self._defineOutputs(**outputs)
 
     def createMatchDic(self, index):
 
