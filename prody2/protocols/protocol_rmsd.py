@@ -116,8 +116,13 @@ class ProDyRmsd(EMProtocol):
         matrix = self.ens.getRMSDs(pairwise=True)
         labels = self.ens.getLabels()
 
+        if len(labels) > 50:
+            allticks = False
+        else:
+            allticks = True
+
         plt.figure()
-        prody.showMatrix(matrix, allticks=True, ticklabels=labels,
+        prody.showMatrix(matrix, allticks=allticks, ticklabels=labels,
                          xtickrotation=90, origin='upper')
         plt.tight_layout()
         plt.savefig(self._getExtraPath('rmsd_matrix'))
@@ -137,7 +142,7 @@ class ProDyRmsd(EMProtocol):
         reordLabels = list(np.array(labels)[reordIndices])
 
         plt.figure()
-        prody.showMatrix(reordRMSDs, allticks=True, ticklabels=reordLabels,
+        prody.showMatrix(reordRMSDs, allticks=allticks, ticklabels=reordLabels,
                          xtickrotation=90)
         plt.tight_layout()
         plt.savefig(self._getExtraPath('reordered_matrix'))
