@@ -57,11 +57,11 @@ class ProDyProject(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         form.addSection(label='ProDy Projection')
-        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
                       pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
-                      help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms.')
+                      help='The input ensemble should be SetOfAtomStructs or ProDyNpzEnsemble '
+                      'objects where all structures have the same number of atoms.')
 
         form.addParam('inputModes', PointerParam, label="Input set of modes",
                       important=True,
