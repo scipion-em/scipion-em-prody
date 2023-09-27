@@ -44,7 +44,7 @@ import prody
 from prody.dynamics.gnm import ZERO
 
 NMD = 0
-modes_NPZ = 1
+MODES_NPZ = 1
 SCIPION = 2
 GROMACS = 3
 
@@ -148,7 +148,7 @@ class ProDyImportModes(ProtImportFiles):
                 self.pattern1 += '.nmd'
             self.outModes, _ = prody.parseNMD(os.path.join(folderPath, self.pattern1))
 
-        elif self.importType == modes_NPZ:
+        elif self.importType == MODES_NPZ:
             if not self.pattern1.endswith('.npz'):
                 self.pattern1 += '.npz'
             self.outModes = prody.loadModel(os.path.join(folderPath, self.pattern1))
@@ -197,6 +197,15 @@ NO_SUP = 0
 YES_SUP = 1
 ITERPOSE = 2
 
+POINTER_TYPES = 'AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble'
+
+try:
+    from pwchem.objects import MDSystem
+    imported_chem = True
+    POINTER_TYPES += ',MDSystem'
+except ImportError:
+    imported_chem = False
+
 class ProDyImportEnsemble(ProtImportFiles):
     """
     This protocol will import and optionally trim a ProDy Ensemble
@@ -229,7 +238,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                            'pdb, dcd and the native ens.npz format')
 
         form.addParam('importPointer', params.PointerParam,
-                      pointerClass='AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble',
+                      pointerClass=POINTER_TYPES,
                       condition='importFrom!=0',
                       label='Ensemble file to import',
                       help='ProDy can support import of ensembles in various file formats: \n'
@@ -257,6 +266,7 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
                       pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
+                      allowsNull=True,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model '
                            '(an EM volume converted into pseudoatoms) '
@@ -318,16 +328,24 @@ class ProDyImportEnsemble(ProtImportFiles):
             point = self.importPointer.get()
             if isinstance(point, ProDyNpzEnsemble):
                 self.outEns = point.loadEnsemble()
+                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
             elif isinstance(point, SetOfAtomStructs):
                 ags = prody.parsePDB([struct.getFileName() for struct in point])
                 self.outEns = prody.PDBEnsemble()
                 self.outEns.setCoords(ags[0])
                 for ag in ags:
                     self.outEns.addCoordset(ag)
-            else:
-                self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
 
-            self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+            elif isinstance(point, AtomStruct):
+                self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
+                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+            else:
+                # only activated if we can use MDSystem
+                self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
+                self.atoms = prody.parsePDB(point.getSystemFile())
 
         self.outEns.setAtoms(self.atoms)
 
