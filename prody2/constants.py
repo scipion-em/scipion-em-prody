@@ -35,3 +35,4 @@ PRODY_DEFAULT_VER_NUM = LATEST
 
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
+DISTANCES = "_prodyDistances"
