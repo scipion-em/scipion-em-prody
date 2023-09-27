@@ -26,10 +26,12 @@
 # **************************************************************************
 """
 This module implements wrappers around the ProDy tools 
-for plotting projections of ensembles onto modes.
+for plotting projections of ensembles onto modes or distance distributions.
 """
 import matplotlib.pyplot as plt
 import numpy as np
+
+import os
 
 from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
@@ -38,6 +40,7 @@ from pwem.viewers.plotter import EmPlotter
 from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
+from prody2.protocols.protocol_distance import ProDyDistance
 
 import prody
 
@@ -45,7 +48,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
     """    
     _label = 'Projection viewer'
-    _targets = [ProDyProject]
+    _targets = [ProDyProject, ProDyDistance]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
@@ -57,35 +60,42 @@ class ProDyProjectionsViewer(ProtocolViewer):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        self.numModes = self.protocol.numModes.get()
+
+        self.isProjection = isinstance(self.protocol, ProDyProject)
+        if self.isProjection:
+            self.numModes = self.protocol.numModes.get()
+        else:
+            self.numModes = ONE
 
         form.addSection(label='Visualization')
 
-        form.addParam('showProjection', LabelParam,
-                      label='Show projection?',
-                      help='Projections are shown in various ways depending on the options selected')
+        form.addParam('showPlot', LabelParam,
+                      label='Show plot?',
+                      help='Projections or distances are shown in various ways depending on the options selected')
 
         form.addParam('norm', BooleanParam, label="Normalize?", default=False,
-                      help='Select whether to normalise projections.')
+                      help='Select whether to normalise projections.',
+                      condition=self.isProjection)
 
         form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
-                      help='Select whether to scale projections to RMSDs.')
+                      help='Select whether to scale projections to RMSDs.',
+                      condition=self.isProjection)
         
         form.addParam('label', BooleanParam, label="Label points?", default=False,
                       help='Select whether to label points.',
-                      condition=self.numModes!=ONE)
+                      condition=(self.numModes!=ONE and self.isProjection))
         
         form.addParam('adjustText', BooleanParam, label="Adjust labels?", default=False,
                       help='Select whether to adjust labels on points to not overlap.',
                       condition="label==True")
 
         form.addParam('density', BooleanParam, label="Show density?",
-                      default=False, condition=self.numModes != THREE,
+                      default=False, condition=(self.numModes != THREE and self.isProjection),
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
         
         form.addParam('points', BooleanParam, label="Show points?",
-                      default=False, condition='density == True and numModes == %d' % TWO,
+                      default=False, condition='density == True and numModes == %d and isProjection == True' % TWO,
                       help='Select whether to show points too.')
         
         form.addParam('useWeights', BooleanParam, label="Use cluster weights?",
@@ -100,57 +110,66 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         groupX = form.addGroup('xlim')
         groupX.addParam('xlim1', FloatParam, label="x-axis limit 1", default=-1,
-                      help='Enter values here and below to specify x-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes!=ONE)
+                        help='Enter values here and below to specify x-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes!=ONE)
         groupX.addParam('xlim2', FloatParam, label="x-axis limit 2", default=-1,
-                      help='Enter values here and above to specify x-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes!=ONE)
+                        help='Enter values here and above to specify x-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes!=ONE)
 
         groupY = form.addGroup('ylim')
         groupY.addParam('ylim1', FloatParam, label="y-axis limit 1", default=-1,
-                      help='Enter values here and below to specify y-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes!=ONE)
+                        help='Enter values here and below to specify y-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes!=ONE)
         groupY.addParam('ylim2', FloatParam, label="y-axis limit 2", default=-1,
-                      help='Enter values here and above to specify y-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes!=ONE)
+                        help='Enter values here and above to specify y-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes!=ONE)
 
         groupZ = form.addGroup('zlim')
         groupZ.addParam('zlim1', FloatParam, label="z-axis limit 1", default=-1,
-                      help='Enter values here and below to specify z-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes==THREE)
+                        help='Enter values here and below to specify z-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes==THREE)
         groupZ.addParam('zlim2', FloatParam, label="z-axis limit 2", default=-1,
-                      help='Enter values here and above to specify z-axis-limits.\n'
-                           '-1 is the dummy value and needs changing to e.g. -1.1 '
-                           'to have an effect',
-                      condition=self.numModes==THREE)
+                        help='Enter values here and above to specify z-axis-limits.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'to have an effect',
+                        condition=self.numModes==THREE)
 
     def _getVisualizeDict(self):
-        return {'showProjection': self._viewProjection}            
+        return {'showPlot': self._viewProjection}            
 
     def _viewProjection(self, paramName):
-        """visualisation for all projections"""  
+        """visualisation for all projections or distances"""
 
         inputEnsemble = self.protocol.inputEnsemble
 
         if isinstance(inputEnsemble.get(), Set):
             inputEnsemble = [inputEnsemble]
 
-        modesPath = self.protocol.inputModes.get().getFileName()
-        modes = prody.parseScipionModes(modesPath)
+        if self.isProjection:
+            modesPath = self.protocol.inputModes.get().getFileName()
+            modes = prody.parseScipionModes(modesPath)
+        else:
+            extraPath = self.protocol._getExtraPath()
+            outFiles = os.listdir(extraPath)
 
         for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
             
+            if not self.isProjection:
+                inputClass = type(ens)
+                ens = inputClass(filename=extraPath+'/'+outFiles[i])
+                distances = np.array([float(item._prodyDistances) for item in ens], dtype=float)
+
             if isinstance(ens, SetOfAtomStructs):
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
@@ -169,16 +188,22 @@ class ProDyProjectionsViewer(ProtocolViewer):
             if sizes is None:
                 weights = np.ones(ensemble.numCoordsets())
             else:
-                if self.density.get() or sizes.max() == 1:
+                if self.density.get() or sizes.max() == 1 or not self.isProjection:
                     weights = sizes
                 else:
                     weights = sizes * 100/sizes.max()
 
             if self.numModes == ONE:
-                prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                     rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                     show_density=self.density.get(), c=c,
-                                     use_weights=self.useWeights.get(), weights=weights)
+                if self.isProjection:
+                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                         show_density=self.density.get(), c=c,
+                                         use_weights=self.useWeights.get(), weights=weights)
+                else:
+                    if self.useWeights.get():
+                        plt.hist(distances, weights=weights)
+                    else:
+                        plt.hist(distances)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],

@@ -57,11 +57,11 @@ class ProDyDistance(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         form.addSection(label='ProDy Distance')
-        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
                       pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
-                      help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms.')
+                      help='The input ensembles should be SetOfAtomStructs or ProDyNpzEnsemble '
+                      'objects where all structures have the same number of atoms.')
 
         form.addParam('selection1', StringParam, default="protein and name CA or nucleic and name P C4' C2",
                       label="selection string 1",
@@ -141,9 +141,8 @@ class ProDyDistance(EMProtocol):
     # --------------------------- UTILS functions --------------------------------------------
     def _setDistances(self, item, row=None):
         # We provide data directly so don't need a row
-        vector = pwobj.CsvList()
-        vector._convertValue(["{:6.3f}".format(self.distances[self.ensId][item.getObjId()-1])])
-        setattr(item, DISTANCES, vector)
+        distance = pwobj.Float(self.distances[self.ensId][item.getObjId()-1])
+        setattr(item, DISTANCES, distance)
 
     def _summary(self):
         if not hasattr(self, 'outputStructures'):
