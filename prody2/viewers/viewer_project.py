@@ -40,7 +40,7 @@ from pwem.viewers.plotter import EmPlotter
 from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
-from prody2.protocols.protocol_distance import ProDyMeasure
+from prody2.protocols.protocol_measure import ProDyMeasure
 
 import prody
 
