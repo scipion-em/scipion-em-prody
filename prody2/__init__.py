@@ -92,11 +92,11 @@ class Plugin(pwem.Plugin):
         installCmd.append('touch %s' % PRODY_INSTALLED)
 
         # Install PDBFixer and OpenMM for ClustENM
-        OPEN_MM_INSTALLED = 'openmm_installed'
-        installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
+        #OPEN_MM_INSTALLED = 'openmm_installed'
+        #installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
 
-        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED),
-                          (installOpenMM, OPEN_MM_INSTALLED)]
+        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED)]#,
+                          #(installOpenMM, OPEN_MM_INSTALLED)]
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
