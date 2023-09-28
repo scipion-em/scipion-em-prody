@@ -260,17 +260,18 @@ class ProDyClustENM(EMProtocol):
         ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
         self.weights = ens.getSizes()
 
-        outSetAS = SetOfAtomStructs().create(self._getPath())
+        outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
         outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
         self.args["outputStructures" + suffix] = outSetAS
 
-        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
+        self.ensBaseName = os.path.join(direc, 'pdbs')
+        npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
         for j in range(ens.numCoordsets()):
             frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=ens.getLabels()[j])
-            self.npz.append(frame)
+            npz.append(frame)
 
-        outNpz = ProDyNpzEnsemble().create(self._getPath())
-        outNpz.copyItems(structs, updateItemCallback=self._setWeights)
+        outNpz = ProDyNpzEnsemble().create(self._getPath(), suffix=suffix)
+        outNpz.copyItems(npz, updateItemCallback=self._setWeights)
         self.args["outputNpz" + suffix] = outNpz
 
     def _setWeights(self, item, row=None):
