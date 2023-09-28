@@ -56,8 +56,9 @@ class TestProDyMembrane(TestWorkflow):
         # ------------------------------------------------
         # Select Calpha atoms
         protSel = self.newProtocol(ProDySelect, selection="name CA",
-                                   inputPdbData=1) # import from files
-        protSel.pdbFile.set(protBM.outputStructures.getFirstItem().getFileName())
+                                   inputPdbData=2) # import from pointer
+        protSel.inputStructure.set(protBM.outputStructures)
+        protSel.inputStructure.setExtended(1)
         protSel.setObjLabel('Sel_2NWL-opm_CA')
         self.launchProtocol(protSel)
 
