@@ -27,28 +27,34 @@
 
 
 """
-This module will provide ProDy distance calculation for structural ensembles
+This module will provide ProDy distance and angle measurement for structural ensembles
 """
 
 from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.protocol.params import StringParam, MultiPointerParam
+from pyworkflow.protocol import params
 
 import prody
-from prody2.constants import DISTANCES
+from prody2.constants import MEASURES
 from prody2.objects import ProDyNpzEnsemble
 
-ONE = 0
-TWO = 1
-THREE = 2
+DISTANCE = 0
+ANGLE = 1
+DIHEDRAL = 2
 
-class ProDyDistance(EMProtocol):
+selstrHelp = '''The distance or angle will be calculated between the average positions of 2 or 3 selections. 
+There is a rich selection engine with similarities to VMD. 
+See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html'''
+
+defaultSelstr = "protein and name CA or nucleic and name P C4' C2"
+
+class ProDyMeasure(EMProtocol):
     """
-    This module will provide ProDy distance calculation for structural ensembles
+    This module will provide ProDy distance and angle measurement for structural ensembles
     """
-    _label = 'Distance'
+    _label = 'Measure'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -56,24 +62,29 @@ class ProDyDistance(EMProtocol):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        form.addSection(label='ProDy Distance')
-        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
+        form.addSection(label='ProDy Measure')
+        form.addParam('inputEnsemble', params.MultiPointerParam, label="Input ensemble(s)",
                       important=True,
                       pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
                       help='The input ensembles should be SetOfAtomStructs or ProDyNpzEnsemble '
                       'objects where all structures have the same number of atoms.')
-
-        form.addParam('selection1', StringParam, default="protein and name CA or nucleic and name P C4' C2",
-                      label="selection string 1",
-                      help='The distance will be calculated between the average positions of the two selections. '
-                           'There is a rich selection engine with similarities to VMD. '
-                           'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
         
-        form.addParam('selection2', StringParam, default="protein and name CA or nucleic and name P C4' C2",
+        form.addParam('measureType', params.EnumParam,
+                      choices=['distance', 'angle'], default=DISTANCE,
+                      label='Measure type',
+                      help='Select the type of measure.')
+
+        form.addParam('selection1', params.StringParam, default=defaultSelstr,
+                      label="selection string 1",
+                      help=selstrHelp)
+        
+        form.addParam('selection2', params.StringParam, default=defaultSelstr,
                       label="selection string 2",
-                      help='The distance will be calculated between the average positions of the two selections. '
-                           'There is a rich selection engine with similarities to VMD. '
-                           'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
+                      help=selstrHelp)
+        
+        form.addParam('selection3', params.StringParam, default=defaultSelstr,
+                      label="selection string 3", condition="measureType==%d" % ANGLE,
+                      help=selstrHelp)
 
 
     # --------------------------- STEPS functions ------------------------------
@@ -93,7 +104,11 @@ class ProDyDistance(EMProtocol):
         selstr1 = self.selection1.get()
         selstr2 = self.selection2.get()
 
-        self.distances = []
+        measureType = self.measureType.get()
+        if measureType == ANGLE:
+            selstr3 = self.selection3.get()
+
+        self.measures = []
         for _, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
             if isinstance(ensGot, SetOfAtomStructs):
@@ -113,9 +128,17 @@ class ProDyDistance(EMProtocol):
             ens.setAtoms(atomsCopy.select(selstr2))
             centers2 = prody.calcCenter(ens.getCoordsets())
 
+            if measureType == ANGLE:
+                ens.setAtoms(atomsCopy)
+                ens.setAtoms(atomsCopy.select(selstr3))
+                centers3 = prody.calcCenter(ens.getCoordsets())
+
             ens.setAtoms(atomsCopy)
 
-            self.distances.append(prody.calcDistance(centers1, centers2))
+            if measureType == DISTANCE:
+                self.measures.append(prody.calcDistance(centers1, centers2))
+            else:
+                self.measures.append(list(prody.measure.getAngle(centers1, centers2, centers3)))
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
@@ -130,7 +153,7 @@ class ProDyDistance(EMProtocol):
 
             inputClass = type(ensGot)
             outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
-            outSet.copyItems(ensGot, updateItemCallback=self._setDistances)
+            outSet.copyItems(ensGot, updateItemCallback=self._setMeasures)
 
             name = "outputEns" + suffix
             
@@ -139,15 +162,15 @@ class ProDyDistance(EMProtocol):
         self._defineOutputs(**args)
 
     # --------------------------- UTILS functions --------------------------------------------
-    def _setDistances(self, item, row=None):
+    def _setMeasures(self, item, row=None):
         # We provide data directly so don't need a row
-        distance = pwobj.Float(self.distances[self.ensId][item.getObjId()-1])
-        setattr(item, DISTANCES, distance)
+        distance = pwobj.Float(self.measures[self.ensId][item.getObjId()-1])
+        setattr(item, MEASURES, distance)
 
     def _summary(self):
         if not hasattr(self, 'outputStructures'):
-            summ = ['Distances not ready yet']
+            summ = ['Measures not ready yet']
         else:
-            summ = ['Distances calculated for *{0}* structures'.format(len(self.outputStructures))]
+            summ = ['Measures calculated for *{0}* structures'.format(len(self.outputStructures))]
         return summ
         

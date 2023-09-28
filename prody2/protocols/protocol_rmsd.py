@@ -94,6 +94,10 @@ class ProDyRmsd(EMProtocol):
                       condition="doCluster==True",
                       label='RMSD threshold',
                       help='RMSD threshold for clustering the tree')
+        
+        form.addParam('writePDBFiles', BooleanParam, default=False,
+                      label="Whether to write lots of PDB files",
+                      help='These will be registered as output too')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -178,29 +182,35 @@ class ProDyRmsd(EMProtocol):
         ag = self.ens.getAtoms().copy()
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for j in sorted(idx):
-            label = self.ens.getLabels()[j]
 
-            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=label)
-            self.npz.append(frame)
-            
-            ag.setCoords(self.ens.getCoordsets()[j])
-            filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(j+1, label))
-            prody.writePDB(filename, ag)
-            pdb = AtomStruct(filename)
-            self.pdbs.append(pdb)
+        if self.writePDBFiles.get():
+            self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+            for j in sorted(idx):
+                label = self.ens.getLabels()[j]
+
+                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=label)
+                self.npz.append(frame)
+                
+                ag.setCoords(self.ens.getCoordsets()[j])
+                filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(j+1, label))
+                prody.writePDB(filename, ag)
+                pdb = AtomStruct(filename)
+                self.pdbs.append(pdb)
 
     def createOutputStep(self):
 
-        outSetAS = SetOfAtomStructs().create(self._getPath())
-        outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
+        args = {}
 
         outNpz = ProDyNpzEnsemble().create(self._getPath())
-        outNpz.copyItems(self.npz, updateItemCallback=self._setWeights)        
+        outNpz.copyItems(self.npz, updateItemCallback=self._setWeights)
+        args["outputNpz"] = outNpz
 
-        self._defineOutputs(outputStructures=outSetAS,
-                            outputNpz=outNpz)
+        if self.writePDBFiles.get():
+            outSetAS = SetOfAtomStructs().create(self._getPath())
+            outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
+            args["outputStructures"] = outSetAS
+
+        self._defineOutputs(**args)
         
     def _summary(self):
         if not hasattr(self, 'outputNpz'):

@@ -40,7 +40,7 @@ from pwem.viewers.plotter import EmPlotter
 from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
-from prody2.protocols.protocol_distance import ProDyDistance
+from prody2.protocols.protocol_distance import ProDyMeasure
 
 import prody
 
@@ -48,7 +48,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
     """    
     _label = 'Projection viewer'
-    _targets = [ProDyProject, ProDyDistance]
+    _targets = [ProDyProject, ProDyMeasure]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
@@ -71,7 +71,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         form.addParam('showPlot', LabelParam,
                       label='Show plot?',
-                      help='Projections or distances are shown in various ways depending on the options selected')
+                      help='Projections or measures are shown in various ways depending on the options selected')
 
         form.addParam('norm', BooleanParam, label="Normalize?", default=False,
                       help='Select whether to normalise projections.',
@@ -148,7 +148,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         return {'showPlot': self._viewProjection}            
 
     def _viewProjection(self, paramName):
-        """visualisation for all projections or distances"""
+        """visualisation for all projections or measures"""
 
         inputEnsemble = self.protocol.inputEnsemble
 
@@ -168,7 +168,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
             if not self.isProjection:
                 inputClass = type(ens)
                 ens = inputClass(filename=extraPath+'/'+outFiles[i])
-                distances = np.array([float(item._prodyDistances) for item in ens], dtype=float)
+                measures = np.array([float(item._prodyMeasures) for item in ens], dtype=float)
 
             if isinstance(ens, SetOfAtomStructs):
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
@@ -201,9 +201,9 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                          use_weights=self.useWeights.get(), weights=weights)
                 else:
                     if self.useWeights.get():
-                        plt.hist(distances, weights=weights)
+                        plt.hist(measures, weights=weights)
                     else:
-                        plt.hist(distances)
+                        plt.hist(measures)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],

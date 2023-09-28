@@ -21,7 +21,7 @@ from .protocol_import import ProDyImportEnsemble
 from .protocol_pca import ProDyPCA
 from .protocol_project import ProDyProject
 from .protocol_rmsd import ProDyRmsd
-from .protocol_distance import ProDyDistance
+from .protocol_distance import ProDyMeasure
 
 try:
     from prody import addMissingAtoms
