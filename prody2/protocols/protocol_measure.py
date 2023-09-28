@@ -29,6 +29,7 @@
 """
 This module will provide ProDy distance and angle measurement for structural ensembles
 """
+import numpy as np
 
 from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
@@ -156,8 +157,10 @@ class ProDyMeasure(EMProtocol):
             elif measureType == ANGLE:
                 measures = prody.measure.getAngle(centers1, centers2, centers3)
             else:
-                measures = prody.measure.getDihedral(centers1, centers2,
-                                                     centers3, centers4)
+                measures = np.zeros(len(centers1))
+                for j in range(len(centers1)):
+                    measures[j] = prody.measure.getDihedral(centers1[j], centers2[j],
+                                                            centers3[j], centers4[j])
 
             self.measures.append(measures)
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
