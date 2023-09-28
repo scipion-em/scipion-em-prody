@@ -96,7 +96,7 @@ class ProDyProject(EMProtocol):
             ensGot = inputEnsemble.get()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
-                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
             else:
                 ens = ensGot.loadEnsemble()
