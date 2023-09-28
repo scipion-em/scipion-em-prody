@@ -92,7 +92,7 @@ class ProDyProject(EMProtocol):
         modes = prody.parseScipionModes(modesPath)
 
         self.proj = []
-        for _, inputEnsemble in enumerate(self.inputEnsemble):
+        for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
@@ -101,7 +101,10 @@ class ProDyProject(EMProtocol):
             else:
                 ens = ensGot.loadEnsemble()
 
-            self.proj.append(prody.calcProjection(ens, modes[:self.numModes.get()+1]))
+            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1])
+            self.proj.append(projection)
+            prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
+                             format='%8.5f', delimiter=',')
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))

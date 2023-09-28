@@ -109,7 +109,7 @@ class ProDyMeasure(EMProtocol):
             selstr3 = self.selection3.get()
 
         self.measures = []
-        for _, inputEnsemble in enumerate(self.inputEnsemble):
+        for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
@@ -136,9 +136,13 @@ class ProDyMeasure(EMProtocol):
             ens.setAtoms(atomsCopy)
 
             if measureType == DISTANCE:
-                self.measures.append(prody.calcDistance(centers1, centers2))
+                measures = prody.calcDistance(centers1, centers2)
             else:
-                self.measures.append(list(prody.measure.getAngle(centers1, centers2, centers3)))
+                measures = prody.measure.getAngle(centers1, centers2, centers3)
+
+            self.measures.append(measures)
+            prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
+                             format='%8.5f', delimiter=',')
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
