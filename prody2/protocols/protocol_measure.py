@@ -29,6 +29,7 @@
 """
 This module will provide ProDy distance and angle measurement for structural ensembles
 """
+import numpy as np
 
 from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
@@ -44,7 +45,7 @@ DISTANCE = 0
 ANGLE = 1
 DIHEDRAL = 2
 
-selstrHelp = '''The distance or angle will be calculated between the average positions of 2 or 3 selections. 
+selstrHelp = '''The distance, angle or dihedral will be calculated between the centers of 2, 3 or 4 selections.
 There is a rich selection engine with similarities to VMD. 
 See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html'''
 
@@ -70,7 +71,7 @@ class ProDyMeasure(EMProtocol):
                       'objects where all structures have the same number of atoms.')
         
         form.addParam('measureType', params.EnumParam,
-                      choices=['distance', 'angle'], default=DISTANCE,
+                      choices=['distance', 'angle', 'dihedral'], default=DISTANCE,
                       label='Measure type',
                       help='Select the type of measure.')
 
@@ -83,7 +84,11 @@ class ProDyMeasure(EMProtocol):
                       help=selstrHelp)
         
         form.addParam('selection3', params.StringParam, default=defaultSelstr,
-                      label="selection string 3", condition="measureType==%d" % ANGLE,
+                      label="selection string 3", condition="measureType>%d" % DISTANCE,
+                      help=selstrHelp)
+
+        form.addParam('selection4', params.StringParam, default=defaultSelstr,
+                      label="selection string 4", condition="measureType>%d" % ANGLE,
                       help=selstrHelp)
 
 
@@ -105,8 +110,10 @@ class ProDyMeasure(EMProtocol):
         selstr2 = self.selection2.get()
 
         measureType = self.measureType.get()
-        if measureType == ANGLE:
+        if measureType > DISTANCE:
             selstr3 = self.selection3.get()
+        if measureType > ANGLE:
+            selstr4 = self.selection4.get()
 
         self.measures = []
         for i, inputEnsemble in enumerate(self.inputEnsemble):
@@ -120,7 +127,12 @@ class ProDyMeasure(EMProtocol):
 
             atomsCopy = ens.getAtoms().copy()
 
-            ens.setAtoms(atomsCopy)
+            try:
+                ens.setAtoms(atomsCopy)
+            except ValueError:
+                ens = prody.trimPDBEnsemble(ens)
+                ens.setAtoms(atomsCopy)
+
             ens.setAtoms(atomsCopy.select(selstr1))
             centers1 = prody.calcCenter(ens.getCoordsets())
 
@@ -128,17 +140,27 @@ class ProDyMeasure(EMProtocol):
             ens.setAtoms(atomsCopy.select(selstr2))
             centers2 = prody.calcCenter(ens.getCoordsets())
 
-            if measureType == ANGLE:
+            if measureType > DISTANCE:
                 ens.setAtoms(atomsCopy)
                 ens.setAtoms(atomsCopy.select(selstr3))
                 centers3 = prody.calcCenter(ens.getCoordsets())
+
+            if measureType == DIHEDRAL:
+                ens.setAtoms(atomsCopy)
+                ens.setAtoms(atomsCopy.select(selstr4))
+                centers4 = prody.calcCenter(ens.getCoordsets())
 
             ens.setAtoms(atomsCopy)
 
             if measureType == DISTANCE:
                 measures = prody.calcDistance(centers1, centers2)
-            else:
+            elif measureType == ANGLE:
                 measures = prody.measure.getAngle(centers1, centers2, centers3)
+            else:
+                measures = np.zeros(len(centers1))
+                for j in range(len(centers1)):
+                    measures[j] = prody.measure.getDihedral(centers1[j], centers2[j],
+                                                            centers3[j], centers4[j])
 
             self.measures.append(measures)
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 

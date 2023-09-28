@@ -35,7 +35,8 @@ from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
                               ProDyImportEnsemble, ProDyPCA, ProDyCompare,
-                              ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit)
+                              ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit,
+                              ProDyMeasure)
 
 from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
@@ -388,6 +389,53 @@ class TestProDyPCA(TestWorkflow):
         protEdit1.setObjLabel('Slice_to_B')
         self.launchProtocol(protEdit1)
 
-        self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")))
-        self.assertTrue(exists(protEdit1._getExtraPath("distanceProfiles/vec1.xmd")))
+        self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")),
+                        'slicing a SetOfPrincipalComponents should create animations')
+        self.assertTrue(exists(protEdit1._getExtraPath("distanceProfiles/vec1.xmd")),
+                        'slicing a SetOfPrincipalComponents should create distance profiles')
         
+        # ------------------------------------------------
+        # Step 9. Test measures
+        # ------------------------------------------------
+        measuresFilename = "measures_1.csv"
+
+        protMeasure1 = self.newProtocol(ProDyMeasure)
+        protMeasure1.inputEnsemble.set([protEns1.outputNpz]) # default: distance
+        protMeasure1.selection1.set('chain C and resnum 1 to 114 249 to 350')
+        protMeasure1.selection2.set('chain C and resnum 117 to 243 355 to 400')
+        protMeasure1.setObjLabel('measure cleft dist')
+        self.launchProtocol(protMeasure1)
+
+        self.assertTrue(exists(protMeasure1._getPath(measuresFilename)),
+                        'measuring distances should create measures_1.csv')
+
+        dists = prody.parseArray(protMeasure1._getPath(measuresFilename), delimiter=',')
+        self.assertEqual(np.round(dists[0], 1), 30.5,
+                        'cleft distances should measure 30.5 A')
+        
+        
+        protMeasure2 = self.newProtocol(ProDyMeasure, measureType=1) # angle
+        protMeasure2.inputEnsemble.set([protEns1.outputNpz])
+        protMeasure2.selection1.set('chain C and resnum 117 to 243 355 to 400')
+        protMeasure2.selection2.set('resnum 1 to 114 249 to 350')
+        protMeasure2.selection3.set('chain D and resnum 117 to 243 355 to 400')
+        protMeasure2.setObjLabel('measure LL angle')
+        self.launchProtocol(protMeasure2)
+
+        angles = prody.parseArray(protMeasure2._getPath(measuresFilename), delimiter=',')
+        self.assertEqual(np.round(angles[0], 0), 58,
+                        '1st LL angle should measure 58 degrees')
+
+
+        protMeasure3 = self.newProtocol(ProDyMeasure, measureType=2) # dihedral
+        protMeasure3.inputEnsemble.set([protEns1.outputNpz])
+        protMeasure3.selection1.set('chain C and resnum 117 to 243 355 to 400')
+        protMeasure3.selection2.set('chain C and resnum 1 to 114 249 to 350')
+        protMeasure3.selection3.set('chain D and resnum 1 to 114 249 to 350')
+        protMeasure3.selection4.set('chain D and resnum 117 to 243 355 to 400')
+        protMeasure3.setObjLabel('measure displacement dihedral')
+        self.launchProtocol(protMeasure3)
+
+        dihedrals = prody.parseArray(protMeasure3._getPath(measuresFilename), delimiter=',')
+        self.assertEqual(np.round(dihedrals[0], 0), -18,
+                        '1st displacement dihedral should measure -18 degrees')

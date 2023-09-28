@@ -279,7 +279,7 @@ class TestProDyCore(TestWorkflow):
 
         # Import modes from prody npz
         protImportModes1 = self.newProtocol(ProDyImportModes)
-        protImportModes1.importType.set(modes_NPZ)
+        protImportModes1.importType.set(MODES_NPZ)
         protImportModes1.filesPath.set(modesPath)
         protImportModes1.filesPattern.set("modes.anm.npz")
         protImportModes1.inputStructure.set(protSel2.outputStructure)
