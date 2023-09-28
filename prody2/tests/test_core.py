@@ -37,7 +37,7 @@ from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyANM, Pr
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import NMD, modes_NPZ, SCIPION, GROMACS
+from prody2.protocols.protocol_import import NMD, MODES_NPZ, SCIPION, GROMACS
 
 import prody
 
