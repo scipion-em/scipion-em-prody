@@ -33,7 +33,7 @@ import numpy as np
 
 import os
 
-from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam
+from pyworkflow.protocol.params import LabelParam, BooleanParam, FloatParam, IntParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
@@ -107,39 +107,57 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       default=False, condition=self.numModes != THREE,
                       help='Select whether to use a 1D histogram or 2D kernel density estimation from seaborn.\n'
                            'The alternative is to show points for 2D and an ordered series in 1D.')
+        
+        form.addParam('bins', IntParam, label="number of bins", default=-1,
+                        help='Enter a number of bins here, which should be positive.\n'
+                             '-1 is the dummy value and needs changing to have an effect.\n'
+                             'This option will not do anything for line plots.',
+                        condition="numModes==%d" % ONE)
+        
+        groupX = form.addGroup('xrange')
+        groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
+                        help='Enter values here and below to specify x-axis limits for bins.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'in both places to have an effect',
+                        condition=self.numModes==ONE)
+        groupX.addParam('xrange2', FloatParam, label="x-axis range limit 2 for bins", default=-1,
+                        help='Enter values here and above to specify x-axis limits for bins.\n'
+                             '-1 is the dummy value and needs changing to e.g. -1.1 '
+                             'in both places to have an effect',
+                        condition=self.numModes==ONE)
 
         groupX = form.addGroup('xlim')
         groupX.addParam('xlim1', FloatParam, label="x-axis limit 1", default=-1,
-                        help='Enter values here and below to specify x-axis-limits.\n'
+                        help='Enter values here and below to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes!=ONE)
         groupX.addParam('xlim2', FloatParam, label="x-axis limit 2", default=-1,
-                        help='Enter values here and above to specify x-axis-limits.\n'
+                        help='Enter values here and above to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes!=ONE)
 
         groupY = form.addGroup('ylim')
         groupY.addParam('ylim1', FloatParam, label="y-axis limit 1", default=-1,
-                        help='Enter values here and below to specify y-axis-limits.\n'
+                        help='Enter values here and below to specify y-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes!=ONE)
         groupY.addParam('ylim2', FloatParam, label="y-axis limit 2", default=-1,
-                        help='Enter values here and above to specify y-axis-limits.\n'
+                        help='Enter values here and above to specify y-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes!=ONE)
 
         groupZ = form.addGroup('zlim')
         groupZ.addParam('zlim1', FloatParam, label="z-axis limit 1", default=-1,
-                        help='Enter values here and below to specify z-axis-limits.\n'
+                        help='Enter values here and below to specify z-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes==THREE)
         groupZ.addParam('zlim2', FloatParam, label="z-axis limit 2", default=-1,
-                        help='Enter values here and above to specify z-axis-limits.\n'
+                        help='Enter values here and above to specify z-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'to have an effect',
                         condition=self.numModes==THREE)
@@ -194,16 +212,33 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     weights = sizes * 100/sizes.max()
 
             if self.numModes == ONE:
-                if self.isProjection:
-                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                         show_density=self.density.get(), c=c,
-                                         use_weights=self.useWeights.get(), weights=weights)
+                bins = self.bins.get()
+                if bins < 1:
+                    bins = None
+
+                if self.xrange1.get() != -1 and self.xrange2.get() != -1:
+                    xrange = (self.xrange1.get(), self.xrange2.get())
                 else:
-                    if self.useWeights.get():
-                        plt.hist(measures, weights=weights)
+                    xrange = None
+
+                if self.isProjection:
+                    density = self.density.get()
+                    if density:
+                        prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                            show_density=True, c=c,
+                                            use_weights=self.useWeights.get(), weights=weights,
+                                            bins=bins, range=xrange)
                     else:
-                        plt.hist(measures)
+                        prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
+                                            show_density=False, c=c,
+                                            use_weights=self.useWeights.get(), weights=weights)
+                else:
+                    if not self.useWeights.get():
+                        weights = None
+                        
+                    plt.hist(measures, weights=weights, bins=bins, range=xrange)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
