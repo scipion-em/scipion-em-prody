@@ -126,7 +126,12 @@ class ProDyMeasure(EMProtocol):
 
             atomsCopy = ens.getAtoms().copy()
 
-            ens.setAtoms(atomsCopy)
+            try:
+                ens.setAtoms(atomsCopy)
+            except ValueError:
+                ens = prody.trimPDBEnsemble(ens)
+                ens.setAtoms(atomsCopy)
+
             ens.setAtoms(atomsCopy.select(selstr1))
             centers1 = prody.calcCenter(ens.getCoordsets())
 
