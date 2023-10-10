@@ -226,7 +226,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     if density:
                         prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                             rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=True, c=c,
+                                            show_density=True, c=c, alpha=0.5,
                                             use_weights=self.useWeights.get(), weights=weights,
                                             bins=bins, range=xrange)
                     else:
@@ -238,7 +238,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     if not self.useWeights.get():
                         weights = None
                         
-                    plt.hist(measures, weights=weights, bins=bins, range=xrange)
+                    plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=0.5)
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
