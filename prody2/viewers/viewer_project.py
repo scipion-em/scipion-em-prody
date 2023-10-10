@@ -114,6 +114,10 @@ class ProDyProjectionsViewer(ProtocolViewer):
                              'This option will not do anything for line plots.',
                         condition="numModes==%d" % ONE)
         
+        form.addParam('alpha', FloatParam, label="transparency alpha", default=0.5,
+                        help='A lower number makes the plot more transparent and a higher number makes it more opaque',
+                        condition="numModes==%d" % ONE)
+        
         groupX = form.addGroup('xrange')
         groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
                         help='Enter values here and below to specify x-axis limits for bins.\n'
@@ -226,19 +230,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     if density:
                         prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                             rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=True, c=c, alpha=0.5,
+                                            show_density=True, c=c, alpha=self.alpha.get(),
                                             use_weights=self.useWeights.get(), weights=weights,
                                             bins=bins, range=xrange)
                     else:
                         prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
                                             rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=False, c=c,
+                                            show_density=False, c=c, alpha=self.alpha.get(),
                                             use_weights=self.useWeights.get(), weights=weights)
                 else:
                     if not self.useWeights.get():
                         weights = None
                         
-                    plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=0.5)
+                    plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
             else:
                 if self.label.get():
                     prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
