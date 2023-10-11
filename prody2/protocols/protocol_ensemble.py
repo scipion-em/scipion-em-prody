@@ -130,6 +130,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       pointerClass='AtomStruct', allowsNull=True,
                       help='Select an atomic model as the reference structure. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')
+        form.addParam('delReference', BooleanParam, default=False,
+                      label="Whether to delete the reference from the ensemble",
+                      help='This could be useful if you just want to use the reference for alignment.')
 
         form.addParam('refIndex', IntParam, label="Reference structure index", default=1,
                       condition="refType == %d and inputType != %d" % (INDEX, INDEX),
@@ -159,7 +162,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Alignments with worse RMSDs than this will be rejected.')
 
         form.addParam('selstr', StringParam, default="name CA",
-                      expertLevel=LEVEL_ADVANCED,
                       label="Selection string",
                       help='Selection string for atoms to include in the ensemble.\n'
                            'It is recommended to use "protein" or "name CA" (default)')
@@ -227,6 +229,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition=imported_chem==True,
                       label="Whether to write DCD trajectory file",
                       help='This will be registered as output too')
+        
+        form.addParam('writePDBFiles', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=imported_chem==True,
+                      label="Whether to write many PDB files",
+                      help='These will be registered as output too')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -237,12 +245,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
         if self.inputType.get() == STRUCTURE:
-            pdbs = []
+            self.pdbs = []
             for i, obj in enumerate(self.structures):
                 if isinstance(obj.get(), AtomStruct):
-                    pdbs.append(obj.get().getFileName())
+                    self.pdbs.append(obj.get().getFileName())
                 else:
-                    pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+                    self.pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
 
             if self.mapping.get() == DEFAULT:
                 mappings = 'auto'
@@ -276,18 +284,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if idCutoff == -1:
                 idCutoff = None
 
-            pdbs = daliRec.filter(lenCutoff=lenCutoff, rmsdCutoff=rmsdCutoff,
-                                   zCutoff=zCutoff, idCutoff=idCutoff)
+            self.pdbs = daliRec.filter(lenCutoff=lenCutoff, rmsdCutoff=rmsdCutoff,
+                                       zCutoff=zCutoff, idCutoff=idCutoff)
             mappings = daliRec.getMappings()
-
-        self.tars = prody.parsePDB(pdbs, alt='all')
-
-        if isinstance(self.tars, prody.Atomic):
-            nModels = self.tars.numCoordsets()
-            self.tars = []
-            for i in range(nModels):
-                self.tars.append(prody.parsePDB(pdbs, alt='all',
-                                                model=i+1))
 
         # actual steps
         self._insertFunctionStep('alignStep', ref, mappings)
@@ -303,6 +302,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
+        self.tars = prody.parsePDB(self.pdbs, alt='all')
+        if isinstance(self.tars, prody.Atomic):
+            nModels = self.tars.numCoordsets()
+            self.tars = []
+            for i in range(nModels):
+                self.tars.append(prody.parsePDB(self.pdbs, alt='all',
+                                                model=i+1))
 
         if self.matchFunc.get() == BEST_MATCH:
             matchFunc = prody.bestMatch
@@ -372,6 +379,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          atommaps=atommaps,
                                          rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get())
+            
+            if self.delReference.get():
+                ens.delCoordset(0)
+                self.tars.pop(0)
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
@@ -415,19 +426,19 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             tars = self.tars
 
-        aligned = prody.alignByEnsemble(tars, ens)
-
-        self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for i, ag in enumerate(aligned):
-            amap = atommaps[i]
-            if indices is not None:
-                amap = amap[indices]
-            
-            amap.setTitle(amap.getTitle().split('[')[0])
-            filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
-            prody.writePDB(filename, amap)
-            pdb = AtomStruct(filename)
-            self.pdbs.append(pdb)
+        if self.writePDBFiles.get():
+            aligned = prody.alignByEnsemble(tars, ens)
+            self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+            for i, ag in enumerate(aligned):
+                amap = atommaps[i]
+                if indices is not None:
+                    amap = amap[indices]
+                
+                amap.setTitle(amap.getTitle().split('[')[0])
+                filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
+                prody.writePDB(filename, amap)
+                pdb = AtomStruct(filename)
+                self.pdbs.append(pdb)
 
         prody.writePDB(self._getPath('ensemble.pdb'), ens)
 
@@ -451,8 +462,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
-        outputs = {"outputStructures": self.pdbs,
-                   "outputNpz": self.npz,
+        outputs = {"outputNpz": self.npz,
                    "outAlignment": outputSeqs}
         
         if self.writeDCDFile.get():
@@ -460,6 +470,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
             outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
             outputs["outputTrajectory"] = outMDSystem
+
+        if self.writePDBFiles.get():
+            outputs["outputStructures"] = self.pdbs
 
         self._defineOutputs(**outputs)
 
