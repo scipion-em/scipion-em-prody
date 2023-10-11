@@ -118,6 +118,7 @@ class ProDyMeasure(EMProtocol):
         self.measures = []
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
+            idSet = ensGot.getIdSet()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
                 ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
@@ -162,7 +163,10 @@ class ProDyMeasure(EMProtocol):
                     measures[j] = prody.measure.getDihedral(centers1[j], centers2[j],
                                                             centers3[j], centers4[j])
 
-            self.measures.append(measures)
+            measuresDict = dict()
+            for i, idx in enumerate(idSet):
+                measuresDict[idx] = measures[i]
+            self.measures.append(measuresDict)
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
                              format='%8.5f', delimiter=',')
 
@@ -190,7 +194,7 @@ class ProDyMeasure(EMProtocol):
     # --------------------------- UTILS functions --------------------------------------------
     def _setMeasures(self, item, row=None):
         # We provide data directly so don't need a row
-        distance = pwobj.Float(self.measures[self.ensId][item.getObjId()-1])
+        distance = pwobj.Float(self.measures[self.ensId][item.getObjId()])
         setattr(item, MEASURES, distance)
 
     def _summary(self):

@@ -94,6 +94,7 @@ class ProDyProject(EMProtocol):
         self.proj = []
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
+            idSet = ensGot.getIdSet()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
                 ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
@@ -102,7 +103,10 @@ class ProDyProject(EMProtocol):
                 ens = ensGot.loadEnsemble()
 
             projection = prody.calcProjection(ens, modes[:self.numModes.get()+1])
-            self.proj.append(projection)
+            projDict = dict()
+            for i, idx in enumerate(idSet):
+                projDict[idx] = projection[i]
+            self.proj.append(projDict)
             prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
                              format='%8.5f', delimiter=',')
 
@@ -131,7 +135,7 @@ class ProDyProject(EMProtocol):
     def _setCoeffs(self, item, row=None):
         # We provide data directly so don't need a row
         vector = pwobj.CsvList()
-        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()-1])])
+        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()])])
         setattr(item, PROJ_COEFFS, vector)
 
     def _summary(self):
