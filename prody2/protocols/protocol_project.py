@@ -139,10 +139,9 @@ class ProDyProject(EMProtocol):
         setattr(item, PROJ_COEFFS, vector)
 
     def _summary(self):
-        if not hasattr(self, 'outputStructures'):
+        if not hasattr(self, 'outputEns1'):
             summ = ['Projection not ready yet']
         else:
-            summ = ['Projected *{0}* structures onto *{1}* components'.format(
-                   len(self.outputStructures), self.numModes.get()+1)]
+            summ = ['Projected structures onto *{0}* components'.format(self.numModes.get()+1)]
         return summ
         

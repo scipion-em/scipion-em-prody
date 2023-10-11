@@ -198,9 +198,9 @@ class ProDyMeasure(EMProtocol):
         setattr(item, MEASURES, distance)
 
     def _summary(self):
-        if not hasattr(self, 'outputStructures'):
+        if not hasattr(self, 'outputEns1'):
             summ = ['Measures not ready yet']
         else:
-            summ = ['Measures calculated for *{0}* structures'.format(len(self.outputStructures))]
+            summ = ['Measures calculated']
         return summ
         
