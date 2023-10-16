@@ -95,15 +95,13 @@ class ProDyDefvec(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-        self.mobFn = self.mobStructure.get().getFileName()
-        self.tarFn = self.tarStructure.get().getFileName()
-        self._insertFunctionStep('defvecStep', self.mobFn, self.tarFn)
+        self._insertFunctionStep('defvecStep')
         self._insertFunctionStep('animateModesStep', self.n_steps.get(),
                                  self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep')
         self._insertFunctionStep('createOutputStep')
 
-    def defvecStep(self, mobFn, tarFn):
+    def defvecStep(self):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
@@ -111,8 +109,14 @@ class ProDyDefvec(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        self.mob = prody.parsePDB(mobFn, alt='all')
-        self.tar = prody.parsePDB(tarFn, alt='all')
+        mobStruct = self.mobStructure.get()
+        self.mobFn = mobStruct.getFileName()
+
+        tarStruct = self.tarStructure.get()
+        self.tarFn = tarStruct.getFileName()
+
+        self.mob = prody.parsePDB(self.mobFn, alt='all')
+        self.tar = prody.parsePDB(self.tarFn, alt='all')
 
         if self.rmsd.get() == 0:
             self.rmsd = prody.calcRMSD(self.mob, self.tar)
@@ -133,8 +137,8 @@ class ProDyDefvec(EMProtocol):
         fnAnimation = join(animations_dir, "animated_mode_001")
 
         self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=self.rmsd,
-                                           n_steps=self.n_steps.get(),
-                                           pos=self.pos.get(), neg=self.neg.get())
+                                           n_steps=n_steps,
+                                           pos=pos, neg=neg)
         prody.writePDB(fnAnimation+".pdb", self.outAtoms)
 
         fhCmd=open(fnAnimation+".vmd",'w')
