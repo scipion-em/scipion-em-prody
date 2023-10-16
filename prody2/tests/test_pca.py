@@ -393,16 +393,16 @@ class TestProDyPCA(TestWorkflow):
         # Step 8. Select chain B from PCA -> slice
         # ------------------------------------------------
         protSel6 = self.newProtocol(ProDySelect, selection="chain C")
-        protSel6.inputStructure.set(protPca2.refPdb)
+        protSel6.inputStructure.set(protPca4.refPdb)
         protSel6.setObjLabel('Sel ref_C')
         self.launchProtocol(protSel6)
 
         self.assertTrue(exists(protSel6._getPath("atoms_atoms.pdb")))
 
         protEdit1 = self.newProtocol(ProDyEdit, edit=NMA_SLICE)
-        protEdit1.modes.set(protPca2.outputModes)
+        protEdit1.modes.set(protPca4.outputModes)
         protEdit1.newNodes.set(protSel6.outputStructure)
-        protEdit1.setObjLabel('Slice_to_B')
+        protEdit1.setObjLabel('Slice_to_C')
         self.launchProtocol(protEdit1)
 
         self.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")),
