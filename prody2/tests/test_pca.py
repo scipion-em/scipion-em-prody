@@ -299,6 +299,22 @@ class TestProDyPCA(TestWorkflow):
         self.assertEqual(len(protProj4.outputEns1.getFirstItem()._prodyProjCoefficients), 3,
                         "3D Project protocol didn't add 3 coefficients to first item when given 3 components")
 
+        protProj5 = self.newProtocol(ProDyProject,
+                                     byFrame=True)
+        protProj5.inputEnsemble.set([protEns3.outputNpz])
+        protProj5.inputModes.set(protPca3.outputModes)
+        protProj5.modeList.set("2")
+        protProj5.numModes.set(TWO)
+        protProj5.setObjLabel('Project 2D sel')
+        self.launchProtocol(protProj5)
+
+        self.assertTrue(hasattr(protProj5.outputEns1.getFirstItem(), "_prodyProjCoefficients"),
+                        "2D Project protocol didn't add coefficients to SetOfAtomStructs")
+
+        self.assertEqual(len(protProj5.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
+                        "2D Project protocol didn't add 2 coefficient to first item")
+
+
         # -------------------------------------------------------
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA
         # -------------------------------------------------------
