@@ -392,9 +392,9 @@ class TestProDyPCA(TestWorkflow):
         # ------------------------------------------------
         # Step 8. Select chain B from PCA -> slice
         # ------------------------------------------------
-        protSel6 = self.newProtocol(ProDySelect, selection="chain B")
+        protSel6 = self.newProtocol(ProDySelect, selection="chain C")
         protSel6.inputStructure.set(protPca2.refPdb)
-        protSel6.setObjLabel('Sel ref_B')
+        protSel6.setObjLabel('Sel ref_C')
         self.launchProtocol(protSel6)
 
         self.assertTrue(exists(protSel6._getPath("atoms_atoms.pdb")))
