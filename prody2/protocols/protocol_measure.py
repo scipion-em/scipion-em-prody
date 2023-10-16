@@ -164,8 +164,8 @@ class ProDyMeasure(EMProtocol):
                                                             centers3[j], centers4[j])
 
             measuresDict = dict()
-            for i, idx in enumerate(idSet):
-                measuresDict[idx] = measures[i]
+            for j, idx in enumerate(idSet):
+                measuresDict[idx] = measures[j]
             self.measures.append(measuresDict)
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
                              format='%8.5f', delimiter=',')
