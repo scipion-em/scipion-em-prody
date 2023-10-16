@@ -179,7 +179,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         if self.isProjection:
             modesPath = self.protocol.outputModes.getFileName()
-            modes = prody.parseScipionModes(modesPath)
+            modes = prody.parseScipionModes(modesPath, parseIndices=True)
         else:
             extraPath = self.protocol._getExtraPath()
             outFiles = os.listdir(extraPath)
