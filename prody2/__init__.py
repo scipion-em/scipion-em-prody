@@ -77,8 +77,9 @@ class Plugin(pwem.Plugin):
             installCmd.append('cd .. &&')
             clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
             if not os.path.exists(clonePath):
-                installCmd.append('git clone -b master https://github.com/prody/ProDy.git ProDy &&')
+                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
             installCmd.append('cd ProDy &&')
+            installCmd.append('git pull &&')
 
         # Install downloaded code
         installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')

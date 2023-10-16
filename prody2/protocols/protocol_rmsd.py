@@ -126,8 +126,7 @@ class ProDyRmsd(EMProtocol):
             allticks = True
 
         plt.figure()
-        prody.showMatrix(matrix, allticks=allticks, ticklabels=labels,
-                         xtickrotation=90, origin='upper')
+        prody.showMatrix(matrix, allticks=allticks)
         plt.tight_layout()
         plt.savefig(self._getExtraPath('rmsd_matrix'))
 
@@ -146,8 +145,7 @@ class ProDyRmsd(EMProtocol):
         reordLabels = list(np.array(labels)[reordIndices])
 
         plt.figure()
-        prody.showMatrix(reordRMSDs, allticks=allticks, ticklabels=reordLabels,
-                         xtickrotation=90)
+        prody.showMatrix(reordRMSDs, allticks=allticks)
         plt.tight_layout()
         plt.savefig(self._getExtraPath('reordered_matrix'))
 
@@ -163,7 +161,7 @@ class ProDyRmsd(EMProtocol):
         else:
             subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
             self.weights = np.zeros(len(subgroups), dtype=int)
-            all_weights = np.zeros(self.ens.numCoordsets(), dtype=int)
+            allWeights = np.zeros(self.ens.numCoordsets(), dtype=int)
             idx = np.zeros(len(subgroups), dtype=int)
             for i, sg in enumerate(subgroups):
                 sgIdx = [labels.index(label) for label in sg]
@@ -172,25 +170,25 @@ class ProDyRmsd(EMProtocol):
 
                 weight = len(sg)
                 self.weights[i] = weight
-                all_weights[idx[i]] = weight
+                allWeights[idx[i]] = weight
 
         prody.writePDB(self.ensBaseName, self.ens)
 
-        self.ens.setData('size', all_weights)
+        self.ens.setData('size', allWeights)
         prody.saveEnsemble(self.ens, self.ensBaseName)
-
-        ag = self.ens.getAtoms().copy()
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
 
         if self.writePDBFiles.get():
+            ag = self.ens.getAtoms().copy()
             self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-            for j in sorted(idx):
-                label = self.ens.getLabels()[j]
 
-                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=label)
-                self.npz.append(frame)
-                
+        for j in sorted(idx):
+            label = self.ens.getLabels()[j]
+            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=label)
+            self.npz.append(frame)
+            
+            if self.writePDBFiles.get():
                 ag.setCoords(self.ens.getCoordsets()[j])
                 filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(j+1, label))
                 prody.writePDB(filename, ag)

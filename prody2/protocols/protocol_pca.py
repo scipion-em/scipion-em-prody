@@ -151,10 +151,12 @@ class ProDyPCA(ProDyModesBase):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, self.ens.getAtoms())
+        avgStruct = self.ens.getAtoms()
+        avgStruct.setCoords(self.ens.getCoords())
+        prody.writePDB(self.pdbFileName, avgStruct)
         
-        self.inputStructure = AtomStruct()
-        self.inputStructure.setFileName(self.pdbFileName)
+        self.averageStructure = AtomStruct()
+        self.averageStructure.setFileName(self.pdbFileName)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
@@ -237,7 +239,7 @@ class ProDyPCA(ProDyModesBase):
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
-        inputPdb = self.inputStructure
+        inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
         nmSet.setPdb(inputPdb)
 

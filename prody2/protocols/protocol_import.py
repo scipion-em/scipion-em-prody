@@ -331,10 +331,10 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, SetOfAtomStructs):
-                ags = prody.parsePDB([struct.getFileName() for struct in point])
+                self.ags = prody.parsePDB([struct.getFileName() for struct in point])
                 self.outEns = prody.PDBEnsemble()
-                self.outEns.setCoords(ags[0])
-                for ag in ags:
+                self.outEns.setCoords(self.ags[0])
+                for ag in self.ags:
                     self.outEns.addCoordset(ag)
 
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
@@ -347,11 +347,28 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
                 self.atoms = prody.parsePDB(point.getSystemFile())
 
-        self.outEns.setAtoms(self.atoms)
-
         selstr = self.selstr.get()
-        self.outEns.setAtoms(self.atoms.select(selstr))
-        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+
+        try:
+            # setAtoms then select and trim
+            self.outEns.setAtoms(self.atoms)
+            self.outEns.setAtoms(self.atoms.select(selstr))
+            self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+        except ValueError:
+            if hasattr(self, 'ags'):
+                try:
+                    # setAtoms with first structure if available and trim 
+                    # then setAtoms with ref structure and trim again
+                    self.outEns.setAtoms(self.ags[0])
+                    self.outEns.setAtoms(self.ags[0].select(selstr))
+                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                    self.outEns.setAtoms(self.atoms)
+                    self.outEns.setAtoms(self.atoms.select(selstr))
+                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                except ValueError:
+                    raise ValueError("Reference structure should have same number of atoms as ensemble")
+            else:
+                raise ValueError("Reference structure should have same number of atoms as ensemble")
 
         if self.superpose == YES_SUP:
             self.outEns.superpose()

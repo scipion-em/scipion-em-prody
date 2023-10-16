@@ -114,6 +114,10 @@ class ProDyProjectionsViewer(ProtocolViewer):
                              'This option will not do anything for line plots.',
                         condition="numModes==%d" % ONE)
         
+        form.addParam('alpha', FloatParam, label="transparency alpha", default=0.5,
+                        help='A lower number makes the plot more transparent and a higher number makes it more opaque',
+                        condition="numModes==%d" % ONE)
+        
         groupX = form.addGroup('xrange')
         groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
                         help='Enter values here and below to specify x-axis limits for bins.\n'
@@ -174,7 +178,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
             inputEnsemble = [inputEnsemble]
 
         if self.isProjection:
-            modesPath = self.protocol.inputModes.get().getFileName()
+            modesPath = self.protocol.outputModes.getFileName()
             modes = prody.parseScipionModes(modesPath)
         else:
             extraPath = self.protocol._getExtraPath()
@@ -224,42 +228,50 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 if self.isProjection:
                     density = self.density.get()
                     if density:
-                        prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                        prody.showProjection(ensemble, modes[:1],
                                             rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=True, c=c,
+                                            show_density=True, c=c, alpha=self.alpha.get(),
                                             use_weights=self.useWeights.get(), weights=weights,
                                             bins=bins, range=xrange)
+                        plt.xlabel("mode %s" % (modes[0].getIndex() + 1))
                     else:
-                        prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                        prody.showProjection(ensemble, modes[:1],
                                             rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=False, c=c,
+                                            show_density=False, c=c, alpha=self.alpha.get(),
                                             use_weights=self.useWeights.get(), weights=weights)
+                        plt.ylabel("mode %s" % (modes[0].getIndex() + 1))
                 else:
                     if not self.useWeights.get():
                         weights = None
                         
-                    plt.hist(measures, weights=weights, bins=bins, range=xrange)
+                    plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
             else:
                 if self.label.get():
-                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                    prody.showProjection(ensemble, modes[:self.numModes+1],
                                          text=ensemble.getLabels(),
                                          rmsd=self.rmsd.get(), norm=self.norm.get(),
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                 else:
-                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                    prody.showProjection(ensemble, modes[:self.numModes+1],
                                          rmsd=self.rmsd.get(), norm=self.norm.get(),
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                     
                 if self.points.get():
-                    prody.showProjection(ensemble, modes[:self.protocol.numModes.get()+1],
+                    prody.showProjection(ensemble, modes[:self.numModes+1],
                                          rmsd=self.rmsd.get(), norm=self.norm.get(),
                                          show_density=False, 
                                          adjust=self.adjustText.get(), c=c,
-                                         use_weights=self.useWeights.get(), weights=weights)                    
+                                         use_weights=self.useWeights.get(), weights=weights)
+                
+                ax = plt.gca()
+                ax.set_xlabel("mode %s" % (modes[0].getIndex() + 1))
+                ax.set_ylabel("mode %s" % (modes[1].getIndex() + 1))
+                if self.numModes == THREE:
+                    ax.set_zlabel("mode %s" % (modes[2].getIndex() + 1))
 
             ax = plotter.figure.gca()
             

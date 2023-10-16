@@ -29,12 +29,16 @@
 """
 This module will provide ProDy projection of structural ensembles on principal component or normal modes
 """
+import numpy as np
 
-from pwem.objects import SetOfPrincipalComponents, SetOfAtomStructs, EMFile
+from pwem.objects import (SetOfPrincipalComponents, SetOfNormalModes, 
+                          SetOfAtomStructs, String)
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.protocol.params import PointerParam, EnumParam, MultiPointerParam
+from pyworkflow.protocol.params import (PointerParam, EnumParam, 
+                                        MultiPointerParam, NumericRangeParam)
+from pyworkflow.utils import getListFromRangeString
 
 import prody
 from prody2.constants import PROJ_COEFFS
@@ -69,6 +73,17 @@ class ProDyProject(EMProtocol):
                       help='The input modes can come from Continuous-Flex NMA, ProDy NMA, or ProDy PCA.\n'
                            'The first modes from this set will be used. To use other modes, make a subset.')
 
+        form.addParam('modeList', NumericRangeParam,
+                      label="Modes selection", allowsNull=True, default="",
+                      help='Select the normal modes that will be used for analysis.\n'
+                           'If you leave this field empty, all the computed modes will be selected from.\n'
+                           'If you only enter one number, all the computed modes will be selected from starting with that one.\n'
+                           'You have several ways to specify the modes.\n'
+                           '   Examples:\n'
+                           ' "7,8-10" -> [7,8,9,10]\n'
+                           ' "8, 10, 12" -> [8,10,12]\n'
+                           ' "8 9, 10-12" -> [8,9,10,11,12])\n')
+        
         form.addParam('numModes', EnumParam, choices=['1', '2', '3'],
                       label='Number of modes', default=TWO,
                       help='1, 2 or 3 modes can be used for projection')
@@ -88,12 +103,26 @@ class ProDyProject(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        modesPath = self.inputModes.get().getFileName()
+        inputModes = self.inputModes.get()
+        modesPath = inputModes.getFileName()
         modes = prody.parseScipionModes(modesPath)
+
+        if not self.modeList.empty():
+            modeSelection = list(np.array(getListFromRangeString(self.modeList.get())) - 1)
+            if len(modeSelection) == 1:
+                modes = modes[modeSelection[0]:]
+            else:
+                modes = modes[modeSelection]
+
+        prody.writeScipionModes(self._getPath(), modes, write_star=True)
+        fnSqlite = self._getPath('modes.sqlite')
+        inputClass = type(inputModes)
+        self.outputModes = inputClass(filename=fnSqlite)
 
         self.proj = []
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
+            idSet = ensGot.getIdSet()
             if isinstance(ensGot, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
                 ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
@@ -102,7 +131,14 @@ class ProDyProject(EMProtocol):
                 ens = ensGot.loadEnsemble()
 
             projection = prody.calcProjection(ens, modes[:self.numModes.get()+1])
-            self.proj.append(projection)
+            projDict = dict()
+            for j, idx in enumerate(idSet):
+                proj = projection[j]
+                if isinstance(proj, float):
+                    proj = [proj]
+
+                projDict[idx] = proj
+            self.proj.append(projDict)
             prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
                              format='%8.5f', delimiter=',')
 
@@ -125,20 +161,21 @@ class ProDyProject(EMProtocol):
             
             args[name] = outSet
 
+        args["outputModes"] = self.outputModes
+
         self._defineOutputs(**args)
 
     # --------------------------- UTILS functions --------------------------------------------
     def _setCoeffs(self, item, row=None):
         # We provide data directly so don't need a row
         vector = pwobj.CsvList()
-        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()-1])])
+        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()])])
         setattr(item, PROJ_COEFFS, vector)
 
     def _summary(self):
-        if not hasattr(self, 'outputStructures'):
+        if not hasattr(self, 'outputEns1'):
             summ = ['Projection not ready yet']
         else:
-            summ = ['Projected *{0}* structures onto *{1}* components'.format(
-                   len(self.outputStructures), self.numModes.get()+1)]
+            summ = ['Projected structures onto *{0}* components'.format(self.numModes.get()+1)]
         return summ
         
