@@ -405,28 +405,33 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
 
-        indices = ens.getIndices()
-
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
-        
-        if not self.degeneracy.get():
-            tars = []
-            oldAmaps = atommaps
-            atommaps = []
-            for n, tar in enumerate(self.tars):
-                for i in range(tar.numCoordsets()):
-                    tarCopy = tar.copy()
-                    for j in range(tarCopy.numCoordsets()-1, 0, -1):
-                        tarCopy.delCoordset(j)
-                    tarCopy.setCoords(tar.getCoordsets()[i])
-                    tarCopy.setTitle(tar.getTitle()+"_{0}".format(i))
-                    tars.append(tarCopy)
-                    atommaps.append(oldAmaps[n])
-        else:
-            tars = self.tars
 
         if self.writePDBFiles.get():
+            indices = ens.getIndices()
+            amapTitles = [amap.getAtomGroup().getTitle() for amap in atommaps]
+
+            if not self.degeneracy.get():
+                tars = []
+                oldAmaps = atommaps
+                atommaps = []
+                n = 0
+                for tar in self.tars:
+                    title = tar.getTitle()
+                    if title in amapTitles:
+                        for i in range(tar.numCoordsets()):
+                            tarCopy = tar.copy()
+                            for j in range(tarCopy.numCoordsets()-1, 0, -1):
+                                tarCopy.delCoordset(j)
+                            tarCopy.setCoords(tar.getCoordsets()[i])
+                            tarCopy.setTitle(title + "_{0}".format(i))
+                            tars.append(tarCopy)
+                            atommaps.append(oldAmaps[n])
+                            n += 1
+            else:
+                tars = [tar for tar in self.tars if tar.getTitle() in amapTitles]
+
             aligned = prody.alignByEnsemble(tars, ens)
             self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
             for i, ag in enumerate(aligned):
