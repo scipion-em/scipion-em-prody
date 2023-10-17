@@ -36,3 +36,4 @@ PRODY_DEFAULT_VER_NUM = DEVEL
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
 MEASURES = "_prodyMeasures"
+FRACT_VARS = "_prodyFractVars"

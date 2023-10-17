@@ -40,10 +40,11 @@ from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, Ato
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
-                                        BooleanParam, LEVEL_ADVANCED)
+                                        BooleanParam, LEVEL_ADVANCED, Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble
+from prody2.constants import FRACT_VARS
 
 import prody
 import matplotlib.pyplot as plt
@@ -239,12 +240,20 @@ class ProDyPCA(ProDyModesBase):
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
+
+        self.fractVarsDict = {}
+        for i, item in enumerate(nmSet):
+            self.fractVarsDict[item.getObjId()] = self.fract_vars[i]
+
+        outSet = SetOfPrincipalComponents().create(self._getExtraPath())
+        outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
+
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
-        nmSet.setPdb(inputPdb)
+        outSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(inputPdb, nmSet)
+        self._defineOutputs(outputModes=outSet)
+        self._defineSourceRelation(inputPdb, outSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
@@ -257,3 +266,7 @@ class ProDyPCA(ProDyModesBase):
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
         return summ
 
+    def _setFractVars(self, item, row=None):
+        # We provide data directly so don't need a row
+        fractVar = Float(self.fractVarsDict[item.getObjId()])
+        setattr(item, FRACT_VARS, fractVar)
