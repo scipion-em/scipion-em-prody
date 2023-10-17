@@ -194,8 +194,8 @@ class ProDyMeasure(EMProtocol):
     # --------------------------- UTILS functions --------------------------------------------
     def _setMeasures(self, item, row=None):
         # We provide data directly so don't need a row
-        distance = pwobj.Float(self.measures[self.ensId][item.getObjId()])
-        setattr(item, MEASURES, distance)
+        measure = pwobj.Float(self.measures[self.ensId][item.getObjId()])
+        setattr(item, MEASURES, measure)
 
     def _summary(self):
         if not hasattr(self, 'outputEns1'):
