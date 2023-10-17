@@ -191,7 +191,7 @@ class ProDyImportModes(ProtImportFiles):
 
 PDB = 0
 DCD = 1
-ens_NPZ = 2
+ENS_NPZ = 2
 
 NO_SUP = 0
 YES_SUP = 1
@@ -266,10 +266,9 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('inputStructure', params.PointerParam, label="Input structure",
                       pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
-                      allowsNull=True,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model '
-                           '(an EM volume converted into pseudoatoms) '
+                           '(an EM volume converted into pseudoatoms). '
                            'The input structure should have the same number of atoms '
                            'as the original ensemble.')
 
@@ -319,7 +318,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folderPath, self.pattern1)))
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
-            elif self.importType == ens_NPZ:
+            elif self.importType == ENS_NPZ:
                 if not self.pattern1.endswith('.ens.npz'):
                     self.pattern1 += '.ens.npz'
                 self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folderPath, self.pattern1)))
@@ -355,20 +354,25 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.outEns.setAtoms(self.atoms.select(selstr))
             self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
         except ValueError:
-            if hasattr(self, 'ags'):
-                try:
-                    # setAtoms with first structure if available and trim 
-                    # then setAtoms with ref structure and trim again
-                    self.outEns.setAtoms(self.ags[0])
-                    self.outEns.setAtoms(self.ags[0].select(selstr))
-                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-                    self.outEns.setAtoms(self.atoms)
-                    self.outEns.setAtoms(self.atoms.select(selstr))
-                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-                except ValueError:
+            try:
+                # setAtoms with select directly then trim
+                self.outEns.setAtoms(self.atoms.select(selstr))
+                self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+            except ValueError:
+                if hasattr(self, 'ags'):
+                    try:
+                        # setAtoms with first structure if available and trim 
+                        # then setAtoms with ref structure and trim again
+                        self.outEns.setAtoms(self.ags[0])
+                        self.outEns.setAtoms(self.ags[0].select(selstr))
+                        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                        self.outEns.setAtoms(self.atoms)
+                        self.outEns.setAtoms(self.atoms.select(selstr))
+                        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                    except ValueError:
+                        raise ValueError("Reference structure should have same number of atoms as ensemble")
+                else:
                     raise ValueError("Reference structure should have same number of atoms as ensemble")
-            else:
-                raise ValueError("Reference structure should have same number of atoms as ensemble")
 
         if self.superpose == YES_SUP:
             self.outEns.superpose()
