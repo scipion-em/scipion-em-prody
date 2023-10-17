@@ -36,8 +36,7 @@ information such as name and number of residues.
 from ..protocols.protocol_atoms import *
 from ..protocols.protocol_ensemble import *
 
-import pyworkflow.wizard as pwizard
-from pwchem.wizards import VariableWizard
+from pwem.wizards import VariableWizard
 
 class ProDyAddChainOrderWizard(VariableWizard):
     """Add a step of the workflow in the defined position"""
