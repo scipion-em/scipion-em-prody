@@ -32,7 +32,7 @@ This module will provide ProDy mode import tools.
 import os
 import numpy as np
 
-from pwem.objects import (String, AtomStruct, SetOfAtomStructs,
+from pwem.objects import (String, AtomStruct, SetOfAtomStructs, EMFile,
                           SetOfNormalModes, SetOfPrincipalComponents)
 from pwem.protocols import ProtImportFiles
 
@@ -282,6 +282,11 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='This takes up storage and time, but '
                            'may be helpful for interfacing with ContinuousFlex.')
 
+        form.addParam('writeDCDFile', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Whether to write DCD trajectory file",
+                      help='This will be registered as output too')
+
         form.addParam('selstr', params.StringParam, default="all",
                       label="Selection string",
                       help='Selection string for atoms to include in the ensemble.\n'
@@ -389,6 +394,10 @@ class ProDyImportEnsemble(ProtImportFiles):
                 pdb = AtomStruct(filename)
                 self.pdbs.append(pdb)
 
+        if self.writeDCDFile.get():
+            prody.writeDCD(self._getPath('ensemble.dcd'), self.outEns)
+            prody.writePDB(self._getPath('refStructure.pdb'), self.outEns.getAtoms())
+
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
@@ -399,10 +408,22 @@ class ProDyImportEnsemble(ProtImportFiles):
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
     def createOutputStep(self):
+        outputs = {"outputNpz": self.npz}
+
+        if self.writeDCDFile.get():
+            if imported_chem:
+                outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
+                outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
+                outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+                outputs["outputTrajectory"] = outMDSystem
+            else:
+                outEMFile = EMFile(filename=self._getPath('ensemble.dcd'))
+                outputs["outputTrajectory"] = outEMFile
+
         if self.savePDBs.get():
-            self._defineOutputs(outputNpz=self.npz, outputStructures=self.pdbs)
-        else:
-            self._defineOutputs(outputNpz=self.npz)
+            outputs["outputStructures"] = self.pdbs
+
+        self._defineOutputs(**outputs)
 
     def _summary(self):
         if not hasattr(self, 'outputNpz'):
