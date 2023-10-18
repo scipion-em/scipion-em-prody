@@ -51,6 +51,9 @@ from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
 STRUCTURE = 0
 INDEX = 1
 
+BLAST = 0
+DALI = 1
+
 BEST_MATCH = 0
 SAME_CHID = 1
 SAME_POS = 2
@@ -80,10 +83,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # You need a params to belong to a section:
         form.addSection(label='ProDy buildPDBEnsemble')
 
-        form.addParam('inputType', EnumParam, choices=['structures', 'id for DALI search'],
+        form.addParam('inputType', EnumParam, choices=['structures', 'id for search'],
                       default=STRUCTURE, important=True,
                       label="Type of input for building the ensemble",
-                      help='The input can be a SetOfAtomStructs or an indexed to search DALI')
+                      help='The input can be a SetOfAtomStructs or an ID to search the PDB')
 
         inputTypeCheck = "inputType == %d"
         form.addParam('structures', MultiPointerParam, label="Set of structures",
@@ -101,23 +104,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
                            '(**False**) of each structure should be added to the ensemble. Default is **True**.')
 
-        form.addParam('lenCutoff', StringParam, label="lenCutoff for filtering DALI results",
+        form.addParam('lenCutoff', StringParam, label="length cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
                       expertLevel=LEVEL_ADVANCED,
-                      help='Select results with length of aligned residues < lenCutoff '
+                      help='Filter out results with length of aligned residues < length cutoff'
                       '(must be an integer up to the number of residues or a float between 0 and 1)')
         form.addParam('rmsdCutoff', StringParam, label="rmsdCutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
                       expertLevel=LEVEL_ADVANCED,
-                      help='Select results with RMSD < rmsdCutoff (must be a positive number)')
-        form.addParam('zCutoff', StringParam, label="zCutoff for filtering DALI results",
+                      help='Filter out results with RMSD > RMSD Cutoff (must be a positive number)')
+        form.addParam('zCutoff', StringParam, label="Z score cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
                       expertLevel=LEVEL_ADVANCED,
-                      help='Select results with Z score < zCutoff (must be a positive number)')
-        form.addParam('idCutoff', StringParam, label="idCutoff for filtering DALI results",
+                      help='Select results with Z score < Z score cutoff (must be a positive number)')
+        form.addParam('idCutoff', StringParam, label="Sequence ID cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
                       expertLevel=LEVEL_ADVANCED,
-                      help='Select results sequence identity > idCutoff '
+                      help='Filter out results with sequence identity < sequence ID cutoff '
                       '(must be an integer up to 100 or a float between 0 and 1).')
 
         form.addParam('refType', EnumParam, choices=['structure', 'index'], 
@@ -226,7 +229,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         form.addParam('writeDCDFile', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
-                      condition=imported_chem==True,
                       label="Whether to write DCD trajectory file",
                       help='This will be registered as output too')
         
@@ -238,6 +240,21 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
+        # actual steps
+        self._insertFunctionStep('alignStep')
+        self._insertFunctionStep('createOutputStep')
+
+    def alignStep(self):
+        """This step includes alignment mapping and superposition"""
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
         # handle inputs
         if self.refType.get() == STRUCTURE:
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
@@ -284,24 +301,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if idCutoff == -1:
                 idCutoff = None
 
-            self.pdbs = daliRec.filter(lenCutoff=lenCutoff, rmsdCutoff=rmsdCutoff,
-                                       zCutoff=zCutoff, idCutoff=idCutoff)
+            self.pdbs = daliRec.filter(cutoff_len=lenCutoff, cutoff_rmsd=rmsdCutoff,
+                                       cutoff_Z=zCutoff, cutoff_identity=idCutoff,
+                                       stringency=True)
             mappings = daliRec.getMappings()
 
-        # actual steps
-        self._insertFunctionStep('alignStep', ref, mappings)
-        self._insertFunctionStep('createOutputStep')
-
-    def alignStep(self, ref, mappings):
-        """This step includes alignment mapping and superposition"""
-
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+            if idstr not in self.pdbs:
+                self.pdbs.insert(0, idstr)
 
         self.tars = prody.parsePDB(self.pdbs, alt='all')
         if isinstance(self.tars, prody.Atomic):
@@ -311,40 +317,30 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.tars.append(prody.parsePDB(self.pdbs, alt='all',
                                                 model=i+1))
 
-        if self.matchFunc.get() == BEST_MATCH:
-            matchFunc = prody.bestMatch
-            logger.info('\nUsing bestMatch\n')
-        elif self.matchFunc.get() == SAME_CHID:
-            matchFunc = prody.sameChid
-            logger.info('\nUsing sameChid\n')
-        elif self.matchFunc.get() == SAME_POS:
-            matchFunc = prody.sameChainPos
-            logger.info('\nUsing sameChainPos\n')
-        else:
-            chmap = eval(self.chainOrders.get())
-            logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-            matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+        if self.inputType.get() == STRUCTURE:
+            if self.matchFunc.get() == BEST_MATCH:
+                matchFunc = prody.bestMatch
+                logger.info('\nUsing bestMatch\n')
+            elif self.matchFunc.get() == SAME_CHID:
+                matchFunc = prody.sameChid
+                logger.info('\nUsing sameChid\n')
+            elif self.matchFunc.get() == SAME_POS:
+                matchFunc = prody.sameChainPos
+                logger.info('\nUsing sameChainPos\n')
+            else:
+                chmap = eval(self.chainOrders.get())
+                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
         
         atommaps = [] # output argument for collecting atommaps
 
         if self.inputType.get() != STRUCTURE:
-            # from dali so don't use match func or ref
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
                                           seqid=self.seqid.get(),
                                           overlap=self.overlap.get(),
                                           mapping=mappings,
                                           atommaps=atommaps,
                                           rmsd_reject=self.rmsdReject.get())
-
-            # instead use them later for selection
-            ensRef = ens.getAtoms()
-            amap = prody.alignChains(ensRef, ref.select(self.selstr.get()),
-                                     seqid=self.seqid.get(),
-                                     overlap=self.overlap.get(),
-                                     match_func=matchFunc,
-                                     rmsd_reject=self.rmsdReject.get())[0]
-            ens.setAtoms(amap)
-
         else:
             if self.refType.get() == STRUCTURE:
                 self.tars = [ref] + self.tars
@@ -470,7 +466,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputs = {"outputNpz": self.npz,
                    "outAlignment": outputSeqs}
         
-        if self.writeDCDFile.get():
+        if self.writeDCDFile.get() and imported_chem:
             outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
             outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
             outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
