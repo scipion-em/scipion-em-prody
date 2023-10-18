@@ -32,7 +32,8 @@ This module will provide ProDy ensemble tools.
 from collections import OrderedDict
 import numpy as np
 
-from pwem.objects import AtomStruct, SetOfAtomStructs, SetOfSequences
+from pwem.objects import (AtomStruct, SetOfAtomStructs, SetOfSequences,
+                          EMFile)
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import logger, getListFromRangeString
@@ -466,11 +467,15 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         outputs = {"outputNpz": self.npz,
                    "outAlignment": outputSeqs}
         
-        if self.writeDCDFile.get() and imported_chem:
-            outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
-            outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
-            outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
-            outputs["outputTrajectory"] = outMDSystem
+        if self.writeDCDFile.get():
+            if imported_chem:
+                outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
+                outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
+                outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+                outputs["outputTrajectory"] = outMDSystem
+            else:
+                outEMFile = EMFile(filename=self._getPath('ensemble.dcd'))
+                outputs["outputTrajectory"] = outEMFile
 
         if self.writePDBFiles.get():
             outputs["outputStructures"] = self.pdbs
