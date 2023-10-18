@@ -172,6 +172,7 @@ class ProDyPCA(ProDyModesBase):
         
         plt.figure()
         prody.showFractVars(self.outModes)
+        prody.showCumulFractVars(self.outModes, 'r')
         plt.savefig(self._getPath('pca_fract_vars.png'))
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
