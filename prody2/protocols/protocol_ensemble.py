@@ -390,7 +390,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 tars[i].setTitle(label)
                 self.labels[i] = label
 
-            self.labels = list(np.array(self.labels, dtype='<U20'))
+            self.labels = list(np.array(self.labels))
 
             ens = prody.buildPDBEnsemble(tars,
                                          ref=ref,
@@ -555,7 +555,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.labels.append(title)
                 self.orders.append(self.getInitialChainOrder(ag))
                 
-        self.labels = np.array(self.labels, dtype='<U20')
+        self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
 
         inds = list(np.array(getListFromRangeString(index)) - 1)
