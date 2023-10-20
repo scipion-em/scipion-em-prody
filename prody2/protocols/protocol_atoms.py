@@ -47,6 +47,8 @@ import prody
 import logging
 logger = logging.getLogger(__name__)
 
+from prody2 import Plugin
+
 # chain matching methods
 BEST_MATCH = 0
 SAME_CHID = 1
@@ -137,9 +139,9 @@ class ProDySelect(EMProtocol):
         prody.confProDy(auto_secondary=True)
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        args = 'select "{0}" {1} -o {2}'.format(str(self.selection), inputFn,
-                                                self.pdbFileName)
-        self.runJob('prody', args)
+        args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
+                                         self.pdbFileName)
+        self.runJob(Plugin.getProgram('select'), args)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary)

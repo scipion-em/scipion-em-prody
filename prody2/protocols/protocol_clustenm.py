@@ -43,6 +43,7 @@ from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, Boole
 import prody
 from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2 import Plugin
 
 IMP = 0
 EXP = 1
@@ -221,7 +222,7 @@ class ProDyClustENM(EMProtocol):
         if not os.path.exists(direc):
             os.mkdir(direc)
 
-        args = 'clustenm {0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
+        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
                '--solvent {9} --force_field {10} --ionicStrength {11} --padding {12} --temp {13} --t_steps_i {14} --t_steps_g {15} ' \
                '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
                     self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(), 
@@ -250,7 +251,7 @@ class ProDyClustENM(EMProtocol):
         else:
             args += ' --no-outlier'
 
-        self.runJob('prody', args)
+        self.runJob(Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
         for filename in os.listdir(os.path.join(direc, 'pdbs')):

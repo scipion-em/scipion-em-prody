@@ -45,6 +45,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble
 from prody2.constants import FRACT_VARS
+from prody2 import Plugin
 
 import prody
 import matplotlib.pyplot as plt
@@ -162,7 +163,7 @@ class ProDyPCA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
+        self.runJob(Plugin.getProgram('pca'), '{0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
                     ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
                                                                       self.pdbFileName,
                                                                       self._getPath(), n,

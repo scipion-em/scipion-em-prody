@@ -46,6 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 from prody2.objects import SetOfGnmModes
+from prody2 import Plugin
 
 class ProDyGNM(EMProtocol):
     """
@@ -144,7 +145,7 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
-        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
+        args = '{0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
                '-o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                               self._getPath(), n,
                                                               self.gamma.get(),
@@ -160,7 +161,7 @@ class ProDyGNM(EMProtocol):
         if self.membrane.get():
             args += ' --membrane'
 
-        self.runJob('prody', args)
+        self.runJob(Plugin.getProgram('gnm'), args)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
