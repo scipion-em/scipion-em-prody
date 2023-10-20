@@ -38,7 +38,7 @@ class TestProDyMembrane(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def testProDyMembrane(self):
+    def testProDyMembrane(cls):
         """ Run membrane ANM and GNM for 3kg2 downloaded from OPM"""
 
         # --------------------------------------------------------------
@@ -46,34 +46,34 @@ class TestProDyMembrane(TestWorkflow):
         # --------------------------------------------------------------
 
         # Select Chain A
-        protBM = self.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
+        protBM = cls.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
         protBM.pdbId.set("2NWL")
         protBM.setObjLabel('Biomol_2NWL-opm')
-        self.launchProtocol(protBM)
+        cls.launchProtocol(protBM)
 
         # ------------------------------------------------
         # Step 2. Select CA
         # ------------------------------------------------
         # Select Calpha atoms
-        protSel = self.newProtocol(ProDySelect, selection="name CA",
+        protSel = cls.newProtocol(ProDySelect, selection="name CA",
                                    inputPdbData=2) # import from pointer
         protSel.inputStructure.set(protBM.outputStructures)
         protSel.inputStructure.setExtended(1)
         protSel.setObjLabel('Sel_2NWL-opm_CA')
-        self.launchProtocol(protSel)
+        cls.launchProtocol(protSel)
 
         # --------------------------------------------------------------
         # Step 3. Membrane ANM
         # --------------------------------------------------------------
-        protANM = self.newProtocol(ProDyANM, membrane=True)
+        protANM = cls.newProtocol(ProDyANM, membrane=True)
         protANM.inputStructure.set(protSel.outputStructure)
         protANM.setObjLabel('exANM_2NWL')
-        self.launchProtocol(protANM)
+        cls.launchProtocol(protANM)
 
         # --------------------------------------------------------------
         # Step 4. Membrane GNM
         # --------------------------------------------------------------
-        protGNM = self.newProtocol(ProDyGNM, membrane=True)
+        protGNM = cls.newProtocol(ProDyGNM, membrane=True)
         protGNM.inputStructure.set(protSel.outputStructure)
         protGNM.setObjLabel('exGNM_2NWL')
-        self.launchProtocol(protGNM)
+        cls.launchProtocol(protGNM)
