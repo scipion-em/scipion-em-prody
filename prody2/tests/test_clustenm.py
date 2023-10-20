@@ -38,7 +38,7 @@ class TestProDyClustENM(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def testProDyClustENM(self):
+    def testProDyClustENM(cls):
         """ Run ClustENM for one and both chains of 4ake, test single and multi input options """
 
         # --------------------------------------------------------------
@@ -46,36 +46,36 @@ class TestProDyClustENM(TestWorkflow):
         # --------------------------------------------------------------
 
         # Select Chain A
-        protSelA = self.newProtocol(ProDySelect, selection="protein and chain A", 
+        protSelA = cls.newProtocol(ProDySelect, selection="protein and chain A",
                                     inputPdbData=0)
         protSelA.pdbId.set("4ake")
         protSelA.setObjLabel('Sel_4akeA')
-        self.launchProtocol(protSelA)
+        cls.launchProtocol(protSelA)
 
         # Select Chain A
-        protSelB = self.newProtocol(ProDySelect, selection="protein and chain A", 
+        protSelB = cls.newProtocol(ProDySelect, selection="protein and chain A",
                                     inputPdbData=0)
         protSelB.pdbId.set("1ake")
         protSelB.setObjLabel('Sel_1akeA')
-        self.launchProtocol(protSelB)
+        cls.launchProtocol(protSelB)
 
         # --------------------------------------------------------------
         # Step 2. ClustENM with 4ake A and maxclust
         # --------------------------------------------------------------
-        protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=2, 
-                                         clusterMode=0, maxclust='(2, 3)',
-                                         n_confs=5, sim=False, outlier=True)
-        protClustenm1.inputStructure.set([protSelA.outputStructure])
+        protClustenm1 = cls.newProtocol(ProDyClustENM, n_gens=2,
+                                        clusterMode=0, maxclust='(2, 3)',
+                                        n_confs=5, sim=False, outlier=True)
+        protClustenm1.inputStructures.set([protSelA.outputStructure])
         protClustenm1.setObjLabel('ClustENM_4akeA')
-        self.launchProtocol(protClustenm1)
+        cls.launchProtocol(protClustenm1)
 
         # --------------------------------------------------------------
         # Step 3. ClustENM with both structures and rmsd threshold
         # --------------------------------------------------------------
-        protClustenm2 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold='1.',
-                                         n_confs=2, sim=False, outlier=True)
-        protClustenm2.inputStructure.set([protSelA.outputStructure,
-                                          protSelB.outputStructure])
+        protClustenm2 = cls.newProtocol(ProDyClustENM, n_gens=1,
+                                        clusterMode=1, threshold='1.',
+                                        n_confs=2, sim=False, outlier=True)
+        protClustenm2.inputStructures.set([protSelA.outputStructure,
+                                           protSelB.outputStructure])
         protClustenm2.setObjLabel('ClustENM_2_structs')
-        self.launchProtocol(protClustenm2)
+        cls.launchProtocol(protClustenm2)
