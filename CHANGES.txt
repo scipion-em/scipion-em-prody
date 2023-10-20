@@ -1,3 +1,10 @@
+20 October 2023
+    1. Overhauled installation to install ProDy itself in scipion3 env 
+    and also ProDy, OpenMM, PDBFixer and TEMPy in its own env with activation for apps
+
+16 October
+    General improvements to ensemble analysis
+
 13 August 2023 - major release v3.3.0
     Substantial integration and improvements of everything:
     1. Improved ensembles and alignments including custom chain matching

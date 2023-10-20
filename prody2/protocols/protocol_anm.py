@@ -51,6 +51,8 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 
+from prody2 import Plugin
+
 class ProDyANM(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
@@ -188,12 +190,12 @@ class ProDyANM(EMProtocol):
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
+        args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
             '--npz -o {1} -p modes -n {2} -g {3} -c "{4}" -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
+                                                                         self._getPath(), n,
+                                                                         self.gamma.get(),
+                                                                         self.cutoff.get(),
+                                                                         self.numberOfThreads.get())
 
         if self.sparse.get():
             args += ' --sparse-hessian'
@@ -216,7 +218,7 @@ class ProDyANM(EMProtocol):
         else:
             filename = 'modes.anm.npz'
 
-        self.runJob('prody', args)
+        self.runJob(Plugin.getProgram('anm'), args)
 
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'

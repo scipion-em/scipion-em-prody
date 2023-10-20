@@ -46,6 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble
 from prody2.constants import FRACT_VARS
+from prody2 import Plugin
 
 import prody
 import matplotlib.pyplot as plt
