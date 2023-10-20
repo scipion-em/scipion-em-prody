@@ -32,6 +32,7 @@ from pyworkflow.tests import setupTestProject
 from prody2.protocols import (ProDySelect, ProDyClustENM)
 
 from prody.tests.datafiles import pathDatafile
+import prody
 
 class TestProDyClustenmFit(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -64,4 +65,14 @@ class TestProDyClustenmFit(TestWorkflow):
         protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
         cls.launchProtocol(protClustenm3)
 
+        stderr = open(protClustenm3._getLogsPath('run.stderr'), 'r')
+        lines = stderr.readlines()
+        stderr.close()
 
+        cc = []
+        for line in lines:
+            if line.find('CC') != -1:
+                cc.append(float(line.split()[4]))
+
+        cls.assertTrue(cc[-1] > cc[0],
+                       "Best last CC should be more than starting CC")
