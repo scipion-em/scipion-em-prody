@@ -1,6 +1,7 @@
 20 October 2023
     1. Overhauled installation to install ProDy itself in scipion3 env 
     and also ProDy, OpenMM, PDBFixer and TEMPy in its own env with activation for apps
+    2. Added new ClustENM fitting based on MDeNMD-EMFit
 
 16 October
     General improvements to ensemble analysis
