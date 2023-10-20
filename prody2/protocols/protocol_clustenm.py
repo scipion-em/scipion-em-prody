@@ -235,7 +235,9 @@ class ProDyClustENM(EMProtocol):
             if len(self.volumes) != 0:
                 logger.warning("Ignoring volumes as the number of them does not match structures.")
             self.volumes = None
-
+        
+        if len(pdbs) == 1 and len(self.volumes) > 1:
+            pdbs = [pdbs[0] for _ in self.volumes]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
