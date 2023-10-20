@@ -56,10 +56,12 @@ class TestProDyClustenmFit(TestWorkflow):
         cls.launchProtocol(cls.protImportVol)
 
         # Run ClustENM fitting
-        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=4, numberOfModes=32,
-                                        clusterMode=1, threshold='1.',
-                                        n_confs=30, sim=False, doFitting=True)
+        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
+                                        clusterMode=1, threshold='1.5',
+                                        n_confs=20, sim=False, doFitting=True)
         protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
         protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
         protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
         cls.launchProtocol(protClustenm3)
+
+
