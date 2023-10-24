@@ -345,6 +345,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             if self.refType.get() == STRUCTURE:
                 self.tars = [ref] + self.tars
+                refLabel = ref.getTitle()
                 ref=0
                 
             tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
@@ -354,6 +355,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             else:
                 self.matchDic = self.createMatchDic("1")
                 self.labels = list(self.matchDic.keys())
+                if self.refType.get() == STRUCTURE:
+                    self.labels = [refLabel] + self.labels
 
             for i, label in enumerate(self.labels):
                 if label.endswith(" Selection 'name CA'"):
