@@ -247,7 +247,7 @@ class ProDyPCA(ProDyModesBase):
         for i, item in enumerate(nmSet):
             self.fractVarsDict[item.getObjId()] = self.fract_vars[i]
 
-        outSet = SetOfPrincipalComponents().create(self._getExtraPath())
+        outSet = SetOfPrincipalComponents().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
 
         inputPdb = self.averageStructure
