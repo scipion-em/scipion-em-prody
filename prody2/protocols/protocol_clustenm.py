@@ -300,7 +300,7 @@ class ProDyClustENM(EMProtocol):
         self.runJob(Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
-        for filename in os.listdir(os.path.join(direc, 'pdbs')):
+        for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
