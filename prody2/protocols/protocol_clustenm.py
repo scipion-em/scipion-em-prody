@@ -56,7 +56,8 @@ class ProDyClustENM(EMProtocol):
     This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
     _label = 'ClustENM(D)'
-    _possibleOutputs = {'outputTraj1': SetOfAtomStructs}
+    _possibleOutputs = {'outputStructures1': SetOfAtomStructs,
+                        'outputNpz1': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
