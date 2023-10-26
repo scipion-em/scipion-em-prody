@@ -141,11 +141,16 @@ class Plugin(pwem.Plugin):
                            vars=installEnvVars)            
 
     @classmethod
-    def getProgram(cls, program):
+    def getProgram(cls, program, script=False):
         """ Create ProDy command line. """
-        fullProgram = '%s %s && prody %s' % (
-            cls.getCondaActivationCmd(), cls.getEnvActivation(),
-            program)
+        if script:
+            fullProgram = '%s %s && python %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                PRODY_SCRIPTS+'/'+program)
+        else:
+            fullProgram = '%s %s && prody %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                program)
 
         return fullProgram
 
