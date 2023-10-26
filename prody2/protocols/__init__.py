@@ -23,10 +23,5 @@ from .protocol_project import ProDyProject
 from .protocol_rmsd import ProDyRmsd
 from .protocol_measure import ProDyMeasure
 
-try:
-    from prody import addMissingAtoms
-    from pdbfixer import PDBFixer
-except ImportError:
-    pass
-else:
-    from .protocol_pdbfixer import ProDyPDBFixer
+from .protocol_pdbfixer import ProDyPDBFixer
+from .protocol_clustenm import ProDyClustENM
