@@ -117,7 +117,7 @@ class Plugin(pwem.Plugin):
             # Flag installation finished
             installCmd.append('touch %s' % PRODY_INSTALLED)
 
-            prodyCommands.append((" ".join(installCmd), PRODY_INSTALLED))
+            prodyCommands.append((" ".join(installCmd.copy()), PRODY_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
