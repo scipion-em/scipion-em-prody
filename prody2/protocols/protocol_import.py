@@ -37,7 +37,9 @@ from pwem.objects import (String, AtomStruct, SetOfAtomStructs, EMFile,
 from pwem.protocols import ProtImportFiles
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.constants import ENSEMBLE_WEIGHTS
 
+import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
 
 import prody
@@ -306,6 +308,8 @@ class ProDyImportEnsemble(ProtImportFiles):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
+        self.weights = None
+
         if self.importFrom.get() == 0:
             filesPaths = self.getMatchFiles()
             folderPath = os.path.split(filesPaths[0])[0]
@@ -330,11 +334,14 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.atoms = self.outEns.getAtoms()
         else:
             point = self.importPointer.get()
+
             if isinstance(point, ProDyNpzEnsemble):
+                self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
                 self.outEns = point.loadEnsemble()
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, SetOfAtomStructs):
+                self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
                 self.ags = prody.parsePDB([struct.getFileName() for struct in point])
                 self.outEns = prody.PDBEnsemble()
                 self.outEns.setCoords(self.ags[0])
@@ -346,10 +353,14 @@ class ProDyImportEnsemble(ProtImportFiles):
             elif isinstance(point, AtomStruct):
                 self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
                 self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
             else:
                 # only activated if we can use MDSystem
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
                 self.atoms = prody.parsePDB(point.getSystemFile())
+
+        if self.weights is None:
+            self.weights = list(np.ones(self.outEns.numConfs()))
 
         selstr = self.selstr.get()
 
@@ -398,6 +409,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                 filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
                 prody.writePDB(filename, atoms)
                 pdb = AtomStruct(filename)
+                setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
                 self.pdbs.append(pdb)
 
         if self.writeDCDFile.get():
@@ -407,8 +419,10 @@ class ProDyImportEnsemble(ProtImportFiles):
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        for j in range(self.outEns.numConfs()):
-            self.npz.append(TrajFrame((j+1, self.filename)))
+        for i in range(self.outEns.numConfs()):
+            frame = TrajFrame((i+1, self.filename))
+            setattr(frame, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
+            self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
