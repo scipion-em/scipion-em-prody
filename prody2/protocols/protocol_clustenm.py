@@ -213,6 +213,9 @@ class ProDyClustENM(EMProtocol):
                       condition=fittingCondition,
                       label="Resolution for simulated volumes (A)",
                       help='Resolution (A) for simulating volumes to compare against the target')
+        form.addParam('replaceFiltered', BooleanParam, default=False, condition=fittingCondition,
+                      label="Whether to sample again to replace filtered conformations?",
+                      help="If selected, this will sample and filter structures repeatedly until the selected number are kept")
         form.addParam('mapCutoff', FloatParam, default=0.1,
                       expertLevel=LEVEL_ADVANCED,
                       condition=fittingCondition,
@@ -291,6 +294,8 @@ class ProDyClustENM(EMProtocol):
             args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
                                                                                  self.fitResolution.get(),
                                                                                  self.mapCutoff.get())
+            if self.replaceFiltered.get():
+                args += ' --replace_filtered'
 
         self.runJob(Plugin.getProgram('clustenm'), args)
 
