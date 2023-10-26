@@ -29,6 +29,7 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyPDBFixer)
+import prody
 
 class TestProDyFixer(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -60,3 +61,6 @@ class TestProDyFixer(TestWorkflow):
         protFix.setObjLabel('fix_3hsyA')
         cls.launchProtocol(protFix)
 
+        ag = prody.parsePDB(protFix.outputStructure.getFileName())
+        cls.assertTrue(ag.numAtoms() == 5576,
+                        "After fixing, 3hsy A should have 5576 atoms, not {0}".format(ag.numAtoms()))
