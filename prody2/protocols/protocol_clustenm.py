@@ -226,18 +226,19 @@ class ProDyClustENM(EMProtocol):
         # Insert processing steps
         pdbs = [struct.get().getFileName() for struct in self.inputStructures]
 
-        if self.inputVolumes is not None:
-            self.volumes = [vol.get().getFileName() for vol in self.inputVolumes]
-        else:
-            self.volumes = []
+        if self.doFitting.get():
+            if self.inputVolumes is not None:
+                self.volumes = [vol.get().getFileName() for vol in self.inputVolumes]
+            else:
+                self.volumes = []
 
-        if len(self.volumes) < len(pdbs) and len(self.volumes) != 1:
-            if len(self.volumes) != 0:
-                logger.warning("Ignoring volumes as the number of them does not match structures.")
-            self.volumes = None
-        
-        if len(pdbs) == 1 and len(self.volumes) > 1:
-            pdbs = [pdbs[0] for _ in self.volumes]
+            if len(self.volumes) < len(pdbs) and len(self.volumes) != 1:
+                if len(self.volumes) != 0:
+                    logger.warning("Ignoring volumes as the number of them does not match structures.")
+                self.volumes = None
+            
+            if len(pdbs) == 1 and len(self.volumes) > 1:
+                pdbs = [pdbs[0] for _ in self.volumes]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
@@ -285,7 +286,7 @@ class ProDyClustENM(EMProtocol):
         else:
             args += ' --no-outlier'
 
-        if self.volumes is not None:
+        if self.doFitting.get():
             args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
                                                                                  self.fitResolution.get(),
                                                                                  self.mapCutoff.get())
