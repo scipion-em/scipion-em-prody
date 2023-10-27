@@ -30,50 +30,45 @@ from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDyBiomol, ProDySelect, ProDyANM, ProDyGNM)
 
-class TestProDyMembrane(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
-
+class TestProDyMembraneANM(TestWorkflow):
     @classmethod
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
+        importBiomols(cls)
+        selectCalpha(cls)
 
-    def testProDyMembrane(cls):
-        """ Run membrane ANM and GNM for 3kg2 downloaded from OPM"""
-
-        # --------------------------------------------------------------
-        # Step 1. Import 3kg2 biologically relevant assembly in membrane
-        # --------------------------------------------------------------
-
-        # Select Chain A
-        protBM = cls.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
-        protBM.pdbId.set("2NWL")
-        protBM.setObjLabel('Biomol_2NWL-opm')
-        cls.launchProtocol(protBM)
-
-        # ------------------------------------------------
-        # Step 2. Select CA
-        # ------------------------------------------------
-        # Select Calpha atoms
-        protSel = cls.newProtocol(ProDySelect, selection="name CA",
-                                   inputPdbData=2) # import from pointer
-        protSel.inputStructure.set(protBM.outputStructures)
-        protSel.inputStructure.setExtended(1)
-        protSel.setObjLabel('Sel_2NWL-opm_CA')
-        cls.launchProtocol(protSel)
-
-        # --------------------------------------------------------------
-        # Step 3. Membrane ANM
-        # --------------------------------------------------------------
+    def testProDyMembraneANM(cls):
         protANM = cls.newProtocol(ProDyANM, membrane=True)
-        protANM.inputStructure.set(protSel.outputStructure)
+        protANM.inputStructure.set(cls.protSel.outputStructure)
         protANM.setObjLabel('exANM_2NWL')
         cls.launchProtocol(protANM)
 
-        # --------------------------------------------------------------
-        # Step 4. Membrane GNM
-        # --------------------------------------------------------------
+class TestProDyMembraneGNM(TestWorkflow):
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importBiomols(cls)
+        selectCalpha(cls)
+
+    def testMemGNM(cls):
         protGNM = cls.newProtocol(ProDyGNM, membrane=True)
-        protGNM.inputStructure.set(protSel.outputStructure)
+        protGNM.inputStructure.set(cls.protSel.outputStructure)
         protGNM.setObjLabel('exGNM_2NWL')
         cls.launchProtocol(protGNM)
+
+
+def importBiomols(cls):
+    cls.protBM = cls.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
+    cls.protBM.pdbId.set("2NWL")
+    cls.protBM.setObjLabel('Biomol_2NWL-opm')
+    cls.launchProtocol(cls.protBM)
+
+def selectCalpha(cls):
+    cls.protSel = cls.newProtocol(ProDySelect, selection="name CA",
+                                inputPdbData=2) # import from pointer
+    cls.protSel.inputStructure.set(cls.protBM.outputStructures)
+    cls.protSel.inputStructure.setExtended(1)
+    cls.protSel.setObjLabel('Sel_2NWL-opm_CA')
+    cls.launchProtocol(cls.protSel)

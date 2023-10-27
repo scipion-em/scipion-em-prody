@@ -32,35 +32,26 @@ from prody2.protocols import (ProDySelect, ProDyPDBFixer)
 import prody
 
 class TestProDyFixer(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
-
     @classmethod
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
+        importSelect(cls)
 
     def testProDyFixer(cls):
-        """ Run membrane ANM and GNM for 3kg2 downloaded from OPM"""
-
-        # --------------------------------------------------------------
-        # Step 1. Import 3hsy and select chain A
-        # --------------------------------------------------------------
-
-        # Select Chain A
-        protSel = cls.newProtocol(ProDySelect, selection="protein and chain A",
-                                    inputPdbData=0)
-        protSel.pdbId.set("3hsy")
-        protSel.setObjLabel('sel_3hsyA')
-        cls.launchProtocol(protSel)
-
-        # --------------------------------------------------------------
-        # Step 3. Membrane ANM
-        # --------------------------------------------------------------
         protFix = cls.newProtocol(ProDyPDBFixer)
-        protFix.inputStructure.set(protSel.outputStructure)
+        protFix.inputStructure.set(cls.protSel.outputStructure)
         protFix.setObjLabel('fix_3hsyA')
         cls.launchProtocol(protFix)
 
         ag = prody.parsePDB(protFix.outputStructure.getFileName())
         cls.assertTrue(ag.numAtoms() == 5576,
                         "After fixing, 3hsy A should have 5576 atoms, not {0}".format(ag.numAtoms()))
+
+
+def importSelect(cls):
+    cls.protSel = cls.newProtocol(ProDySelect, selection="protein and chain A",
+                              inputPdbData=0)
+    cls.protSel.pdbId.set("3hsy")
+    cls.protSel.setObjLabel('sel_3hsyA')
+    cls.launchProtocol(cls.protSel)
