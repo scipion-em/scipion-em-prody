@@ -44,8 +44,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         PathParam, MultiPointerParam, LEVEL_ADVANCED)
 
 import prody
-import logging
-logger = logging.getLogger(__name__)
+from pyworkflow.utils import logger
 
 from prody2 import Plugin
 

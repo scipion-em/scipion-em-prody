@@ -3,8 +3,7 @@ import os
 import prody
 from pwem.objects import (EMObject, EMSet, Pointer, Integer,
                           String, SetOfNormalModes)
-import logging
-logger = logging.getLogger(__name__)
+from pyworkflow.utils import logger
 
 try:
     from pwem.objects import TrajFrame, SetOfTrajFrames

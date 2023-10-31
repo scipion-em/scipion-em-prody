@@ -34,15 +34,11 @@ import numpy as np
 
 from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
 
-from pyworkflow.utils import glob
+from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         FloatParam, IntParam, LEVEL_ADVANCED)
 
 import prody
-
-import logging
-logger = logging.getLogger(__name__)
-
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 NMA_SLICE = 0

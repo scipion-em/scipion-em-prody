@@ -48,8 +48,7 @@ from prody2 import Plugin
 IMP = 0
 EXP = 1
 
-import logging
-logger = logging.getLogger(__name__)
+from pyworkflow.utils import logger
 
 class ProDyClustENM(EMProtocol):
     """
