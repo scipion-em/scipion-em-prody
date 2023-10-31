@@ -374,5 +374,5 @@ class TestProDyCore(TestWorkflow):
         ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
         cls.assertTrue(ag.numResidues() == 456,
                         "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 1,
-                        "1ake biomol 1 should have 1 chain, not {0}".format(ag.numChains()))
+        cls.assertTrue(ag.numChains() == 3,
+                        "1ake biomol 3 should have 3 chains, not {0}".format(ag.numChains()))
