@@ -75,10 +75,10 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(exists(protSel1._getPath("4ake_atoms.pdb")))
         cls.assertTrue(hasattr(protSel1, "outputStructure"))
 
-        # Select chain C to show it doesn't work
-        protSel1a = cls.newProtocol(ProDySelect, selection="chain C")
+        # Select chain E to show it doesn't work
+        protSel1a = cls.newProtocol(ProDySelect, selection="chain E")
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        protSel1a.setObjLabel('Sel 4ake_E_pointer')
         cls.launchProtocol(protSel1a)
 
         cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
