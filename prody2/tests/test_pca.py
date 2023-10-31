@@ -45,7 +45,7 @@ from prody2.protocols.protocol_import import SCIPION
 import prody
 
 class TestProDyPCA(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
+    """ Test protocol for ProDy Ensemble and Principal Component Analysis"""
 
     @classmethod
     def setUpClass(cls):
