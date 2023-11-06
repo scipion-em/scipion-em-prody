@@ -95,15 +95,20 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       pointerClass='AtomStruct,SetOfAtomStructs', allowsNull=True,
                       help='The structures to be aligned must be atomic models.')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure. Default is **False**.')
+
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
                       condition=inputTypeCheck % INDEX,
                       help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
 
         form.addParam('degeneracy', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED, 
+                      expertLevel=LEVEL_ADVANCED,
                       label="Take only first conformation from each structure/set",
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
-                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
+                           '(**False**) of each structure should be added to the ensemble. Default is **False**.')
 
         form.addParam('lenCutoff', StringParam, label="length cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
@@ -258,7 +263,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         # handle inputs
         if self.refType.get() == STRUCTURE:
-            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
+            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
+                                 unite_chains=self.uniteChains.get())
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
@@ -310,13 +316,16 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if idstr not in self.pdbs:
                 self.pdbs.insert(0, idstr)
 
-        self.tars = prody.parsePDB(self.pdbs, alt='all')
-        if isinstance(self.tars, prody.Atomic):
-            nModels = self.tars.numCoordsets()
-            self.tars = []
-            for i in range(nModels):
-                self.tars.append(prody.parsePDB(self.pdbs, alt='all',
-                                                model=i+1))
+        if not hasattr(self, "tars"):
+            self.tars = prody.parsePDB(self.pdbs, alt='all',
+                                        unite_chains=self.uniteChains.get())
+            if isinstance(self.tars, prody.Atomic):
+                nModels = self.tars.numCoordsets()
+                self.tars = []
+                for i in range(nModels):
+                    self.tars.append(prody.parsePDB(self.pdbs, alt='all',
+                                                    model=i+1,
+                                                    unite_chains=self.uniteChains.get()))
 
         if self.inputType.get() == STRUCTURE:
             if self.matchFunc.get() == BEST_MATCH:
@@ -501,6 +510,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 pdbs.append(obj.get().getFileName())
             else:
                 pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+
+        self.tars = prody.parsePDB(pdbs, alt='all',
+                                   unite_chains=self.uniteChains.get())
         
         self.matchDic = eval(self.chainOrders.get())
         self.labels = list(self.matchDic.keys())
