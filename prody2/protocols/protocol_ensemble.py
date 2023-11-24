@@ -503,20 +503,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.refType.get() == STRUCTURE:
-            structures = [self.refStructure] + self.structures
-        else:
-            structures = self.structures
-
-        pdbs = []
-        for _, obj in enumerate(structures):
-            if isinstance(obj.get(), AtomStruct):
-                pdbs.append(obj.get().getFileName())
-            else:
-                pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-        
-        tars = prody.parsePDB(pdbs)
-        
         if self.chainOrders.get().strip() != "":
             self.matchDic = eval(self.chainOrders.get())
             self.labels = list(self.matchDic.keys())
@@ -528,6 +514,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # reinitialise to update with new keys
         # that are still ordered correctly
         self.matchDic = OrderedDict()
+
+        if self.labels == []:
+            if self.refType.get() == STRUCTURE:
+                structures = [self.refStructure] + self.structures
+            else:
+                structures = self.structures
+
+            pdbs = []
+            for _, obj in enumerate(structures):
+                if isinstance(obj.get(), AtomStruct):
+                    pdbs.append(obj.get().getFileName())
+                else:
+                    pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+            
+            tars = prody.parsePDB(pdbs)
+        else:
+            tars = self.tars
 
         titles = [ag.getTitle() for ag in tars]
         _, counts = np.unique(np.array(titles), return_counts=True)
