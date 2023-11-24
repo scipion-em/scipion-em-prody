@@ -46,7 +46,19 @@ class ProDyAddChainOrderWizard(VariableWizard):
         inputParam, outputParam = self.getInputOutput(form)
         protocol = form.protocol
         index = getattr(protocol, inputParam[0]).get()
-        matchDic = protocol.createMatchDic(index)
+
+        noLabel = True
+        try:
+            label = getattr(protocol, inputParam[1]).get()
+            matchDic = protocol.createMatchDic(index, label)
+        except IndexError:
+            raise IndexError("no input param 1")
+        else:
+            noLabel = False
+
+        if noLabel:
+            matchDic = protocol.createMatchDic(index)
+            
         form.setVar(outputParam[0], str(matchDic).replace('),', '),\n' + ' '*20))
 
 
@@ -56,9 +68,9 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,
                                      outputs=['chainOrders'])
 
 ProDyAddChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
-                             targets=['insertOrder'],
-                             inputs=['insertOrder'],
-                             outputs=['chainOrders'])
+                                     targets=['insertOrder'],
+                                     inputs=['insertOrder', 'label'],
+                                     outputs=['chainOrders'])
 
 class ProDyRecoverChainOrderWizard(VariableWizard):
     """Watch the parameters of the step of the workflow defined by the index"""
