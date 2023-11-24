@@ -532,23 +532,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             tars = self.tars
 
-        titles = [ag.getTitle() for ag in tars]
-        _, counts = np.unique(np.array(titles), return_counts=True)
-          
-        inds = [item-1 for item in getListFromRangeString(index)]
-        for idx, ag in enumerate(tars):
-            if idx in inds or counts[idx] > 1:
-                if label == "":
-                    label = titles[idx]
+            titles = [ag.getTitle() for ag in tars]
+            _, counts = np.unique(np.array(titles), return_counts=True)
+            
+            inds = [item-1 for item in getListFromRangeString(index)]
+            for idx, ag in enumerate(tars):
+                if idx in inds or counts[idx] > 1:
+                    if label == "":
+                        label = titles[idx]
 
-                if len(inds) == 1:
-                    ag.setTitle(label)
-                else:
-                    ag.setTitle(label + str(inds.index(idx)))
+                    if len(inds) == 1:
+                        ag.setTitle(label)
+                    else:
+                        ag.setTitle(label + str(inds.index(idx)))
 
-            title = ag.getTitle()
-            self.labels.append(title)
-            self.orders.append(self.getInitialChainOrder(ag))
+                title = ag.getTitle()
+                self.labels.append(title)
+                self.orders.append(self.getInitialChainOrder(ag))
 
         self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
