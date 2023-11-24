@@ -89,8 +89,8 @@ class TestProDyPCA(TestWorkflow):
         # Select dimer and CA
         protSel1 = self.newProtocol(ProDySelect, selection="chain B D and name CA")
         protSel1.inputStructure.set(protImportPdb4.outputPdb)
-        protSel1.setObjLabel('Sel 3p3w_BD_ca') # parallel
-        self.launchProtocol(protSel1)
+        protSel1.setObjLabel('Sel 3p3w_BD_ca') # intermediate
+        cls.launchProtocol(protSel1)
 
         protSel2 = self.newProtocol(ProDySelect, selection="chain A C and name CA")
         protSel2.inputStructure.set(protImportPdb2.outputPdb)
@@ -102,6 +102,11 @@ class TestProDyPCA(TestWorkflow):
         protSel3.setObjLabel('Sel 6flr_ca') # open
         self.launchProtocol(protSel3)
 
+        protSel4 = cls.newProtocol(ProDySelect, selection="chain C D and name CA")
+        protSel4.inputStructure.set(protImportPdb1.outputPdb)
+        protSel4.setObjLabel('Sel 3o21_CD_ca') # parallel
+        cls.launchProtocol(protSel4)
+
         # -----------------------------------------------------------
         # Step 2. Import set of atom structs from existing selections
         # -----------------------------------------------------------
@@ -112,16 +117,10 @@ class TestProDyPCA(TestWorkflow):
         self.launchProtocol(protSetAS)
 
         # -------------------------------------------------------------------------
-        # Step 3a. last CA selection (3o21_CD) -> buildPDBEns from SetOfAtomStructs
-        # with atom struct ref from last CA selection -> PCA 1
+        # Step 3a. buildPDBEns from SetOfAtomStructs with atom struct ref -> PCA 1
         # -------------------------------------------------------------------------
 
-        protSel4 = self.newProtocol(ProDySelect, selection="chain C D and name CA")
-        protSel4.inputStructure.set(protImportPdb1.outputPdb)
-        protSel4.setObjLabel('Sel 3o21_CD_ca') # intermediate
-        self.launchProtocol(protSel4)
-
-        protEns1 = self.newProtocol(ProDyBuildPDBEnsemble, refType=0,
+        protEns1 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=0,
                                     matchFunc=0)
         protEns1.structures.set([protSetAS.outputAtomStructs])
         protEns1.refStructure.set(protSel4.outputStructure)
