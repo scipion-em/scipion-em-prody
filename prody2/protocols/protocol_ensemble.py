@@ -204,7 +204,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                        condition=matchFuncCheck % CUSTOM,
                        label='Insert custom match order number',
                        help='Insert the chain order with the specified index into the match list.\n'
-                            'The default (when empty) is the last position')
+                            'The default (when empty) is the last position.\n'
+                            'If the reference is a structure then that is structure 1.')
         
         group.addParam('customOrder', StringParam, default='',
                        condition=matchFuncCheck % CUSTOM,
@@ -213,7 +214,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                             'The default (when empty) is the current chain order in the form. '
                             'The initial value is the order in the structure file.')
         
-        group.addParam('label', StringParam, default='', readOnly=True,
+        group.addParam('label', StringParam, default='',
                        condition=matchFuncCheck % CUSTOM,
                        label='Label for item with the specified number for recovering custom match',
                        help='This cannot be changed by the user and is for display only.')
@@ -277,10 +278,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             for i, obj in enumerate(self.structures):
                 if isinstance(obj.get(), AtomStruct):
                     self.pdbs.append(obj.get().getFileName())
-                    self.weights.append(obj.getAttributeValue(ENSEMBLE_WEIGHTS))
+                    self.weights.append(obj.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
                 else:
                     self.pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-                    self.weights.extend([tarStructure.getAttributeValue(ENSEMBLE_WEIGHTS) for tarStructure in obj.get()])
+                    self.weights.extend([tarStructure.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1) for tarStructure in obj.get()])
+
+            if self.refType.get() == STRUCTURE:
+                self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
 
             if self.mapping.get() == DEFAULT:
                 mappings = 'auto'
@@ -343,10 +347,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             elif self.matchFunc.get() == SAME_POS:
                 matchFunc = prody.sameChainPos
                 logger.info('\nUsing sameChainPos\n')
-            else:
-                chmap = eval(self.chainOrders.get())
-                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
         
         atommaps = [] # output argument for collecting atommaps
 
@@ -358,20 +358,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           atommaps=atommaps,
                                           rmsd_reject=self.rmsdReject.get())
         else:
-            if self.refType.get() == STRUCTURE:
+            if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
+                # This will happen inside createMatchDic for CUSTOM
                 self.tars = [ref] + self.tars
-                refLabel = ref.getTitle()
                 ref=0
                 
-            tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
-
-            if self.matchFunc <= SAME_POS:
+            if self.matchFunc.get() < CUSTOM:
+                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
                 self.labels = [tar.getTitle() for tar in tars]
             else:
                 self.matchDic = self.createMatchDic("1")
                 self.labels = list(self.matchDic.keys())
-                if self.refType.get() == STRUCTURE:
-                    self.labels = [refLabel] + self.labels
+
+                chmap = self.matchDic
+                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+
+                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
 
             for i, label in enumerate(self.labels):
                 if label.endswith(" Selection 'name CA'"):
@@ -393,7 +396,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          match_func=matchFunc,
                                          atommaps=atommaps,
                                          rmsd_reject=self.rmsdReject.get(),
-                                         degeneracy=self.degeneracy.get())
+                                         degeneracy=self.degeneracy.get(),
+                                         labels=self.labels)
             
             if self.delReference.get():
                 ens.delCoordset(0)
@@ -423,8 +427,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
 
-        if self.weights is None:
-            self.weights = list(np.ones(self.outEns.numConfs()))
+        # if len(self.weights) == 0:
+        #     self.weights = list(np.ones(self.ens.numConfs()))
 
         if self.writePDBFiles.get():
             indices = ens.getIndices()
@@ -505,7 +509,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         self._defineOutputs(**outputs)
 
-    def createMatchDic(self, index):
+    def createMatchDic(self, index, label=""):
 
         # configure ProDy to automatically handle secondary structure information and verbosity
         oldSecondary = prody.confProDy("auto_secondary")
@@ -515,8 +519,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
+        if self.refType.get() == STRUCTURE:
+            structures = [self.refStructure] + self.structures
+        else:
+            structures = self.structures
+
         pdbs = []
-        for _, obj in enumerate(self.structures):
+        for _, obj in enumerate(structures):
             if isinstance(obj.get(), AtomStruct):
                 pdbs.append(obj.get().getFileName())
             else:
@@ -533,17 +542,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # that are still ordered correctly
         self.matchDic = OrderedDict()
 
-        if self.labels == []:
-            tars = prody.parsePDB(pdbs, alt='all')
-            for ag in tars:
-                title = ag.getTitle()
-                self.labels.append(title)
-                self.orders.append(self.getInitialChainOrder(ag))
-                
+        titles = [ag.getTitle() for ag in self.tars]
+        _, counts = np.unique(np.array(titles), return_counts=True)
+
+        inds = [item-1 for item in getListFromRangeString(index)]
+        for idx, ag in enumerate(self.tars):
+            if idx in inds or counts[idx] > 1:
+                if len(inds) == 1:
+                    ag.setTitle(label)
+                else:
+                    ag.setTitle(label + str(inds.index(idx)))
+
+            title = ag.getTitle()
+            self.labels.append(title)
+            self.orders.append(self.getInitialChainOrder(ag))
+
         self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
-
-        inds = list(np.array(getListFromRangeString(index)) - 1)
         
         for idx in inds:
             if self.customOrder.get() != '':
