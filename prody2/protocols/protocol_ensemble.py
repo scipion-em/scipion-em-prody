@@ -393,8 +393,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          degeneracy=self.degeneracy.get())
             
             if self.delReference.get():
-                ens.delCoordset(0)
-                self.tars.pop(0)
+                ens.delCoordset(ref)
+                self.tars.pop(ref)
 
         logger.info('\nUnmapped structures: {0}\n'.format(unmapped))
 
