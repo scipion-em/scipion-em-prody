@@ -263,6 +263,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
+        self.weights = []
         if self.inputType.get() == STRUCTURE:
             self.pdbs = []
             for i, obj in enumerate(self.structures):
