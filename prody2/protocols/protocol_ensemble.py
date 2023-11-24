@@ -48,6 +48,7 @@ import time
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
+from prody2.constants import ENSEMBLE_WEIGHTS
 
 STRUCTURE = 0
 INDEX = 1
