@@ -515,7 +515,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         tars = prody.parsePDB(pdbs)
         
-        if self.matchDic != "":
+        if self.chainOrders.get().strip() != "":
             self.matchDic = eval(self.chainOrders.get())
             self.labels = list(self.matchDic.keys())
             self.orders = list(self.matchDic.values())
