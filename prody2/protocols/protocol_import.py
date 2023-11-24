@@ -266,7 +266,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                       label='Pattern', condition=filesCondition,
                       help=filesPatternHelp)
 
-        form.addParam('inputStructure', params.PointerParam, label="Input structure",
+        form.addParam('inputStructure', params.PointerParam, label="Input structure", allowsNull=True,
                       pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model '
@@ -309,6 +309,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
         self.weights = None
+        self.atoms = None
 
         if self.importFrom.get() == 0:
             filesPaths = self.getMatchFiles()
@@ -325,20 +326,26 @@ class ProDyImportEnsemble(ProtImportFiles):
                 if not self.pattern1.endswith('.dcd'):
                     self.pattern1 += '.dcd'
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folderPath, self.pattern1)))
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif self.importType == ENS_NPZ:
                 if not self.pattern1.endswith('.ens.npz'):
                     self.pattern1 += '.ens.npz'
                 self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folderPath, self.pattern1)))
-                self.atoms = self.outEns.getAtoms()
+
+                if self.inputStructure.get() is not None:
+                    self.atoms = self.outEns.getAtoms()
         else:
             point = self.importPointer.get()
 
             if isinstance(point, ProDyNpzEnsemble):
                 self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
                 self.outEns = point.loadEnsemble()
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, SetOfAtomStructs):
                 self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
@@ -348,11 +355,13 @@ class ProDyImportEnsemble(ProtImportFiles):
                 for ag in self.ags:
                     self.outEns.addCoordset(ag)
 
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, AtomStruct):
                 self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             else:
                 # only activated if we can use MDSystem
