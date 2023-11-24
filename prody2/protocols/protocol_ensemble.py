@@ -516,8 +516,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         tars = prody.parsePDB(pdbs)
         
         self.matchDic = eval(self.chainOrders.get())
-        self.labels = list(self.matchDic.keys())
-        self.orders = list(self.matchDic.values())
+        if self.matchDic != "":
+            self.labels = list(self.matchDic.keys())
+            self.orders = list(self.matchDic.values())
+        else:
+            self.labels = []
+            self.orders = []
 
         # reinitialise to update with new keys
         # that are still ordered correctly
