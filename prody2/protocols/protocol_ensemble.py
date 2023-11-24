@@ -387,8 +387,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          labels=self.labels)
             
             if self.delReference.get():
-                ens.delCoordset(0)
-                self.tars.pop(0)
+                ens.delCoordset(ref)
+                self.tars.pop(ref)
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
