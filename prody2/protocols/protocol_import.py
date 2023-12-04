@@ -212,7 +212,7 @@ class ProDyImportEnsemble(ProtImportFiles):
     """
     This protocol will import and optionally trim a ProDy Ensemble
     """
-    _label = 'Import/Trim Ensemble'
+    _label = 'Import Ensemble'
     _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
                         'outputNpz': ProDyNpzEnsemble}
 
