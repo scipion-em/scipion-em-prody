@@ -221,34 +221,34 @@ class ProDyAlign(EMProtocol):
                            'or position in the list of chains.\n'
                            'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')
         
-        
-        group = form.addGroup('custom chain orders', condition='matchFunc == %d' % CUSTOM)
+        matchFuncCheck = 'matchFunc == %d'
+        group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
         
         group.addParam('chainOrders', TextParam, width=30, readOnly=True,
-                       condition='matchFunc == %d' % CUSTOM,
+                       condition=matchFuncCheck % CUSTOM,
                        label='Custom chain match list',
                        help='Defined order of chains from custom matching. \nManual modification will have no '
                             'effect, use the wizards to add / delete the entries')
         
         group.addParam('insertOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
-                       condition='matchFunc == %d' % CUSTOM,
+                       condition=matchFuncCheck % CUSTOM,
                        label='Insert custom match order number',
                        help='Insert the chain order with the specified index into the match list.\n'
                             'The default (when empty) is the last position')
         
         group.addParam('customOrder', StringParam, default='',
-                       condition='matchFunc == %d' % CUSTOM,
+                       condition=matchFuncCheck % CUSTOM,
                        label='Custom match order to insert at the specified number',
                        help='Enter the desired chain order here.\n'
                             'The default (when empty) is the chain order in the structure file')
         
         group.addParam('label', StringParam, default='', readOnly=True,
-                       condition='matchFunc == %d' % CUSTOM,
+                       condition=matchFuncCheck % CUSTOM,
                        label='Label for item with the specified number for custom match',
                        help='This cannot be changed by the user and is for display only.')
 
         group.addParam('recoverOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
-                       condition='matchFunc == %d' % CUSTOM,
+                       condition=matchFuncCheck % CUSTOM,
                        label='Recover custom match order number',
                        help='Enter the desired chain order here.\n'
                             'Recover the chain order with the specified index from the match list.')
