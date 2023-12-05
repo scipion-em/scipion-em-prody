@@ -225,7 +225,11 @@ class ProDyLDA(ProDyModesBase):
             self.warning(redStr(msg % (len(fnVec), numberOfModes, len(set(self.labels)))))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
+        collectivity = prody.calcCollectivity(self.outModes)
+        if isinstance(collectivity, float):
+            collectivityList = [collectivity]
+        else:
+            collectivityList = list(prody.calcCollectivity(self.outModes))
         eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
