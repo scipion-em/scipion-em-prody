@@ -180,6 +180,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if self.isProjection:
             modesPath = self.protocol.outputModes.getFileName()
             modes = prody.parseScipionModes(modesPath, parseIndices=True)
+            if isinstance(modes, prody.Mode):
+                vec = modes.getEigvec().reshape(-1, 1)
+                val = np.array([modes.getEigval()])
+                modes = prody.NMA()
+                modes.setEigens(vec, val)
         else:
             extraPath = self.protocol._getExtraPath()
             outFiles = os.listdir(extraPath)
