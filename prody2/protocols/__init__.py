@@ -20,6 +20,7 @@ from .protocol_pca import ProDyPCA
 from .protocol_project import ProDyProject
 from .protocol_rmsd import ProDyRmsd
 from .protocol_measure import ProDyMeasure
+from .protocol_lda import ProDyLDA
 
 from .protocol_pdbfixer import ProDyPDBFixer
 from .protocol_clustenm import ProDyClustENM
