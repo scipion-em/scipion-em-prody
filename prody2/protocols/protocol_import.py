@@ -41,6 +41,7 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
+from pyworkflow.utils import logger
 
 import prody
 from prody.dynamics.gnm import ZERO
@@ -333,7 +334,11 @@ class ProDyImportEnsemble(ProtImportFiles):
             elif self.importType == ENS_NPZ:
                 if not self.pattern1.endswith('.ens.npz'):
                     self.pattern1 += '.ens.npz'
-                self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folderPath, self.pattern1)))
+                self.outEns = prody.loadEnsemble(os.path.join(folderPath, self.pattern1))
+                if not isinstance(self.outEns, prody.PDBEnsemble):
+                    self.outEns = prody.PDBEnsemble(self.outEns)
+                if 'size' in self.outEns.getDataLabels():
+                    self.weights = self.outEns.getData('size')
 
                 if self.inputStructure.get() is not None:
                     self.atoms = self.outEns.getAtoms()
@@ -373,37 +378,40 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         selstr = self.selstr.get()
 
-        try:
-            # setAtoms then select and trim
-            self.outEns.setAtoms(self.atoms)
-            self.outEns.setAtoms(self.atoms.select(selstr))
-            self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-        except ValueError:
+        if self.atoms is not None:
             try:
-                # setAtoms with select directly then trim
+                # setAtoms then select and trim
+                self.outEns.setAtoms(self.atoms)
                 self.outEns.setAtoms(self.atoms.select(selstr))
                 self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
             except ValueError:
                 try:
-                    # select then trim then setAtoms
-                    self.outEns.select(selstr)
-                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                    # setAtoms with select directly then trim
                     self.outEns.setAtoms(self.atoms.select(selstr))
+                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
                 except ValueError:
-                    if hasattr(self, 'ags'):
-                        try:
-                            # setAtoms with first structure if available and trim 
-                            # then setAtoms with ref structure and trim again
-                            self.outEns.setAtoms(self.ags[0])
-                            self.outEns.setAtoms(self.ags[0].select(selstr))
-                            self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-                            self.outEns.setAtoms(self.atoms)
-                            self.outEns.setAtoms(self.atoms.select(selstr))
-                            self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-                        except ValueError:
+                    try:
+                        # select then trim then setAtoms
+                        self.outEns.select(selstr)
+                        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                        self.outEns.setAtoms(self.atoms.select(selstr))
+                    except ValueError:
+                        if hasattr(self, 'ags'):
+                            try:
+                                # setAtoms with first structure if available and trim
+                                # then setAtoms with ref structure and trim again
+                                self.outEns.setAtoms(self.ags[0])
+                                self.outEns.setAtoms(self.ags[0].select(selstr))
+                                self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                                self.outEns.setAtoms(self.atoms)
+                                self.outEns.setAtoms(self.atoms.select(selstr))
+                                self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                            except ValueError:
+                                raise ValueError("Reference structure should have same number of atoms as ensemble")
+                        else:
                             raise ValueError("Reference structure should have same number of atoms as ensemble")
-                    else:
-                        raise ValueError("Reference structure should have same number of atoms as ensemble")
+        else:
+            logger.warning("Reference structure not provided so selection will be ignored.")
 
         if self.superpose == YES_SUP:
             self.outEns.superpose()
@@ -429,7 +437,7 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for i in range(self.outEns.numConfs()):
-            frame = TrajFrame((i+1, self.filename))
+            frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i])
             setattr(frame, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
             self.npz.append(frame)
 
