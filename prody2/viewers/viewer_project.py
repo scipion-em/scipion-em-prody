@@ -200,7 +200,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
             if isinstance(ens, SetOfAtomStructs):
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
-                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
+                                                  overlap=0., superpose=False, mapping=None)
             else:
                 ensemble = ens.loadEnsemble()
 
