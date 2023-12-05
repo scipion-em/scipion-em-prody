@@ -201,10 +201,10 @@ class ProDyPCA(ProDyModesBase):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for atomic principal component analysis is "
+            msg += "the number of structures - 1 (%d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.ens.numConfs())))
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.outModes))
