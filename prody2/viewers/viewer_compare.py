@@ -208,7 +208,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
-                                        "Display the output Normal Modes to see "
+                                        "Display the output Modes to see "
                                         "the availables ones." % modeNumber,
                                         title="Invalid input")]
 
@@ -229,7 +229,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             if mode is None:
                 return [self.errorMessage("Invalid mode number *%d*\n"
-                                        "Display the output Normal Modes to see "
+                                        "Display the output Modes to see "
                                         "the availables ones." % modeNumber,
                                         title="Invalid input")]
 
