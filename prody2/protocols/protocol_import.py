@@ -340,8 +340,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                 if 'size' in self.outEns.getDataLabels():
                     self.weights = self.outEns.getData('size')
 
-                if self.inputStructure.get() is not None:
-                    self.atoms = self.outEns.getAtoms()
+                self.atoms = self.outEns.getAtoms()
         else:
             point = self.importPointer.get()
 
