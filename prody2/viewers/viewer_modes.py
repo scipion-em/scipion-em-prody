@@ -60,8 +60,6 @@ class ProDyModeViewer(Viewer):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        type_ = type(obj)
-
         if isinstance(obj, SetOfNormalModes):
             modes = obj
         else:

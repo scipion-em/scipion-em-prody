@@ -8,6 +8,7 @@ from .viewer_compare import ProDyComparisonsViewer
 from .viewer_gnm import ProDyGNMViewer
 from .viewer_domdec import ProDyDomainViewer
 from .viewer_project import ProDyProjectionsViewer
+from .viewer_ensemble import ProDyEnsembleViewer
 
 from pwem.viewers import DataViewer
 from prody2.objects import SetOfTrajFrames
