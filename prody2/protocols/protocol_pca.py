@@ -96,6 +96,8 @@ class ProDyPCA(ProDyModesBase):
                       label="Selection string",
                       help='Selection string for atoms to include in the calculation.\n'
                            'It is recommended to use "name CA" (default)')
+        form.addParam('keepAlignment', BooleanParam, default=True,
+                      label="Keep alignment", help="The alternative is to realign the structures")
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=2,
@@ -176,13 +178,17 @@ class ProDyPCA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        self.runJob(Plugin.getProgram('pca'), '{0} --pdb {1} -s "{2}" '
-                    '--covariance --export-scipion --npz --npzmatrices'
-                    ' -o {3} -p modes -n {4} -P {5} --aligned'.format(self.dcdFileName,
-                                                                      self.pdbFileName,
-                                                                      self.selstr.get(),
-                                                                      self._getPath(), n,
-                                                                      self.numberOfThreads.get()))
+        args = '{0} --pdb {1} -s "{2}" ' \
+               '--covariance --export-scipion --npz --npzmatrices' \
+               ' -o {3} -p modes -n {4} -P {5}'.format(self.dcdFileName,
+                                                       self.pdbFileName,
+                                                       self.selstr.get(),
+                                                       self._getPath(), n,
+                                                       self.numberOfThreads.get())
+        if self.keepAlignment:
+            args.append(" --aligned")
+
+        self.runJob(Plugin.getProgram('pca'), args)
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
