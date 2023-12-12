@@ -301,7 +301,7 @@ class ProDyLDA(ProDyModesBase):
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.outputEnsemble.loadEnsemble()
 
-            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* LDA components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
         return summ
 
