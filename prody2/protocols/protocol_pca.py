@@ -40,7 +40,8 @@ from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, Ato
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
-                                        BooleanParam, LEVEL_ADVANCED, Float)
+                                        BooleanParam, LEVEL_ADVANCED, StringParam,
+                                        Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble
@@ -90,6 +91,12 @@ class ProDyPCA(ProDyModesBase):
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
                       'For no deselection, this parameter should be set to 0 . \n')
+        form.addParam('selstr', StringParam, default="name CA",
+                      label="Selection string",
+                      help='Selection string for atoms to include in the calculation.\n'
+                           'It is recommended to use "name CA" (default)')
+        form.addParam('keepAlignment', BooleanParam, default=True,
+                      label="Keep alignment", help="The alternative is to realign the structures")
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=2,
@@ -162,11 +169,17 @@ class ProDyPCA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
-                    ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
-                                                                      self.pdbFileName,
-                                                                      self._getPath(), n,
-                                                                      self.numberOfThreads.get()))
+        args = '{0} --pdb {1} -s "{2}" ' \
+               '--covariance --export-scipion --npz --npzmatrices' \
+               ' -o {3} -p modes -n {4} -P {5}'.format(self.dcdFileName,
+                                                       self.pdbFileName,
+                                                       self.selstr.get(),
+                                                       self._getPath(), n,
+                                                       self.numberOfThreads.get())
+        if self.keepAlignment:
+            args.append(" --aligned")
+
+        self.runJob(Plugin.getProgram('pca'), args)
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
         
