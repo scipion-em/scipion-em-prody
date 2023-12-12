@@ -192,7 +192,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                            'than or equal to this value.')
         
         matchFuncCheck = 'matchFunc == %d'
-        group = form.addGroup('custom chain orders', condition=matchFuncCheck % CUSTOM)
+        group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
         
         group.addParam('chainOrders', TextParam, width=50,
                        condition=matchFuncCheck % CUSTOM, default="{}",
@@ -222,7 +222,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         group.addParam('recoverOrder', StringParam, default='1',
                        condition=matchFuncCheck % CUSTOM,
                        label='Recover custom match order number',
-                       help='Enter the desired chain order here.\n'
+                       help='Enter the desired chain order index here.\n'
                             'Recover the chain order with the specified index from the match list.')
 
         form.addParam('mapping', EnumParam, choices=['Nothing',
@@ -263,6 +263,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+
+        atommaps = [] # output argument for collecting atommaps
 
         # handle inputs
         if self.refType.get() == STRUCTURE:
@@ -309,7 +311,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             rmsdCutoff = eval(str(self.rmsdCutoff.get()))
             if rmsdCutoff == -1:
                 rmsdCutoff = None
-                
+
             zCutoff = eval(str(self.zCutoff.get()))
             if zCutoff == -1:
                 zCutoff = None
@@ -347,17 +349,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             elif self.matchFunc.get() == SAME_POS:
                 matchFunc = prody.sameChainPos
                 logger.info('\nUsing sameChainPos\n')
-        
-        atommaps = [] # output argument for collecting atommaps
 
-        if self.inputType.get() != STRUCTURE:
-            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          mapping=mappings,
-                                          atommaps=atommaps,
-                                          rmsd_reject=self.rmsdReject.get())
-        else:
+            self.tars = prody.parsePDB(self.pdbs, alt='all')
+            if isinstance(self.tars, prody.Atomic):
+                self.tars = [self.tars]
+
             if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
                 # This will happen inside createMatchDic for CUSTOM
                 self.tars = [ref] + self.tars
@@ -402,6 +398,44 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if self.delReference.get():
                 ens.delCoordset(0)
                 self.tars.pop(0)
+
+        else:
+            idstr = self.id.get()
+            daliRec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
+            while daliRec.isSuccess != True:
+                daliRec.fetch(timeout=1000)
+                time.sleep(10)
+
+            lenCutoff = eval(str(self.lenCutoff.get()))
+            if lenCutoff == -1:
+                lenCutoff = None
+
+            rmsdCutoff = eval(str(self.rmsdCutoff.get()))
+            if rmsdCutoff == -1:
+                rmsdCutoff = None
+
+            zCutoff = eval(str(self.zCutoff.get()))
+            if zCutoff == -1:
+                zCutoff = None
+
+            idCutoff = eval(str(self.idCutoff.get()))
+            if idCutoff == -1:
+                idCutoff = None
+
+            self.pdbs = daliRec.filter(cutoff_len=lenCutoff, cutoff_rmsd=rmsdCutoff,
+                                       cutoff_Z=zCutoff, cutoff_identity=idCutoff,
+                                       stringency=True)
+            mappings = daliRec.getMappings()
+
+            if idstr not in self.pdbs:
+                self.pdbs.insert(0, idstr)
+
+            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
+                                          seqid=self.seqid.get(),
+                                          overlap=self.overlap.get(),
+                                          mapping=mappings,
+                                          atommaps=atommaps,
+                                          rmsd_reject=self.rmsdReject.get())
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
