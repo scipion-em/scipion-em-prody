@@ -343,6 +343,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
         
         atommaps = [] # output argument for collecting atommaps
+        unmapped = []
 
         if self.inputType.get() != STRUCTURE:
             ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
@@ -350,6 +351,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           overlap=self.overlap.get(),
                                           mapping=mappings,
                                           atommaps=atommaps,
+                                          unmapped=unmapped,
                                           rmsd_reject=self.rmsdReject.get())
         else:
             if self.refType.get() == STRUCTURE:
@@ -386,12 +388,15 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          overlap=self.overlap.get(),
                                          match_func=matchFunc,
                                          atommaps=atommaps,
+                                         unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get())
             
             if self.delReference.get():
                 ens.delCoordset(0)
                 self.tars.pop(0)
+
+        logger.info('\nUnmapped structures: {0}\n'.format(unmapped))
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
