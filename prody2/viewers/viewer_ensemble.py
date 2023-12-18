@@ -65,7 +65,7 @@ class ProDyEnsembleViewer(Viewer):
         ensFn = ensPath + "ensemble.dcd"
         atomsFn = ensPath + "atoms.pdb"
 
-        if not os.path.isfile(ensPath + "ensemble.dcd"):
+        if not os.path.isfile(ensFn):
             ens = ensemble.loadEnsemble()
             atoms = ens.getAtoms()
             prody.writePDB(atomsFn, atoms)
