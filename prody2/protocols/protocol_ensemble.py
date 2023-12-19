@@ -526,7 +526,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.tars = prody.parsePDB(pdbs, alt='all',
                                    unite_chains=self.uniteChains.get())
         
-        self.matchDic = eval(self.chainOrders.get())
+        if self.chainOrders.get() != "":
+            self.matchDic = eval(self.chainOrders.get())
+        else:
+            self.matchDic = OrderedDict()
         self.labels = list(self.matchDic.keys())
         self.orders = list(self.matchDic.values())
 
