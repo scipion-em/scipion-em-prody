@@ -36,7 +36,7 @@ from pwem.objects import (AtomStruct, SetOfAtomStructs, SetOfSequences,
                           EMFile)
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import logger, getListFromRangeString
+from pyworkflow.utils import logger, getListFromRangeString, redStr
 from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
                                         EnumParam, TextParam, NumericRangeParam,
@@ -368,6 +368,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.labels = list(self.matchDic.keys())
                 if self.refType.get() == STRUCTURE:
                     self.labels = [refLabel] + self.labels
+
+            if len(tars) != len(self.labels):
+                logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
+                            'target structures ({1})'.format(len(self.labels), len(tars))))
 
             for i, label in enumerate(self.labels):
                 if label.endswith(" Selection 'name CA'"):
