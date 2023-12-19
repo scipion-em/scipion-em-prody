@@ -357,8 +357,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           rmsd_reject=self.rmsdReject.get())
             self.weights = list(np.ones(ens.numConfs()))
         else:
-            if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
-                self.tars = [ref] + self.tars
+            if self.refType.get() == STRUCTURE:
+                if self.matchFunc.get() < CUSTOM:
+                    self.tars = [ref] + self.tars
                 ref=0
 
             if self.matchFunc <= SAME_POS:
