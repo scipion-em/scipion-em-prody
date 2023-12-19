@@ -534,7 +534,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.matchDic = OrderedDict()
 
         if self.labels == []:
-            tars = prody.parsePDB(pdbs, alt='all')
+            tars = prody.parsePDB(pdbs, alt='all',
+                                  unite_chains=self.uniteChains.get())
             for ag in tars:
                 title = ag.getTitle()
                 self.labels.append(title)
