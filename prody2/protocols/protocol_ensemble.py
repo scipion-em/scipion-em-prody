@@ -354,9 +354,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           unmapped=unmapped,
                                           rmsd_reject=self.rmsdReject.get())
         else:
-            if self.refType.get() == STRUCTURE:
+            if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
                 self.tars = [ref] + self.tars
-                refLabel = ref.getTitle()
                 ref=0
                 
             tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
@@ -366,8 +365,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             else:
                 self.matchDic = self.createMatchDic("1")
                 self.labels = list(self.matchDic.keys())
-                if self.refType.get() == STRUCTURE:
-                    self.labels = [refLabel] + self.labels
 
             if len(tars) != len(self.labels):
                 logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
@@ -513,8 +510,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
+        if self.refType.get() == STRUCTURE:
+            structures = [self.refStructure] + self.structures
+        else:
+            structures = self.structures
+
         pdbs = []
-        for _, obj in enumerate(self.structures):
+        for _, obj in enumerate(structures):
             if isinstance(obj.get(), AtomStruct):
                 pdbs.append(obj.get().getFileName())
             else:
