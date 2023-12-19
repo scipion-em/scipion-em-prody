@@ -100,7 +100,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         form.addParam('uniteChains', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure. Default is **False**.')
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
 
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
                       condition=inputTypeCheck % INDEX,
