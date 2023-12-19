@@ -337,10 +337,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             elif self.matchFunc.get() == SAME_POS:
                 matchFunc = prody.sameChainPos
                 logger.info('\nUsing sameChainPos\n')
-            else:
-                chmap = eval(self.chainOrders.get())
-                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
         
         atommaps = [] # output argument for collecting atommaps
         unmapped = []
@@ -357,14 +353,19 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
                 self.tars = [ref] + self.tars
                 ref=0
-                
-            tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
 
             if self.matchFunc <= SAME_POS:
+                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
                 self.labels = [tar.getTitle() for tar in tars]
             else:
                 self.matchDic = self.createMatchDic("1")
                 self.labels = list(self.matchDic.keys())
+
+                chmap = self.matchDic
+                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+
+                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
 
             if len(tars) != len(self.labels):
                 logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
