@@ -41,6 +41,7 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
                                         EnumParam, TextParam, NumericRangeParam,
                                         BooleanParam, LEVEL_ADVANCED)
+from pyworkflow.object import Integer
 
 import prody
 import time
@@ -48,6 +49,7 @@ import time
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
+from prody2.constants import ENSEMBLE_WEIGHTS
 
 STRUCTURE = 0
 INDEX = 1
@@ -262,9 +264,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         # handle inputs
+        self.weights = []
         if self.refType.get() == STRUCTURE:
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
                                  unite_chains=self.uniteChains.get())
+            self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
@@ -273,8 +277,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             for i, obj in enumerate(self.structures):
                 if isinstance(obj.get(), AtomStruct):
                     self.pdbs.append(obj.get().getFileName())
+                    self.weights.append(obj.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
                 else:
                     self.pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+                    self.weights.extend([tarStructure.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1) for tarStructure in obj.get()])
 
             if self.mapping.get() == DEFAULT:
                 mappings = 'auto'
@@ -349,6 +355,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           atommaps=atommaps,
                                           unmapped=unmapped,
                                           rmsd_reject=self.rmsdReject.get())
+            self.weights = list(np.ones(ens.numConfs()))
         else:
             if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
                 self.tars = [ref] + self.tars
@@ -459,6 +466,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
                 prody.writePDB(filename, amap)
                 pdb = AtomStruct(filename)
+                setattr(pdb, ENSEMBLE_WEIGHTS, Integer(self.weights[i]))
                 self.pdbs.append(pdb)
 
         prody.writePDB(self._getPath('ensemble.pdb'), ens)
@@ -469,6 +477,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for j in range(ens.numConfs()):
             frame = TrajFrame((j+1, self.npzFileName), objLabel=ens.getLabels()[j])
+            setattr(frame, ENSEMBLE_WEIGHTS, Integer(self.weights[j]))
             self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
