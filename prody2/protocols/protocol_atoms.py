@@ -106,6 +106,11 @@ class ProDySelect(EMProtocol):
                            'There is a rich selection engine with similarities to VMD. '
                            'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
@@ -158,8 +163,10 @@ class ProDySelect(EMProtocol):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            inputAg = prody.parsePDB(self.inputStruct.getFileName())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName())
+            inputAg = prody.parsePDB(self.inputStruct.getFileName(),
+                                     unite_chains=self.uniteChains.get())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName(),
+                                      unite_chains=self.uniteChains.get())
 
             summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
                 outputAg.numAtoms(), inputAg.numAtoms())]
@@ -200,6 +207,11 @@ class ProDyAlign(EMProtocol):
                       help='The target structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms).')
+
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
 
         form.addParam('seqid', FloatParam, default=100.,
                       expertLevel=LEVEL_ADVANCED,
@@ -298,8 +310,10 @@ class ProDyAlign(EMProtocol):
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
 
-        mob = prody.parsePDB(mobFn, alt='all')
-        tar = prody.parsePDB(tarFn, alt='all')
+        mob = prody.parsePDB(mobFn, alt='all',
+                             unite_chains=self.uniteChains.get())
+        tar = prody.parsePDB(tarFn, alt='all',
+                             unite_chains=self.uniteChains.get())
 
         if self.matchFunc.get() == BEST_MATCH:
             match_func = prody.bestMatch
@@ -418,8 +432,10 @@ class ProDyAlign(EMProtocol):
 
         index = int(index)
 
-        self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all')
-        self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all')
+        self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all',
+                                  unite_chains=self.uniteChains.get())
+        self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all',
+                                  unite_chains=self.uniteChains.get())
         
         try:
             self.matchDic = eval(self.chainOrders.get())
@@ -541,7 +557,8 @@ class ProDyBiomol(EMProtocol):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
-                             biomol=True, extend_biomol=True)
+                             biomol=True, extend_biomol=True,
+                             unite_chains=self.uniteChains.get())
         if isinstance(ags, prody.AtomGroup):
             ags = [ags] 
 
@@ -571,7 +588,8 @@ class ProDyBiomol(EMProtocol):
                 numStructs = len(self.outputStructures)
                 self._summ.append('Extracted *{0}* biomolecular assemblies'.format(numStructs))
 
-                ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures])
+                ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures],
+                                     unite_chains=self.uniteChains.get())
                 if numStructs == 1:
                     ags = [ags]
                      
@@ -609,6 +627,11 @@ class ProDyAddPDBs(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
@@ -618,7 +641,7 @@ class ProDyAddPDBs(EMProtocol):
     def additionStep(self):
         pdbs = [struct.get().getFileName() for struct in self.inputStructure]
 
-        ags = prody.parsePDB(pdbs)
+        ags = prody.parsePDB(pdbs, unite_chains=self.uniteChains.get())
 
         outAg = ags[0]
         for ag in ags[1:]:
@@ -637,9 +660,11 @@ class ProDyAddPDBs(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             summ = ['Output structure not ready yet']
         else:
-            outputAg = prody.parsePDB(self.outputStructure.getFileName())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName(), 
+                                      unite_chains=self.uniteChains.get())
 
             summ = ['The new structure has *{0}* protein residues '
-                     'and *{1}* atoms'.format(
-                     outputAg.ca.numAtoms(), outputAg.numAtoms())]
+                     'and *{1}* atoms in *{2}* chains'.format(
+                     outputAg.ca.numAtoms(), outputAg.numAtoms(),
+                     outputAg.numChains())]
         return summ
