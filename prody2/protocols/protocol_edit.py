@@ -87,21 +87,28 @@ class ProDyEdit(ProDyModesBase):
                       label='Normalise sliced vectors',
                       help='Elect whether to normalise vectors.')
                       
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
