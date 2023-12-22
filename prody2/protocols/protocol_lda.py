@@ -27,10 +27,9 @@
 
 
 """
-This module will provide ProDy principal component analysis (PCA) using atomic structures
+This module will provide ProDy linear discriminant analysis (LDA) using atomic structures
 """
-
-from multiprocessing import cpu_count
+from collections import OrderedDict
 
 from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -40,24 +39,24 @@ from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, Ato
 
 from pyworkflow.utils import *
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
-                                        BooleanParam, StringParam,
+                                        BooleanParam, StringParam, TextParam, 
+                                        NumericRangeParam, 
                                         LEVEL_ADVANCED, Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import ProDyNpzEnsemble, TrajFrame
-from prody2.constants import PCA_FRACT_VARS
-from prody2 import Plugin
+from prody2.objects import ProDyNpzEnsemble, TrajFrame, SetOfLdaModes
+from prody2.constants import LDA_FRACT_VARS
 
 import prody
 import matplotlib.pyplot as plt
 
 
-class ProDyPCA(ProDyModesBase):
+class ProDyLDA(ProDyModesBase):
     """
-    This protocol will perform ProDy principal component analysis (PCA) using atomic structures
+    This protocol will perform ProDy linear discriminant analysis (LDA) using atomic structures
     """
-    _label = 'PCA'
-    _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
+    _label = 'LDA'
+    _possibleOutputs = {'outputModes': SetOfLdaModes}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -66,10 +65,8 @@ class ProDyPCA(ProDyModesBase):
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
 
-        form.addSection(label='ProDy PCA')
+        form.addSection(label='ProDy LDA')
         form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
@@ -80,7 +77,7 @@ class ProDyPCA(ProDyModesBase):
                       label="Take only first conformation from each structure/set",
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
                            '(**False**) of each structure should be added to the ensemble. Default is **True**.')
-        form.addParam('numberOfModes', IntParam, default=5,
+        form.addParam('numberOfModes', IntParam, default=1,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
@@ -96,8 +93,27 @@ class ProDyPCA(ProDyModesBase):
                       label="Selection string",
                       help='Selection string for atoms to include in the calculation.\n'
                            'It is recommended to use "name CA" (default)')
-        form.addParam('keepAlignment', BooleanParam, default=True,
-                      label="Keep alignment", help="The alternative is to realign the structures")
+        
+        readyCondition = 'inputEnsemble is not None'
+        group = form.addGroup('Class labels')
+        group.addParam('chainOrders', TextParam, width=50, default='{}',
+                       label='Custom class label dictionary', condition=readyCondition,
+                       help='Defined labels for classes. These can be any string including numbers')
+        group.addParam('insertOrder', NumericRangeParam, default='1',
+                       label='Insert label index', condition=readyCondition,
+                       help='Insert the class label with the specified index into the label dict.\n'
+                            'The default (when empty) is the last position.')
+        group.addParam('customOrder', StringParam, default='', condition=readyCondition,
+                       label='Custom label to insert at the specified index',
+                       help='Enter the desired label here.\n'
+                            'The default (when empty) is the number 1.')
+        group.addParam('label', StringParam, default='', condition=readyCondition,
+                       label='Ensemble label for item with the specified number for recovering custom class labels',
+                       help='This cannot be changed by the user and is for display only.')
+        group.addParam('recoverOrder', StringParam, default='1',
+                       label='Recover custom label number', condition=readyCondition,
+                       help='Enter the desired class label index here.\n'
+                            'Recover the class label with the specified index from the label dict.')
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=2,
@@ -122,7 +138,7 @@ class ProDyPCA(ProDyModesBase):
     def _insertAllSteps(self):
         # Insert processing steps
 
-        self.model_type = 'pca'
+        self.model_type = 'lda'
         n = self.numberOfModes.get()
 
         self.gnm = False
@@ -157,11 +173,11 @@ class ProDyPCA(ProDyModesBase):
 
         self.ens.select(self.selstr.get())
 
-        avgStruct = self.ens.getAtoms()
-        avgStruct.setCoords(self.ens.getCoords())
+        self.atoms = self.ens.getAtoms()
+        self.atoms.setCoords(self.ens.getCoords())
 
         self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, avgStruct)
+        prody.writePDB(self.pdbFileName, self.atoms)
         self.averageStructure = AtomStruct()
         self.averageStructure.setFileName(self.pdbFileName)
 
@@ -178,27 +194,23 @@ class ProDyPCA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        args = '{0} --pdb {1} -s "{2}" ' \
-               '--covariance --export-scipion --npz --npzmatrices' \
-               ' -o {3} -p modes -n {4} -P {5}'.format(self.dcdFileName,
-                                                       self.pdbFileName,
-                                                       self.selstr.get(),
-                                                       self._getPath(), n,
-                                                       self.numberOfThreads.get())
-        if self.keepAlignment:
-            args.append(" --aligned")
+        labelsMap = eval(self.chainOrders.get())
+        self.labels = list(labelsMap.values())
 
-        self.runJob(Plugin.getProgram('pca'), args)
-        
-        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        self.outModes = prody.LDA()
+        self.outModes.calcModes(self.ens, self.labels, self.numberOfModes.get())
         
         plt.figure()
         prody.showFractVars(self.outModes)
         prody.showCumulFractVars(self.outModes, 'r')
-        plt.savefig(self._getPath('pca_fract_vars.png'))
+        plt.savefig(self._getPath('lda_fract_vars.png'))
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
-        prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
+        prody.writeArray(self._getPath('lda_fract_vars.txt'), self.fract_vars)
+
+        prody.writeScipionModes(self._getPath(), self.outModes)
+        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
+        prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold):
         self._enterWorkingDir()
@@ -207,13 +219,17 @@ class ProDyPCA(ProDyModesBase):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
-            msg += "The maximum number of modes allowed by the method for atomic principal component analysis is "
-            msg += "the number of structures - 1 (%d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.ens.numConfs())))
+            msg += "Check the number of modes you asked to compute. "
+            msg += "The maximum number of components allowed by the method for linear discriminant analysis is "
+            msg += "the number of classes - 1. (%d)"
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, len(set(self.labels)))))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
+        collectivity = prody.calcCollectivity(self.outModes)
+        if isinstance(collectivity, float):
+            collectivityList = [collectivity]
+        else:
+            collectivityList = list(prody.calcCollectivity(self.outModes))
         eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
@@ -260,7 +276,7 @@ class ProDyPCA(ProDyModesBase):
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfPrincipalComponents(filename=fnSqlite)
+        nmSet = SetOfLdaModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath('modes.nmd'))
 
 
@@ -268,7 +284,7 @@ class ProDyPCA(ProDyModesBase):
         for i, item in enumerate(nmSet):
             self.fractVarsDict[item.getObjId()] = self.fract_vars[i]
 
-        outSet = SetOfPrincipalComponents().create(self._getPath())
+        outSet = SetOfLdaModes().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
 
         inputPdb = self.averageStructure
@@ -285,11 +301,52 @@ class ProDyPCA(ProDyModesBase):
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.outputEnsemble.loadEnsemble()
 
-            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* LDA components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
         return summ
 
     def _setFractVars(self, item, row=None):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
-        setattr(item, PCA_FRACT_VARS, fractVar)
+        setattr(item, LDA_FRACT_VARS, fractVar)
+
+    def createMatchDic(self, index, label=None):
+
+        # configure ProDy to automatically handle secondary structure information and verbosity
+        oldSecondary = prody.confProDy("auto_secondary")
+        oldVerbosity = prody.confProDy("verbosity")
+        
+        from pyworkflow import Config
+        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
+        prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
+        
+        self.matchDic = eval(self.chainOrders.get())
+        self.labels = list(self.matchDic.keys())
+        self.classes = list(self.matchDic.values())
+
+        # reinitialise to update with new keys
+        # that are still ordered correctly
+        self.matchDic = OrderedDict()
+
+        if self.labels == []:
+            inputEnsemble = self.inputEnsemble.get()
+            if isinstance(inputEnsemble, SetOfAtomStructs):
+                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+                self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
+                                                overlap=0., superpose=False, degeneracy=self.degeneracy.get())
+                # the ensemble gets built exactly as the input is setup and nothing gets rejected
+            else:
+                self.ens = inputEnsemble.loadEnsemble()
+
+            self.labels = self.ens.getLabels()
+            self.classes = list(np.ones(len(self.labels), dtype=str))
+
+        inds = [item-1 for item in getListFromRangeString(index)]
+        for idx in inds:
+            self.classes[idx] = self.customOrder.get()
+        
+        # configure ProDy to restore secondary structure information and verbosity
+        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+
+        self.matchDic.update(zip(self.labels, self.classes))
+        return self.matchDic

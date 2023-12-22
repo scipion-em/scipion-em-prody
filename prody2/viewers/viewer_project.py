@@ -180,6 +180,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if self.isProjection:
             modesPath = self.protocol.outputModes.getFileName()
             modes = prody.parseScipionModes(modesPath, parseIndices=True)
+            if isinstance(modes, prody.Mode):
+                vec = modes.getEigvec().reshape(-1, 1)
+                val = np.array([modes.getEigval()])
+                modes = prody.NMA()
+                modes.setEigens(vec, val)
         else:
             extraPath = self.protocol._getExtraPath()
             outFiles = os.listdir(extraPath)
@@ -195,7 +200,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
             if isinstance(ens, SetOfAtomStructs):
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
-                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
+                                                  overlap=0., superpose=False, mapping=None)
             else:
                 ensemble = ens.loadEnsemble()
 

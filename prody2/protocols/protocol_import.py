@@ -37,8 +37,11 @@ from pwem.objects import (String, AtomStruct, SetOfAtomStructs, EMFile,
 from pwem.protocols import ProtImportFiles
 
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.constants import ENSEMBLE_WEIGHTS
 
+import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
+from pyworkflow.utils import logger
 
 import prody
 from prody.dynamics.gnm import ZERO
@@ -47,6 +50,9 @@ NMD = 0
 MODES_NPZ = 1
 SCIPION = 2
 GROMACS = 3
+
+PDB_FILENAME = 'atoms.pdb'
+ENS_FILENAME = 'ensemble.dcd'
 
 filesPatternHelp = """Pattern of the files to be imported.\n\n
 The pattern can contain standard wildcards such as\n
@@ -210,7 +216,7 @@ class ProDyImportEnsemble(ProtImportFiles):
     """
     This protocol will import and optionally trim a ProDy Ensemble
     """
-    _label = 'Import/Trim Ensemble'
+    _label = 'Import Ensemble'
     _possibleOutputs = {'outputAtomStructs': SetOfAtomStructs,
                         'outputNpz': ProDyNpzEnsemble}
 
@@ -264,7 +270,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                       label='Pattern', condition=filesCondition,
                       help=filesPatternHelp)
 
-        form.addParam('inputStructure', params.PointerParam, label="Input structure",
+        form.addParam('inputStructure', params.PointerParam, label="Input structure", allowsNull=True,
                       pointerClass='AtomStruct', condition="importType==%d or importFrom!=0" % DCD,
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model '
@@ -306,6 +312,9 @@ class ProDyImportEnsemble(ProtImportFiles):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
+        self.weights = None
+        self.atoms = None
+
         if self.importFrom.get() == 0:
             filesPaths = self.getMatchFiles()
             folderPath = os.path.split(filesPaths[0])[0]
@@ -321,63 +330,90 @@ class ProDyImportEnsemble(ProtImportFiles):
                 if not self.pattern1.endswith('.dcd'):
                     self.pattern1 += '.dcd'
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(os.path.join(folderPath, self.pattern1)))
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif self.importType == ENS_NPZ:
                 if not self.pattern1.endswith('.ens.npz'):
                     self.pattern1 += '.ens.npz'
-                self.outEns = prody.PDBEnsemble(prody.loadEnsemble(os.path.join(folderPath, self.pattern1)))
+                self.outEns = prody.loadEnsemble(os.path.join(folderPath, self.pattern1))
+                if not isinstance(self.outEns, prody.PDBEnsemble):
+                    self.outEns = prody.PDBEnsemble(self.outEns)
+                if 'size' in self.outEns.getDataLabels():
+                    self.weights = self.outEns.getData('size')
+
                 self.atoms = self.outEns.getAtoms()
         else:
             point = self.importPointer.get()
+
             if isinstance(point, ProDyNpzEnsemble):
+                self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
                 self.outEns = point.loadEnsemble()
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, SetOfAtomStructs):
+                self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
                 self.ags = prody.parsePDB([struct.getFileName() for struct in point])
                 self.outEns = prody.PDBEnsemble()
                 self.outEns.setCoords(self.ags[0])
                 for ag in self.ags:
                     self.outEns.addCoordset(ag)
 
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
 
             elif isinstance(point, AtomStruct):
                 self.outEns = prody.PDBEnsemble(prody.parsePDB(point.getFileName()))
-                self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                if self.inputStructure.get() is not None:
+                    self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+
             else:
                 # only activated if we can use MDSystem
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
                 self.atoms = prody.parsePDB(point.getSystemFile())
 
+        if self.weights is None:
+            self.weights = list(np.ones(self.outEns.numConfs()))
+
         selstr = self.selstr.get()
 
-        try:
-            # setAtoms then select and trim
-            self.outEns.setAtoms(self.atoms)
-            self.outEns.setAtoms(self.atoms.select(selstr))
-            self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-        except ValueError:
+        if self.atoms is not None:
             try:
-                # setAtoms with select directly then trim
+                # setAtoms then select and trim
+                self.outEns.setAtoms(self.atoms)
                 self.outEns.setAtoms(self.atoms.select(selstr))
                 self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
             except ValueError:
-                if hasattr(self, 'ags'):
+                try:
+                    # setAtoms with select directly then trim
+                    self.outEns.setAtoms(self.atoms.select(selstr))
+                    self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                except ValueError:
                     try:
-                        # setAtoms with first structure if available and trim 
-                        # then setAtoms with ref structure and trim again
-                        self.outEns.setAtoms(self.ags[0])
-                        self.outEns.setAtoms(self.ags[0].select(selstr))
+                        # select then trim then setAtoms
+                        self.outEns.select(selstr)
                         self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
-                        self.outEns.setAtoms(self.atoms)
                         self.outEns.setAtoms(self.atoms.select(selstr))
-                        self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
                     except ValueError:
-                        raise ValueError("Reference structure should have same number of atoms as ensemble")
-                else:
-                    raise ValueError("Reference structure should have same number of atoms as ensemble")
+                        if hasattr(self, 'ags'):
+                            try:
+                                # setAtoms with first structure if available and trim
+                                # then setAtoms with ref structure and trim again
+                                self.outEns.setAtoms(self.ags[0])
+                                self.outEns.setAtoms(self.ags[0].select(selstr))
+                                self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                                self.outEns.setAtoms(self.atoms)
+                                self.outEns.setAtoms(self.atoms.select(selstr))
+                                self.outEns = prody.trimPDBEnsemble(self.outEns) # hard
+                            except ValueError:
+                                raise ValueError("Reference structure should have same number of atoms as ensemble")
+                        else:
+                            raise ValueError("Reference structure should have same number of atoms as ensemble")
+        else:
+            logger.warning("Reference structure not provided so selection will be ignored.")
 
         if self.superpose == YES_SUP:
             self.outEns.superpose()
@@ -392,17 +428,20 @@ class ProDyImportEnsemble(ProtImportFiles):
                 filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
                 prody.writePDB(filename, atoms)
                 pdb = AtomStruct(filename)
+                setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
                 self.pdbs.append(pdb)
 
         if self.writeDCDFile.get():
-            prody.writeDCD(self._getPath('ensemble.dcd'), self.outEns)
-            prody.writePDB(self._getPath('refStructure.pdb'), self.outEns.getAtoms())
+            prody.writeDCD(self._getPath(ENS_FILENAME), self.outEns)
+            prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
 
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        for j in range(self.outEns.numConfs()):
-            self.npz.append(TrajFrame((j+1, self.filename)))
+        for i in range(self.outEns.numConfs()):
+            frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i])
+            setattr(frame, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
+            self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
@@ -412,12 +451,12 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         if self.writeDCDFile.get():
             if imported_chem:
-                outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
-                outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
-                outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+                outMDSystem = MDSystem(filename=self._getPath(PDB_FILENAME))
+                outMDSystem.setTopologyFile(self._getPath(PDB_FILENAME))
+                outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outMDSystem
             else:
-                outEMFile = EMFile(filename=self._getPath('ensemble.dcd'))
+                outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outEMFile
 
         if self.savePDBs.get():

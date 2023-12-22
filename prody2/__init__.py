@@ -102,7 +102,7 @@ class Plugin(pwem.Plugin):
                 installCmd.append('cd .. &&')
                 clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
                 if not os.path.exists(clonePath):
-                    installCmd.append('git clone -b clustenm_fit https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+                    installCmd.append('git clone -b temp2 https://github.com/jamesmkrieger/ProDy.git ProDy &&')
                 installCmd.append('cd ProDy &&')
                 installCmd.append('git pull &&')
 

@@ -82,7 +82,7 @@ class ProDyRmsd(EMProtocol):
                       label="Other tree method",
                       help='You can type another tree method here')
         
-        form.addParam('doReorder', BooleanParam, default=True,
+        form.addParam('doReorder', BooleanParam, default=False,
                       label="Reorder ensemble?",
                       help='Whether to reorder ensemble')
         

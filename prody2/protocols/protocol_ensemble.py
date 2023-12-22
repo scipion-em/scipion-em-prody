@@ -44,12 +44,13 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
 from pyworkflow.object import Integer
 
 import prody
-import time
-
+from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
 from prody2.constants import ENSEMBLE_WEIGHTS
+
+import time
 
 STRUCTURE = 0
 INDEX = 1
@@ -205,7 +206,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                        condition=matchFuncCheck % CUSTOM,
                        label='Insert custom match order number',
                        help='Insert the chain order with the specified index into the match list.\n'
-                            'The default (when empty) is the last position')
+                            'The default (when empty) is the last position.\n'
+                            'If the reference is a structure then that is structure 1.')
         
         group.addParam('customOrder', StringParam, default='',
                        condition=matchFuncCheck % CUSTOM,
@@ -214,7 +216,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                             'The default (when empty) is the current chain order in the form. '
                             'The initial value is the order in the structure file.')
         
-        group.addParam('label', StringParam, default='', readOnly=True,
+        group.addParam('label', StringParam, default='',
                        condition=matchFuncCheck % CUSTOM,
                        label='Label for item with the specified number for recovering custom match',
                        help='This cannot be changed by the user and is for display only.')
@@ -272,6 +274,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
+
+        self.weights = []
 
         if self.inputType.get() == STRUCTURE:
             self.pdbs = []
@@ -401,7 +405,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          atommaps=atommaps,
                                          unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
-                                         degeneracy=self.degeneracy.get())
+                                         degeneracy=self.degeneracy.get(),
+                                         labels=self.labels)
             
             if self.delReference.get():
                 ens.delCoordset(ref)
@@ -512,7 +517,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         self._defineOutputs(**outputs)
 
-    def createMatchDic(self, index):
+    def createMatchDic(self, index, label=""):
 
         # configure ProDy to automatically handle secondary structure information and verbosity
         oldSecondary = prody.confProDy("auto_secondary")
@@ -559,7 +564,23 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
 
-        inds = list(np.array(getListFromRangeString(index)) - 1)
+        titles = [ag.getTitle() for ag in tars]
+        _, counts = np.unique(np.array(titles), return_counts=True)
+
+        inds = [item-1 for item in getListFromRangeString(index)]
+        for idx, ag in enumerate(self.tars):
+            if idx in inds or counts[idx] > 1:
+                if len(inds) == 1:
+                    ag.setTitle(label)
+                else:
+                    ag.setTitle(label + str(inds.index(idx)))
+
+            title = ag.getTitle()
+            self.labels.append(title)
+            self.orders.append(self.getInitialChainOrder(ag))
+
+        self.labels = np.array(self.labels)
+        self.orders = np.array(self.orders)
         
         for idx in inds:
             if self.customOrder.get() != '':
@@ -583,4 +604,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                    ens.numConfs(), ens.numAtoms())]
         return summ
     
-    
+    def _setWeights(self, item, row=None):
+            weight = Integer(self.weights[item.getObjId()-1])
+            setattr(item, ENSEMBLE_WEIGHTS, weight)

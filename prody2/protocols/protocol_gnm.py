@@ -30,7 +30,7 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the Gaussian network model (GNM).
 """
-from os.path import basename, exists, join
+from os.path import exists, join
 import math
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -182,10 +182,10 @@ class ProDyGNM(EMProtocol):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for GNM normal mode analysis is "
+            msg += "1 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms())))
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.gnm))

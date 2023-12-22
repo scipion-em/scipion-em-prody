@@ -186,3 +186,6 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
 
 class SetOfGnmModes(SetOfNormalModes):
     pass
+
+class SetOfLdaModes(SetOfNormalModes):
+    pass

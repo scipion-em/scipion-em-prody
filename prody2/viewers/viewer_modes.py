@@ -36,7 +36,8 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes, ProDyRTB, ProDyPCA)
+                              ProDyImportModes, ProDyRTB, ProDyPCA,
+                              ProDyLDA)
 
 import os
 import prody
@@ -47,7 +48,7 @@ class ProDyModeViewer(Viewer):
     """    
     _label = 'ProDy mode viewer'
     _targets = [SetOfNormalModes, ProDyANM, ProDyRTB, ProDyPCA,
-                ProDyDefvec, ProDyEdit, ProDyImportModes]
+                ProDyDefvec, ProDyEdit, ProDyImportModes, ProDyLDA]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):

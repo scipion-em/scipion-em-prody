@@ -31,7 +31,7 @@ This module will provide ProDy normal mode analysis (NMA) using the anisotropic 
 """
 from pyworkflow.protocol import params
 
-from os.path import basename, exists, join
+from os.path import exists, join
 import math
 
 from pwem import *
@@ -111,21 +111,28 @@ class ProDyModesBase(EMProtocol):
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
 
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
@@ -141,9 +148,10 @@ class ProDyModesBase(EMProtocol):
         self._insertFunctionStep('qualifyModesStep', n,
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), nzeros)
+        if self.doAnimation:
+            self._insertFunctionStep('animateModesStep', n,
+                                    self.rmsd.get(), self.n_steps.get(),
+                                    self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
@@ -152,7 +160,7 @@ class ProDyModesBase(EMProtocol):
         # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
+    def animateModesStep(self, numberOfModes, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
 
         if isinstance(self.outModes, prody.GNM):
@@ -165,7 +173,7 @@ class ProDyModesBase(EMProtocol):
                 fnAnimation = join(animations_dir, "animated_mode_%03d"
                                 % modenum)
                 prody.writePDB(fnAnimation+".pdb", 
-                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=nSteps,
                                                   pos=pos, neg=neg)
                               )
 
@@ -198,7 +206,7 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=None):
+                         suffix='', nzero=None):
 
         if nzero is None:
             nzero = self.nzero
@@ -209,10 +217,10 @@ class ProDyModesBase(EMProtocol):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for normal mode analysis is "
+            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.outModes))
@@ -303,6 +311,8 @@ class ProDyModesBase(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
+
+        # write shifts to sqlite scipion objects
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, 

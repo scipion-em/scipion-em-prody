@@ -33,8 +33,11 @@ information such as name and number of residues.
 """
 
 # Imports
-from ..protocols.protocol_atoms import *
-from ..protocols.protocol_ensemble import *
+from collections import OrderedDict
+
+from ..protocols.protocol_atoms import ProDyAlign
+from ..protocols.protocol_ensemble import ProDyBuildPDBEnsemble
+from ..protocols.protocol_lda import ProDyLDA
 
 from pwem.wizards import VariableWizard
 
@@ -46,7 +49,19 @@ class ProDyAddChainOrderWizard(VariableWizard):
         inputParam, outputParam = self.getInputOutput(form)
         protocol = form.protocol
         index = getattr(protocol, inputParam[0]).get()
-        matchDic = protocol.createMatchDic(index)
+
+        noLabel = True
+        try:
+            label = getattr(protocol, inputParam[1]).get()
+            matchDic = protocol.createMatchDic(index, label)
+        except IndexError:
+            raise IndexError("no input param 1")
+        else:
+            noLabel = False
+
+        if noLabel:
+            matchDic = protocol.createMatchDic(index)
+            
         form.setVar(outputParam[0], str(matchDic).replace('),', '),\n' + ' '*20))
 
 
@@ -56,13 +71,17 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,
                                      outputs=['chainOrders'])
 
 ProDyAddChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
-                             targets=['insertOrder'],
-                             inputs=['insertOrder'],
-                             outputs=['chainOrders'])
+                                     targets=['insertOrder'],
+                                     inputs=['insertOrder', 'label'],
+                                     outputs=['chainOrders'])
+
+ProDyAddChainOrderWizard().addTarget(protocol=ProDyLDA,
+                                         targets=['insertOrder'],
+                                         inputs=['insertOrder', 'label'],
+                                         outputs=['chainOrders'])
 
 class ProDyRecoverChainOrderWizard(VariableWizard):
     """Watch the parameters of the step of the workflow defined by the index"""
-    #_targets = [(ProDyAlign, ['recoverOrder'])]
     _targets, _inputs, _outputs = [], {}, {}
 
     def show(self, form, *params):
@@ -81,6 +100,11 @@ ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyAlign,
                                          outputs=['label', 'customOrder'])
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
+                                         targets=['recoverOrder'],
+                                         inputs=['recoverOrder'],
+                                         outputs=['label', 'customOrder'])
+
+ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLDA,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
                                          outputs=['label', 'customOrder'])
