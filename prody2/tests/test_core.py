@@ -37,7 +37,7 @@ from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyANM, Pr
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import NMD, MODES_NPZ, SCIPION, GROMACS
+from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
 import prody
 
@@ -65,6 +65,7 @@ class TestProDyCore(TestWorkflow):
         cls.launchProtocol(protImportPdb1)
 
         chainAselstr = "protein and chain A"
+        outputFilename = "4ake_atoms.pdb"
 
         # Select Chain A
         protSel1 = cls.newProtocol(ProDySelect, selection=chainAselstr)
@@ -72,17 +73,36 @@ class TestProDyCore(TestWorkflow):
         protSel1.setObjLabel('Sel_4akeA_all_pointer')
         cls.launchProtocol(protSel1)
 
-        cls.assertTrue(exists(protSel1._getPath("4ake_atoms.pdb")))
+        cls.assertTrue(exists(protSel1._getPath(outputFilename)))
         cls.assertTrue(hasattr(protSel1, "outputStructure"))
 
-        # Select chain C to show it doesn't work
-        protSel1a = cls.newProtocol(ProDySelect, selection="chain C")
+        # Select chain C and name CA to show it doesn't work
+        protSel1a = cls.newProtocol(ProDySelect, selection="chain C and name CA")
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        protSel1a.setObjLabel('Sel 4ake_C_pointer_1')
         cls.launchProtocol(protSel1a)
 
-        cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
         cls.assertFalse(hasattr(protSel1a, "outputStructure"))
+
+        # Select chain C whole to show it does work with uniteChains False (default)
+        protSel1a2 = cls.newProtocol(ProDySelect, selection="chain C")
+        protSel1a2.inputStructure.set(protImportPdb1.outputPdb)
+        protSel1a2.setObjLabel('Sel 4ake_C_pointer_2')
+        cls.launchProtocol(protSel1a2)
+
+        cls.assertTrue(exists(protSel1a2._getPath(outputFilename)))
+        cls.assertTrue(hasattr(protSel1a2, "outputStructure"))
+
+        # Select chain C whole to show it does work with uniteChains True
+        protSel1a3 = cls.newProtocol(ProDySelect, selection="chain C",
+                                     uniteChains=True)
+        protSel1a3.inputStructure.set(protImportPdb1.outputPdb)
+        protSel1a3.setObjLabel('Sel 4ake_C_pointer_3')
+        cls.launchProtocol(protSel1a3)
+
+        cls.assertFalse(exists(protSel1a3._getPath(outputFilename)))
+        cls.assertFalse(hasattr(protSel1a3, "outputStructure"))
 
         # Launch ANM NMA for chain A (all atoms)
         protANM1 = cls.newProtocol(ProDyANM, cutoff=8)
@@ -361,7 +381,7 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(ag.numChains() == 2,
                         "4ake biomol 1 should have 2 chains, not {0}".format(ag.numChains()))
 
-        # extract biomols from 1ake (2 monomers) from pointer
+        # extract biomols from 1ake (2 monomers) from pointer with uniteChains False (default)
         protBm2 = cls.newProtocol(ProDyBiomol)
         protBm2.inputPdbData.set(2)
         protBm2.inputStructure.set(protImportPdb2.outputPdb)
@@ -373,11 +393,22 @@ class TestProDyCore(TestWorkflow):
 
         ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
         cls.assertTrue(ag.numResidues() == 456,
-                        "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-<<<<<<< HEAD
-        cls.assertTrue(ag.numChains() == 1,
-                        "1ake biomol 1 should have 1 chain, not {0}".format(ag.numChains()))
-=======
+                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
         cls.assertTrue(ag.numChains() == 3,
-                        "1ake biomol 3 should have 3 chains, not {0}".format(ag.numChains()))
->>>>>>> lda
+                       "1ake biomol 1 should have 3 chains, not {0}".format(ag.numChains()))
+
+        # extract biomols from 1ake (2 monomers) from pointer with uniteChains True
+        protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
+        protBm2b.inputPdbData.set(2)
+        protBm2b.inputStructure.set(protImportPdb2.outputPdb)
+        protBm2b.setObjLabel('Biomol_1ake_pointer')
+        cls.launchProtocol(protBm2b)
+
+        numStructs = len(protBm2b.outputStructures)
+        cls.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
+
+        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
+        cls.assertTrue(ag.numResidues() == 456,
+                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
+        cls.assertTrue(ag.numChains() == 3,
+                       "1ake biomol 1 should have 1 chains, not {0}".format(ag.numChains()))

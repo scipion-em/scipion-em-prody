@@ -145,6 +145,8 @@ class ProDySelect(EMProtocol):
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
                                          self.pdbFileName)
+        if self.uniteChains.get():
+            args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
 
         # configure ProDy to restore secondary structure information and verbosity
@@ -170,9 +172,12 @@ class ProDySelect(EMProtocol):
 
             summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
                 outputAg.numAtoms(), inputAg.numAtoms())]
-            summ.append('The new structure has *{0}* protein residues '
-                        'from original *{1}* protein residues'.format(
-                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+            if outputAg.ca is not None:
+                summ.append('The new structure has *{0}* protein residues '
+                            'from original *{1}* protein residues'.format(
+                            outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+            else:
+                summ.append('The new structure has *0* protein residues')
         return summ
 
 
