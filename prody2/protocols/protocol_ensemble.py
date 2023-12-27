@@ -143,6 +143,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       pointerClass='AtomStruct', allowsNull=True,
                       help='Select an atomic model as the reference structure. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')
+
         form.addParam('delReference', BooleanParam, default=False,
                       label="Whether to delete the reference from the ensemble",
                       help='This could be useful if you just want to use the reference for alignment.')
@@ -266,7 +267,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        # handle inputs
+        # handle reference
         self.weights = []
         if self.refType.get() == STRUCTURE:
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
@@ -275,6 +276,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
+        # handle other inputs
         if self.inputType.get() == STRUCTURE:
             self.pdbs = []
             for i, obj in enumerate(self.structures):
@@ -336,17 +338,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                                     model=i+1,
                                                     unite_chains=self.uniteChains.get()))
 
-        if self.inputType.get() == STRUCTURE:
-            if self.matchFunc.get() == BEST_MATCH:
-                matchFunc = prody.bestMatch
-                logger.info('\nUsing bestMatch\n')
-            elif self.matchFunc.get() == SAME_CHID:
-                matchFunc = prody.sameChid
-                logger.info('\nUsing sameChid\n')
-            elif self.matchFunc.get() == SAME_POS:
-                matchFunc = prody.sameChainPos
-                logger.info('\nUsing sameChainPos\n')
-        
         atommaps = [] # output argument for collecting atommaps
         unmapped = []
 
@@ -360,6 +351,16 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           rmsd_reject=self.rmsdReject.get())
             self.weights = list(np.ones(ens.numConfs()))
         else:
+            if self.matchFunc.get() == BEST_MATCH:
+                matchFunc = prody.bestMatch
+                logger.info('\nUsing bestMatch\n')
+            elif self.matchFunc.get() == SAME_CHID:
+                matchFunc = prody.sameChid
+                logger.info('\nUsing sameChid\n')
+            elif self.matchFunc.get() == SAME_POS:
+                matchFunc = prody.sameChainPos
+                logger.info('\nUsing sameChainPos\n')
+
             if self.refType.get() == STRUCTURE:
                 if self.matchFunc.get() < CUSTOM:
                     self.tars = [ref] + self.tars
@@ -372,28 +373,20 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.matchDic = self.createMatchDic("1")
                 self.labels = list(self.matchDic.keys())
 
-                chmap = self.matchDic
                 logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, self.matchDic)
 
                 tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
 
             if len(tars) != len(self.labels):
                 logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
                             'target structures ({1})'.format(len(self.labels), len(tars))))
-
-            for i, label in enumerate(self.labels):
-                if label.endswith(" Selection 'name CA'"):
-                    label = label.replace(" Selection 'name CA'", "")
-                    if not label.endswith("_ca"):
-                        label += "_ca"
-
-                label = label.replace("_atoms", "")
-
-                tars[i].setTitle(label)
-                self.labels[i] = label
-
-            self.labels = list(np.array(self.labels))
+                
+            titles = [tar.getTitle() for tar in tars]
+            for i, title in enumerate(titles):
+                title = title.replace(" Selection 'name CA'", "")
+                title = title.replace("_atoms", "")
+                tars[i].setTitle(title)
 
             ens = prody.buildPDBEnsemble(tars,
                                          ref=ref,
@@ -525,21 +518,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.refType.get() == STRUCTURE:
-            structures = [self.refStructure] + self.structures
-        else:
-            structures = self.structures
-
-        pdbs = []
-        for _, obj in enumerate(structures):
-            if isinstance(obj.get(), AtomStruct):
-                pdbs.append(obj.get().getFileName())
-            else:
-                pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-
-        self.tars = prody.parsePDB(pdbs, alt='all',
-                                   unite_chains=self.uniteChains.get())
-        
         if self.chainOrders.get() != "":
             self.matchDic = eval(self.chainOrders.get())
         else:
@@ -551,30 +529,38 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # that are still ordered correctly
         self.matchDic = OrderedDict()
 
-        if self.labels == []:
-            tars = prody.parsePDB(pdbs, alt='all',
-                                  unite_chains=self.uniteChains.get())
-            for ag in tars:
+        inds = [item-1 for item in getListFromRangeString(index)]
+
+        if len(self.labels) == 0:
+            if not hasattr(self, 'tars'):
+                if self.refType.get() == STRUCTURE:
+                    structures = [self.refStructure] + self.structures
+                else:
+                    structures = self.structures
+
+                pdbs = []
+                for _, obj in enumerate(structures):
+                    if isinstance(obj.get(), AtomStruct):
+                        pdbs.append(obj.get().getFileName())
+                    else:
+                        pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+
+                self.tars = prody.parsePDB(pdbs, alt='all',
+                                        unite_chains=self.uniteChains.get())
+            
+            titles = [ag.getTitle() for ag in self.tars]
+            _, counts = np.unique(np.array(titles), return_counts=True)
+
+            for idx, ag in enumerate(self.tars):
+                if (idx in inds or counts[idx] > 1) and label!="":
+                    if len(inds) == 1:
+                        ag.setTitle(label)
+                    else:
+                        ag.setTitle(label + str(inds.index(idx)))
+
                 title = ag.getTitle()
                 self.labels.append(title)
                 self.orders.append(self.getInitialChainOrder(ag))
-        else:
-            tars = self.tars
-
-        titles = [ag.getTitle() for ag in tars]
-        _, counts = np.unique(np.array(titles), return_counts=True)
-
-        inds = [item-1 for item in getListFromRangeString(index)]
-        for idx, ag in enumerate(tars):
-            if idx in inds or counts[idx] > 1:
-                if len(inds) == 1:
-                    ag.setTitle(label)
-                else:
-                    ag.setTitle(label + str(inds.index(idx)))
-
-            title = ag.getTitle()
-            self.labels.append(title)
-            self.orders.append(self.getInitialChainOrder(ag))
 
         self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
