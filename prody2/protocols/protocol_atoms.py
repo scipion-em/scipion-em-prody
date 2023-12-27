@@ -48,6 +48,9 @@ from pyworkflow.utils import logger
 
 from prody2 import Plugin
 
+def notFoundException(inputFn):
+    return Exception("Atomic structure not found at *%s*" % inputFn)
+
 # chain matching methods
 BEST_MATCH = 0
 SAME_CHID = 1
@@ -127,7 +130,7 @@ class ProDySelect(EMProtocol):
         elif self.inputPdbData == self.IMPORT_FROM_FILES:
             inputFn = self.pdbFile.get()
             if not exists(inputFn):
-                raise Exception("Atomic structure not found at *%s*" % inputFn)
+                raise notFoundException(inputFn)
 
         else:
             inputFn = self.inputStructure.get().getFileName()
@@ -546,7 +549,7 @@ class ProDyBiomol(EMProtocol):
         elif self.inputPdbData == self.IMPORT_FROM_FILES:
             inputFn = self.pdbFile.get()
             if not exists(inputFn):
-                raise Exception("Atomic structure not found at *%s*" % inputFn)
+                raise notFoundException(inputFn)
 
         else:
             inputFn = self.inputStructure.get().getFileName()
