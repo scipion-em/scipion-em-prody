@@ -186,7 +186,7 @@ class ProDyPCA(ProDyModesBase):
                                                        self._getPath(), n,
                                                        self.numberOfThreads.get())
         if self.keepAlignment:
-            args.append(" --aligned")
+            args += " --aligned"
 
         self.runJob(Plugin.getProgram('pca'), args)
         
