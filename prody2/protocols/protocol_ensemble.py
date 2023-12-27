@@ -568,7 +568,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         _, counts = np.unique(np.array(titles), return_counts=True)
 
         inds = [item-1 for item in getListFromRangeString(index)]
-        for idx, ag in enumerate(self.tars):
+        for idx, ag in enumerate(tars):
             if idx in inds or counts[idx] > 1:
                 if len(inds) == 1:
                     ag.setTitle(label)
