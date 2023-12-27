@@ -521,6 +521,11 @@ class ProDyBiomol(EMProtocol):
                       label="Download membrane placement model?",
                       help='Use the OPM database to to model placement in the membrane.')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
