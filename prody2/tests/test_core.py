@@ -40,6 +40,10 @@ from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
 import prody
+from prody.tests.datafiles import pathDatafile
+
+oldVerbosity = prody.confProDy("verbosity")
+oldSecondary = prody.confProDy("auto_secondary")
 
 class TestProDyCore(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
@@ -48,16 +52,15 @@ class TestProDyCore(TestWorkflow):
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
+        importSelect4ake(cls)
+        importSelect1ake(cls)
 
-    def testProDyCore(cls):
-        """ Run NMA simple workflow for two Atomic structures. """
+    def testProDySelect(cls):
+        """ Run different selection options and confirm if it works """
 
-        oldVerbosity = prody.confProDy("verbosity")
-        oldSecondary = prody.confProDy("auto_secondary")
-
-        # --------------------------------------------------------------
-        # Step 1a. Import a Pdb -> Select chain A from Pointer -> NMA
-        # --------------------------------------------------------------
+        # ----------------------------------------------------------------------
+        # Step 1a. Import a Pdb -> Select chain A and other options from Pointer
+        # ----------------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
                                           pdbId="4ake")
@@ -104,12 +107,6 @@ class TestProDyCore(TestWorkflow):
         cls.assertFalse(exists(protSel1a3._getPath(outputFilename)))
         cls.assertFalse(hasattr(protSel1a3, "outputStructure"))
 
-        # Launch ANM NMA for chain A (all atoms)
-        protANM1 = cls.newProtocol(ProDyANM, cutoff=8)
-        protANM1.inputStructure.set(protSel1.outputStructure)
-        protANM1.setObjLabel('ANM_all')
-        cls.launchProtocol(protANM1)
-
         # ------------------------------------------------
         # Step 1b. Select chain A from Filename
         # ------------------------------------------------
@@ -128,30 +125,46 @@ class TestProDyCore(TestWorkflow):
         protSel1c.setObjLabel('Sel_6xr8_A_all_id')
         cls.launchProtocol(protSel1c)
 
+
+    def testProDyCore(cls):
+        """ Run NMA simple workflow for two Atomic structures. """
+        # --------------------------------------------------------------
+        # Step 1a. Import a Pdb with 4ake chain A -> ANM NMA (all-atoms)
+        # --------------------------------------------------------------
+
+        # Import a PDB
+        protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                         pdbFile=pathDatafile("pdb4ake_fixed"))
+        protImportPdb1.setObjLabel('pwem import 4ake')
+        cls.launchProtocol(protImportPdb1)
+
+        # Launch ANM NMA for chain A (all atoms)
+        protANM1 = cls.newProtocol(ProDyANM, cutoff=8)
+        protANM1.inputStructure.set(protImportPdb1.outputPdb)
+        protANM1.setObjLabel('ANM_all')
+        cls.launchProtocol(protANM1)
+
         # ------------------------------------------------
-        # Step 2. Select CA -> ANM NMA
+        # Step 2. CA ANM NMA
         # ------------------------------------------------
-        # Select Calpha atoms
-        protSel2 = cls.newProtocol(ProDySelect, selection="name CA")
-        protSel2.inputStructure.set(protSel1.outputStructure)
-        protSel2.setObjLabel('Sel_4akeA_CA')
-        cls.launchProtocol(protSel2)
+
+        animationsFile7 = "animations/animated_mode_007.pdb"
 
         # Launch ANM NMA for selected atoms (CA) with zeros (default)
         protANM2 = cls.newProtocol(ProDyANM)
-        protANM2.inputStructure.set(protSel2.outputStructure)
+        protANM2.inputStructure.set(cls.protSel.outputStructure)
         protANM2.setObjLabel('ANM_CA_z')
         cls.launchProtocol(protANM2)
 
         cls.assertFalse(exists(protANM1._getExtraPath("animations/animated_mode_001.pdb")))
-        cls.assertTrue(exists(protANM1._getExtraPath("animations/animated_mode_007.pdb")))
+        cls.assertTrue(exists(protANM1._getExtraPath(animationsFile7)))
 
         cls.assertFalse(exists(protANM1._getExtraPath("distanceProfiles/vec1.xmd")))
         cls.assertTrue(exists(protANM1._getExtraPath("distanceProfiles/vec7.xmd")))
 
         # Launch ANM NMA for selected atoms (CA) without zeros
         protANM2b = cls.newProtocol(ProDyANM)
-        protANM2b.inputStructure.set(protSel2.outputStructure)
+        protANM2b.inputStructure.set(cls.protSel.outputStructure)
         protANM2b.zeros.set(False)
         protANM2b.setObjLabel('ANM_CA_n-z')
         cls.launchProtocol(protANM2b)
@@ -161,7 +174,7 @@ class TestProDyCore(TestWorkflow):
 
         # Launch ed-ENM NMA for selected atoms (CA) without zeros
         protANM3 = cls.newProtocol(ProDyANM)
-        protANM3.inputStructure.set(protSel2.outputStructure)
+        protANM3.inputStructure.set(cls.protSel.outputStructure)
         protANM3.zeros.set(False)
         protANM3.gamma.set("GammaED")
         protANM3.cutoff.set("2.9 * math.log(214) - 2.9")
@@ -171,12 +184,13 @@ class TestProDyCore(TestWorkflow):
         # ------------------------------------------------
         # Step 3. Slice -> Compare
         # ------------------------------------------------
-        # Slice all-atom ANM NMA to CA
+        # Slice all-atom ANM NMA to CA (no animations by default)
         protEdit1 = cls.newProtocol(ProDyEdit, edit=NMA_SLICE)
         protEdit1.modes.set(protANM1.outputModes)
-        protEdit1.newNodes.set(protSel2.outputStructure)
+        protEdit1.newNodes.set(cls.protSel.outputStructure)
         protEdit1.setObjLabel('Slice_to_CA')
         cls.launchProtocol(protEdit1)
+        cls.assertFalse(exists(protEdit1._getExtraPath(animationsFile7)))
 
         # Compare sliced and original CA NMA
         protComp1 = cls.newProtocol(ProDyCompare)
@@ -185,13 +199,22 @@ class TestProDyCore(TestWorkflow):
         protComp1.setObjLabel('Compare_slcAA_to_CA')
         cls.launchProtocol(protComp1)
 
+        # Slice all-atom ANM NMA to CA (with animations)
+        protEdit1a = cls.newProtocol(ProDyEdit, edit=NMA_SLICE,
+                                     doAnimation=True)
+        protEdit1a.modes.set(protANM1.outputModes)
+        protEdit1a.newNodes.set(cls.protSel.outputStructure)
+        protEdit1a.setObjLabel('Slice_to_CA_anim')
+        cls.launchProtocol(protEdit1a)
+        cls.assertTrue(exists(protEdit1a._getExtraPath(animationsFile7)))
+
         # ------------------------------------------------
         # Step 4. Reduce -> Compare
         # ------------------------------------------------
         # Reduce all-atom ANM NMA to CA
         protEdit2 = cls.newProtocol(ProDyEdit, edit=NMA_REDUCE)
         protEdit2.modes.set(protANM1.outputModes)
-        protEdit2.newNodes.set(protSel2.outputStructure)
+        protEdit2.newNodes.set(cls.protSel.outputStructure)
         protEdit2.setObjLabel('Reduce_to_CA')
         cls.launchProtocol(protEdit2)
 
@@ -208,7 +231,7 @@ class TestProDyCore(TestWorkflow):
         # Extend CA NMA to all-atoms
         protEdit3 = cls.newProtocol(ProDyEdit, edit=NMA_EXTEND)
         protEdit3.modes.set(protANM2.outputModes)
-        protEdit3.newNodes.set(protSel1.outputStructure)
+        protEdit3.newNodes.set(protImportPdb1.outputPdb)
         protEdit3.setObjLabel('Extend_to_AA')
         cls.launchProtocol(protEdit3)
 
@@ -226,7 +249,7 @@ class TestProDyCore(TestWorkflow):
         # Interpolate CA NMA to all-atoms
         protEdit4 = cls.newProtocol(ProDyEdit, edit=NMA_INTERP)
         protEdit4.modes.set(protANM2.outputModes)
-        protEdit4.newNodes.set(protSel1.outputStructure)
+        protEdit4.newNodes.set(protImportPdb1.outputPdb)
         protEdit4.setObjLabel('Interp_to_AA')
         cls.launchProtocol(protEdit4)
 
@@ -237,27 +260,15 @@ class TestProDyCore(TestWorkflow):
         protComp4.setObjLabel('Compare_AA_to_intCA')
         cls.launchProtocol(protComp4)
 
-        # ------------------------------------------------
+        # --------------------------------------------------
         # Step 7. Import other Pdb -> Select chain A and CA
         # -> align -> defvec -> compare
-        # ------------------------------------------------
-        # Import a PDB
-        protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                         pdbId="1ake")
-        protImportPdb2.setObjLabel('pwem import 1ake')
-        cls.launchProtocol(protImportPdb2)
-
-        # Select Chain A
-        protSel3 = cls.newProtocol(ProDySelect,
-                                    selection="protein and chain A and name CA")
-        protSel3.inputStructure.set(protImportPdb2.outputPdb)
-        protSel3.setObjLabel('Sel_1akeA_CA')
-        cls.launchProtocol(protSel3)
+        # --------------------------------------------------
 
         # Align new pdb from protSel3 to match old pdb with NMA
         protAlign1 = cls.newProtocol(ProDyAlign)
-        protAlign1.mobStructure.set(protSel3.outputStructure)
-        protAlign1.tarStructure.set(protSel2.outputStructure)
+        protAlign1.mobStructure.set(cls.protSel3.outputStructure)
+        protAlign1.tarStructure.set(cls.protSel.outputStructure)
         protAlign1.setObjLabel('Align_1akeA_4akeA_CA')
         cls.launchProtocol(protAlign1)
 
@@ -302,7 +313,7 @@ class TestProDyCore(TestWorkflow):
         protImportModes1.importType.set(MODES_NPZ)
         protImportModes1.filesPath.set(modesPath)
         protImportModes1.filesPattern.set("modes.anm.npz")
-        protImportModes1.inputStructure.set(protSel2.outputStructure)
+        protImportModes1.inputStructure.set(cls.protSel.outputStructure)
         protImportModes1.setObjLabel('import_npz_ANM_CA')
         cls.launchProtocol(protImportModes1)   
 
@@ -310,7 +321,7 @@ class TestProDyCore(TestWorkflow):
         protImportModes2 = cls.newProtocol(ProDyImportModes)
         protImportModes2.importType.set(SCIPION)
         protImportModes2.filesPath.set(protANM2.outputModes.getFileName())
-        protImportModes2.inputStructure.set(protSel2.outputStructure)
+        protImportModes2.inputStructure.set(cls.protSel.outputStructure)
         protImportModes2.setObjLabel('import_scipion_ANM_CA')
         cls.launchProtocol(protImportModes2)  
 
@@ -321,19 +332,20 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_imported_ANMs')
         cls.launchProtocol(protComp6)  
 
+    def testProDyRTB(cls):
         # -------------------------------------------------------
         # Step 9. RTB in 2 ways -> Compare to each other and ANM
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block
         protRTB1 = cls.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
-        protRTB1.inputStructure.set(protSel2.outputStructure)
+        protRTB1.inputStructure.set(cls.protSel.outputStructure)
         protRTB1.setObjLabel('RTB_CA_10_res')
         cls.launchProtocol(protRTB1)
 
         # Launch RTB NMA for selected atoms (CA) with secstr block
         protRTB2 = cls.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
-        protRTB2.inputStructure.set(protSel2.outputStructure)
+        protRTB2.inputStructure.set(cls.protSel.outputStructure)
         protRTB2.setObjLabel('RTB_CA_secstr')
         cls.launchProtocol(protRTB2)
 
@@ -344,27 +356,13 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
         cls.launchProtocol(protComp6)
 
-        # Compare CA ANM and RTB1
-        protComp7 = cls.newProtocol(ProDyCompare)
-        protComp7.modes1.set(protANM2.outputModes)
-        protComp7.modes2.set(protRTB1.outputModes)
-        protComp7.setObjLabel('Compare_ANM_to_RTB1')
-        cls.launchProtocol(protComp7)
-
-        # Compare CA ANM and RTB2
-        protComp8 = cls.newProtocol(ProDyCompare)
-        protComp8.modes1.set(protANM2.outputModes)
-        protComp8.modes2.set(protRTB2.outputModes)
-        protComp8.setObjLabel('Compare_ANM_to_RTB2')
-        cls.launchProtocol(protComp8)
-
         cls.assertTrue(prody.confProDy("verbosity") == oldVerbosity,
                         "prody verbosity changed")
         
         cls.assertTrue(prody.confProDy("auto_secondary") == oldSecondary,
                         "prody auto_secondary changed")
 
-
+    def testProDyBiomol(cls):
         # extract biomol from 4ake (dimer) from id
         protBm1 = cls.newProtocol(ProDyBiomol)
         protBm1.inputPdbData.set(0)
@@ -384,7 +382,7 @@ class TestProDyCore(TestWorkflow):
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains False (default)
         protBm2 = cls.newProtocol(ProDyBiomol)
         protBm2.inputPdbData.set(2)
-        protBm2.inputStructure.set(protImportPdb2.outputPdb)
+        protBm2.inputStructure.set(cls.protImportPdb2.outputPdb)
         protBm2.setObjLabel('Biomol_1ake_pointer')
         cls.launchProtocol(protBm2)
 
@@ -400,7 +398,7 @@ class TestProDyCore(TestWorkflow):
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains True
         protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
         protBm2b.inputPdbData.set(2)
-        protBm2b.inputStructure.set(protImportPdb2.outputPdb)
+        protBm2b.inputStructure.set(cls.protImportPdb2.outputPdb)
         protBm2b.setObjLabel('Biomol_1ake_pointer')
         cls.launchProtocol(protBm2b)
 
@@ -412,3 +410,25 @@ class TestProDyCore(TestWorkflow):
                        "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
         cls.assertTrue(ag.numChains() == 3,
                        "1ake biomol 1 should have 1 chains, not {0}".format(ag.numChains()))
+
+def importSelect4ake(cls):
+    cls.protSel = cls.newProtocol(ProDySelect, 
+                                  selection="name CA and chain A",
+                                  inputPdbData=0)
+    cls.protSel.pdbId.set("4ake")
+    cls.protSel.setObjLabel('sel_4akeA_ca')
+    cls.launchProtocol(cls.protSel)
+
+def importSelect1ake(cls):
+    # Import a PDB
+    cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                        pdbId="1ake")
+    cls.protImportPdb2.setObjLabel('pwem import 1ake')
+    cls.launchProtocol(cls.protImportPdb2)
+
+    # Select Chain A
+    cls.protSel3 = cls.newProtocol(ProDySelect,
+                                selection="protein and chain A and name CA")
+    cls.protSel3.inputStructure.set(cls.protImportPdb2.outputPdb)
+    cls.protSel3.setObjLabel('Sel_1akeA_CA')
+    cls.launchProtocol(cls.protSel3)
