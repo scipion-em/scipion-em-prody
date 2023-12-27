@@ -561,9 +561,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         else:
             tars = self.tars
 
-        self.labels = np.array(self.labels)
-        self.orders = np.array(self.orders)
-
         titles = [ag.getTitle() for ag in tars]
         _, counts = np.unique(np.array(titles), return_counts=True)
 
