@@ -558,7 +558,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 title = ag.getTitle()
                 self.labels.append(title)
                 self.orders.append(self.getInitialChainOrder(ag))
-                
+        else:
+            tars = self.tars
+
         self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
 
