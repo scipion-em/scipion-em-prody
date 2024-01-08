@@ -10,6 +10,14 @@ from .viewer_domdec import ProDyDomainViewer
 from .viewer_project import ProDyProjectionsViewer
 from .viewer_ensemble import ProDyEnsembleViewer
 
-from pwem.viewers import DataViewer
-from prody2.objects import SetOfTrajFrames
-DataViewer._targets.append(SetOfTrajFrames)
+from pwem.viewers import BasicMDViewer, showj
+from pwem.viewers.viewers_data import RegistryViewerConfig
+from prody2.objects import SetOfTrajFrames, SetOfAtoms
+BasicMDViewer._targets.extend([SetOfTrajFrames, SetOfAtoms])
+
+labels = labels = 'id enabled label _filename '
+RegistryViewerConfig.registerConfig(SetOfTrajFrames,
+                                    {showj.ORDER: labels,
+                                     showj.VISIBLE: labels,
+                                     showj.MODE: showj.MODE_MD,
+                                     showj.RENDER: 'no'})

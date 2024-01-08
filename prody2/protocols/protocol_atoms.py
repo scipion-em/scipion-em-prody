@@ -32,8 +32,6 @@ This module will provide ProDy atom tools including selection and superposition.
 from collections import OrderedDict
 from os.path import basename, splitext
 
-from pyworkflow.protocol import params
-
 from pwem import *
 from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList
 from pwem.protocols import EMProtocol
@@ -47,6 +45,7 @@ import prody
 from pyworkflow.utils import logger
 
 from prody2 import Plugin
+from prody2.objects import Atom, SetOfAtoms
 
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
@@ -680,4 +679,50 @@ class ProDyAddPDBs(EMProtocol):
                      'and *{1}* atoms in *{2}* chains'.format(
                      outputAg.ca.numAtoms(), outputAg.numAtoms(),
                      outputAg.numChains())]
+        return summ
+
+
+class ProDyToBiopythonPDBs(EMProtocol):
+    """
+    This protocol will add pdb/mmcif files together into a single pdb file
+    """
+    _label = 'convert to metadata'
+    IMPORT_FROM_ID = 0
+    IMPORT_FROM_FILES = 1
+    USE_POINTER = 2
+
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params
+        """
+        # You need a params to belong to a section:
+        form.addSection(label='ProDy Add PDBs')
+
+        form.addParam('inputStructure', PointerParam, label="Input structures",
+                      important=True,
+                      pointerClass='AtomStruct',
+                      help='Each input structures should be an atomic model '
+                           '(true PDB) or a pseudoatomic model\n'
+                           '(an EM volume converted into pseudoatoms)')
+
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        self._insertFunctionStep('createOutputStep')
+
+    def createOutputStep(self):
+        filename = os.path.abspath(self.inputStructure.get().getFileName())
+        struct = prody.parsePDB(filename)
+        outputPdb = SetOfAtoms().create(self._getExtraPath())
+        for i in range(struct.numAtoms()):
+            atom = Atom((i, filename))
+            outputPdb.append(atom)
+        self._defineOutputs(outputStructure=outputPdb)
+
+    def _summary(self):
+        if not hasattr(self, 'outputStructure'):
+            summ = ['Output structure not ready yet']
+        else:
+            summ = ['The new structure has *{0}* atoms'.format(len(self.outputStructure))]
         return summ
