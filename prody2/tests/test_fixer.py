@@ -46,12 +46,12 @@ class TestProDyFixer(TestWorkflow):
 
         ag = prody.parsePDB(protFix.outputStructure.getFileName())
         cls.assertTrue(ag.numAtoms() == 5956,
-                        "After fixing, 3hsy B should have 5956 atoms, not {0}".format(ag.numAtoms()))
+                       "After fixing, 3hsy B should have 5956 atoms, not {0}".format(ag.numAtoms()))
 
 
 def importSelect(cls):
     cls.protSel = cls.newProtocol(ProDySelect, selection="protein and chain B",
-                              inputPdbData=0)
+                                  inputPdbData=0)
     cls.protSel.pdbId.set("3hsy")
     cls.protSel.setObjLabel('sel_3hsyB')
     cls.launchProtocol(cls.protSel)
