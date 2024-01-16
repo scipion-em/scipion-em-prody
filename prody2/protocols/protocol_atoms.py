@@ -682,7 +682,7 @@ class ProDyAddPDBs(EMProtocol):
         return summ
 
 
-class ProDyToBiopythonPDBs(EMProtocol):
+class ProDyToBiopythonMetadata(EMProtocol):
     """
     This protocol will add pdb/mmcif files together into a single pdb file
     """
@@ -698,7 +698,7 @@ class ProDyToBiopythonPDBs(EMProtocol):
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy Add PDBs')
+        form.addSection(label='ProDy PDB to metadata')
 
         form.addParam('inputStructure', PointerParam, label="Input structures",
                       important=True,
