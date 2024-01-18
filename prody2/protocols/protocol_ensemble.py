@@ -396,8 +396,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          atommaps=atommaps,
                                          unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
-                                         degeneracy=self.degeneracy.get(),
-                                         labels=self.labels)
+                                         degeneracy=self.degeneracy.get())
             
             if self.delReference.get():
                 ens.delCoordset(ref)
