@@ -34,6 +34,7 @@ information such as name and number of residues.
 
 # Imports
 from collections import OrderedDict
+import re
 
 from ..protocols.protocol_atoms import ProDyAlign
 from ..protocols.protocol_ensemble import ProDyBuildPDBEnsemble
@@ -61,8 +62,18 @@ class ProDyAddChainOrderWizard(VariableWizard):
 
         if noLabel:
             matchDic = protocol.createMatchDic(index)
+
+        output = str(matchDic)
+        cnt = 0
+        for i in re.finditer(" ", output):
+            cnt=cnt+1
+            if cnt%3==0:
+                output = output[:i.start()] + "\n" + output[i.start() + 1:]
             
-        form.setVar(outputParam[0], str(matchDic).replace('),', '),\n' + ' '*20))
+        if output.find('\n' + " "*22) == -1:
+            output = output.replace('\n', '\n' + " "*22)
+
+        form.setVar(outputParam[0], output)
 
 
 ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,

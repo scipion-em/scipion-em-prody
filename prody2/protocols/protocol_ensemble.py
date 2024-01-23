@@ -372,6 +372,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             else:
                 self.matchDic = self.createMatchDic(self.insertOrder.get())
                 self.labels = list(self.matchDic.keys())
+                self.orders = list(self.matchDic.values())
+
+                if isinstance(self.labels[0], tuple):
+                    self.labels = [label[1] for label in self.labels]
+
+                self.matchDic = OrderedDict()
+                self.matchDic.update(zip(self.labels, self.orders))
 
                 logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
                 matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, self.matchDic)
@@ -561,8 +568,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 self.labels.append(title)
                 self.orders.append(self.getInitialChainOrder(ag))
 
-        self.labels = np.array(self.labels)
         self.orders = np.array(self.orders)
+
+        if not isinstance(self.labels[0], tuple):
+            self.labels = [(i+1, label) for i, label in enumerate(self.labels)]
         
         for idx in inds:
             if self.customOrder.get() != '':
@@ -571,7 +580,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
-        self.matchDic.update(zip(self.labels, self.orders))
+        self.matchDic.update(zip(list(self.labels), list(self.orders)))
         return self.matchDic
     
     def getInitialChainOrder(self, ag):

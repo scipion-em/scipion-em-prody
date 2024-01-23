@@ -341,6 +341,9 @@ class ProDyLDA(ProDyModesBase):
             self.labels = self.ens.getLabels()
             self.classes = list(np.ones(len(self.labels), dtype=str))
 
+        if not isinstance(self.labels[0], tuple):
+            self.labels = [(i+1, label) for i, label in enumerate(self.labels)]
+
         inds = [item-1 for item in getListFromRangeString(index)]
         for idx in inds:
             self.classes[idx] = self.customOrder.get()
