@@ -90,24 +90,23 @@ class ProDyLDA(ProDyModesBase):
                       help='Selection string for atoms to include in the calculation.\n'
                            'It is recommended to use "name CA" (default)')
         
-        readyCondition = 'inputEnsemble is not None'
         group = form.addGroup('Class labels')
-        group.addParam('chainOrders', TextParam, width=50, default='{}',
-                       label='Custom class label dictionary', condition=readyCondition,
+        group.addParam('chainOrders', TextParam, width=60, default='{}',
+                       label='Custom class label dictionary',
                        help='Defined labels for classes. These can be any string including numbers')
         group.addParam('insertOrder', NumericRangeParam, default='1',
-                       label='Insert label index', condition=readyCondition,
+                       label='Insert label index',
                        help='Insert the class label with the specified index into the label dict.\n'
                             'The default (when empty) is the last position.')
-        group.addParam('customOrder', StringParam, default='', condition=readyCondition,
+        group.addParam('customOrder', StringParam, default='1',
                        label='Custom label to insert at the specified index',
                        help='Enter the desired label here.\n'
                             'The default (when empty) is the number 1.')
-        group.addParam('label', StringParam, default='', condition=readyCondition,
+        group.addParam('label', StringParam, default='',
                        label='Ensemble label for item with the specified number for recovering custom class labels',
                        help='This cannot be changed by the user and is for display only.')
         group.addParam('recoverOrder', StringParam, default='1',
-                       label='Recover custom label number', condition=readyCondition,
+                       label='Recover custom label number',
                        help='Enter the desired class label index here.\n'
                             'Recover the class label with the specified index from the label dict.')
 
