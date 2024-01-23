@@ -36,8 +36,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.objects import ProDyNpzEnsemble
-from prody2.protocols import (ProDyBuildPDBEnsemble, ProDyImportEnsemble,
-                              ProDyLDA, ProDyPCA)
+from prody2.protocols import ProDyBuildPDBEnsemble, ProDyImportEnsemble
 
 import os
 import prody
@@ -46,8 +45,8 @@ class ProDyEnsembleViewer(Viewer):
     """ Visualization of an ensemble from the ProDy protocol or elsewhere
     """    
     _label = 'ProDy ensemble viewer'
-    _targets = [ProDyNpzEnsemble, ProDyBuildPDBEnsemble, ProDyImportEnsemble,
-                ProDyLDA, ProDyPCA]
+    _targets = [ProDyNpzEnsemble, ProDyBuildPDBEnsemble,
+                ProDyImportEnsemble]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
