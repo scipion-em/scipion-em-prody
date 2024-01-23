@@ -140,8 +140,7 @@ class ProDyLDA(ProDyModesBase):
         nzeros = 0
 
         self._insertFunctionStep('computeModesStep', n)
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('qualifyModesStep', n)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('animateModesStep', n,
                                  self.rmsd.get(), self.n_steps.get(),
@@ -161,7 +160,8 @@ class ProDyLDA(ProDyModesBase):
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
             self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                              overlap=0., superpose=False, degeneracy=self.degeneracy.get())
+                                              overlap=0., superpose=False,
+                                              degeneracy=self.degeneracy.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
@@ -209,17 +209,15 @@ class ProDyLDA(ProDyModesBase):
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
         prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold):
-        self._enterWorkingDir()
-
-        fnVec = glob("modes/vec.*")
+    def qualifyModesStep(self, numberOfModes):
+        fnVec = glob(self._getPath("modes/vec.*"))
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
             msg += "Check the number of modes you asked to compute. "
             msg += "The maximum number of components allowed by the method for linear discriminant analysis is "
-            msg += "the number of classes - 1. (%d)"
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, len(set(self.labels)))))
+            msg += "the number of classes - 1 (%d)."
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, len(set(self.classes))-1)))
 
         mdOut = MetaData()
         collectivity = prody.calcCollectivity(self.outModes)
@@ -241,10 +239,8 @@ class ProDyLDA(ProDyModesBase):
             mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
             mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
 
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
+        idxSorted = [i[0] for i in sorted(enumerate(collectivityList),
+                                          key=lambda x: x[1], reverse=True)]
 
         score = []
         for _ in range(len(fnVec)):
@@ -263,13 +259,10 @@ class ProDyLDA(ProDyModesBase):
             score[i] = float(score[i]) / (2.0 * l)
             mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
             i += 1
-        mdOut.write("modes.xmd")
-
-        self._leaveWorkingDir()
+        mdOut.write(self._getPath("modes.xmd"))
         
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
-
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score,
+                                only_sqlite=True)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
