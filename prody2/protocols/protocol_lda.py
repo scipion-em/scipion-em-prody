@@ -80,15 +80,11 @@ class ProDyLDA(ProDyModesBase):
         form.addParam('numberOfModes', IntParam, default=1,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms or pseudoatoms).')
-        form.addParam('collectivityThreshold', FloatParam, default=0, # important modes may well not be collective
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n')
+                           'atomic linear discriminant analysis is the number of classes - 1.')
+        form.addParam('numberOfShuffles', IntParam, default=10,
+                      label='Number of random shuffles',
+                      help='The class labels will be shuffled this many times for LDA to '
+                           'assess random variation.')
         form.addParam('selstr', StringParam, default="name CA",
                       label="Selection string",
                       help='Selection string for atoms to include in the calculation.\n'
@@ -195,10 +191,12 @@ class ProDyLDA(ProDyModesBase):
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
         labelsMap = eval(self.chainOrders.get())
-        self.labels = list(labelsMap.values())
+        self.classes = list(labelsMap.values())
 
         self.outModes = prody.LDA()
-        self.outModes.calcModes(self.ens, self.labels, self.numberOfModes.get())
+        self.outModes.calcModes(self.ens, self.classes,
+                                self.numberOfModes.get(),
+                                n_shuffles=self.numberOfShuffles.get())
         
         plt.figure()
         prody.showFractVars(self.outModes)
