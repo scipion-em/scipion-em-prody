@@ -370,7 +370,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
                 self.labels = [tar.getTitle() for tar in tars]
             else:
-                self.matchDic = self.createMatchDic("1")
+                self.matchDic = self.createMatchDic(self.insertOrder.get())
                 self.labels = list(self.matchDic.keys())
 
                 logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
