@@ -189,7 +189,7 @@ class ProDyLDA(ProDyModesBase):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
-        labelsMap = eval(self.chainOrders.get())
+        labelsMap = self.createMatchDic(self.insertOrder.get())
         self.classes = list(labelsMap.values())
 
         self.outModes = prody.LDA()
