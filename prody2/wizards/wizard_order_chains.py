@@ -103,19 +103,20 @@ class ProDyRecoverChainOrderWizard(VariableWizard):
         matchDic = eval(protocol.chainOrders.get())
         form.setVar(outputParam[0], list(matchDic.keys())[index])
         form.setVar(outputParam[1], list(matchDic.values())[index])
+        form.setVar(outputParam[2], index+1)
 
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyAlign,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
-                                         outputs=['label', 'customOrder'])
+                                         outputs=['label', 'customOrder', 'insertOrder'])
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
-                                         outputs=['label', 'customOrder'])
+                                         outputs=['label', 'customOrder', 'insertOrder'])
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLDA,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
-                                         outputs=['label', 'customOrder'])
+                                         outputs=['label', 'customOrder', 'insertOrder'])
