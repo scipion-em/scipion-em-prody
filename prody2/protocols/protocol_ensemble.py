@@ -249,6 +249,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition=imported_chem==True,
                       label="Whether to write many PDB files",
                       help='These will be registered as output too')
+        
+        form.addParam('doReorder', BooleanParam, default=False,
+                      condition=matchFuncCheck % CUSTOM,
+                      label="Whether to reorder ensemble by custom match dict",
+                      help='Otherwise the order matches the input')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -389,6 +394,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
                             'target structures ({1})'.format(len(self.labels), len(tars))))
                 
+            matchDictLabels = self.labels
+                
             titles = [tar.getTitle() for tar in tars]
             for i, title in enumerate(titles):
                 title = title.replace(" Selection 'name CA'", "")
@@ -431,6 +438,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
+
+        if self.doReorder.get():
+            newIndices = [self.labels.index(label) for label in matchDictLabels 
+                          if label in self.labels]
+            ens = ens[newIndices]
 
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
