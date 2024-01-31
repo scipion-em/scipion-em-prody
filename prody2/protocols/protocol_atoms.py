@@ -62,6 +62,10 @@ PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial 
 CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
 DEFAULT = 3 # try pwalign then CE
 
+UNITE_CHAINS_LABEL = "Unite chains in mmCIF segments"
+UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                     'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
 class ProDySelect(EMProtocol):
     """
     This protocol will perform atom selection
@@ -109,9 +113,8 @@ class ProDySelect(EMProtocol):
                            'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
 
         form.addParam('uniteChains', BooleanParam, default=False,
-                      label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+                      label=UNITE_CHAINS_LABEL,
+                      help=UNITE_CHAINS_HELP)
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -216,9 +219,8 @@ class ProDyAlign(EMProtocol):
                            '(an EM volume converted into pseudoatoms).')
 
         form.addParam('uniteChains', BooleanParam, default=False,
-                      label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+                      label=UNITE_CHAINS_LABEL,
+                      help=UNITE_CHAINS_HELP)
 
         form.addParam('seqid', FloatParam, default=100.,
                       expertLevel=LEVEL_ADVANCED,
@@ -524,9 +526,8 @@ class ProDyBiomol(EMProtocol):
                       help='Use the OPM database to to model placement in the membrane.')
 
         form.addParam('uniteChains', BooleanParam, default=False,
-                      label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+                      label=UNITE_CHAINS_LABEL,
+                      help=UNITE_CHAINS_HELP)
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -640,9 +641,8 @@ class ProDyAddPDBs(EMProtocol):
                            '(an EM volume converted into pseudoatoms)')
 
         form.addParam('uniteChains', BooleanParam, default=False,
-                      label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+                      label=UNITE_CHAINS_LABEL,
+                      help=UNITE_CHAINS_HELP)
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
