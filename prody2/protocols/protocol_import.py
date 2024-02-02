@@ -353,6 +353,8 @@ class ProDyImportEnsemble(ProtImportFiles):
 
                 if self.inputStructure.get() is not None:
                     self.atoms = prody.parsePDB(self.inputStructure.get().getFileName())
+                else:
+                    self.atoms = self.outEns.getAtoms()
 
             elif isinstance(point, SetOfAtomStructs):
                 self.weights = [item.getAttributeValue(ENSEMBLE_WEIGHTS) for item in point]
@@ -421,11 +423,13 @@ class ProDyImportEnsemble(ProtImportFiles):
             self.outEns.iterpose()
             
         if self.savePDBs.get():
+            labels = self.outEns.getLabels()
+            refLabel = labels[0]
             self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
             for i, coordset in enumerate(self.outEns.getCoordsets()):
                 atoms = self.atoms.select(selstr).copy()
                 atoms.setCoords(coordset)
-                filename = self._getExtraPath('{:s}_{:06d}.pdb'.format(atoms.getTitle(), i))
+                filename = self._getExtraPath('{:s}_{:06d}_{:s}.pdb'.format(refLabel, i+1, labels[i]))
                 prody.writePDB(filename, atoms)
                 pdb = AtomStruct(filename)
                 setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
