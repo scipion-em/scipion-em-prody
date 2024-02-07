@@ -37,8 +37,6 @@ from pyworkflow.protocol import params
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
-from pwem.objects import SetOfAtomStructs, Set
-
 from prody2.protocols.protocol_lda import ProDyLDA
 
 import prody
