@@ -1,8 +1,9 @@
 import numpy as np
 import os
 import prody
-from pwem.objects import (EMObject, EMSet, Pointer, Integer, Float,
-                          String, SetOfNormalModes)
+from pwem.objects import (EMObject, EMSet, SetOfNormalModes, SetOfClasses3D,
+                          Pointer, Integer, Float, String,
+                          AtomStruct, SetOfAtomStructs)
 from pwem.convert import AtomicStructHandler
 from pyworkflow.utils import logger
 
@@ -21,12 +22,19 @@ class TrajFrame(EMObject):
         self._filename = String()
         if location:
             self.setLocation(location)
+        self._weight = Integer(kwargs.get('weight'))
 
     def getIndex(self):
         return self._index.get()
 
     def setIndex(self, index):
         self._index.set(index)
+
+    def getWeight(self):
+        return self._weight.get()
+
+    def setWeight(self, index):
+        self._weight.set(index)
 
     def getFileName(self):
         """ Use the _objValue attribute to store filename. """
@@ -103,7 +111,7 @@ class SetOfTrajFrames(EMSet):
         return self._ref.get()
 
     def setRef(self, ref):
-        """ Set the reference frame associates with
+        """ Set the reference frame associated with
         this set of trajectory frames.
         """
         if ref is None:
@@ -341,3 +349,30 @@ class Atom(EMObject):
 class SetOfAtoms(EMSet):
     """ Represents a set of Atoms """
     ITEM_TYPE = Atom
+
+class ClassTraj(SetOfTrajFrames):
+    """Class from clustering trajectories"""
+    REP_TYPE = TrajFrame
+
+    def copyInfo(self, other):
+        """ Copy basic information (id and other properties) but not
+        _mapperPath or _size from other set of micrographs to current one.
+        """
+        self.copy(other, copyId=False, ignoreAttrs=['_mapperPath', '_size'])
+
+    def clone(self):
+        clone = self.getClass()()
+        clone.copy(self, ignoreAttrs=['_mapperPath', '_size'])
+        return clone
+
+    def close(self):
+        # Do nothing on close, since the db will be closed by SetOfClasses
+        pass
+
+class SetOfClassesTraj(SetOfClasses3D):
+    """ SetOfClasses from trajectories"""
+    ITEM_TYPE = ClassTraj
+    REP_TYPE = AtomStruct
+    REP_SET_TYPE = SetOfAtomStructs
+
+    pass

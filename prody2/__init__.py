@@ -77,10 +77,12 @@ class Plugin(pwem.Plugin):
             f'conda create -y -n {ENV_NAME} python=3.9 &&',
             f'conda activate {ENV_NAME} &&']
 
-        # Install TEMPy for ClustENM fitting and threadpoolctl for control of thread pools for apps generally
+        # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
+        # and threadpoolctl for control of thread pools for apps generally
         TEMPY_INSTALLED = 'tempy_installed'
         installTEMPy = installCmd.copy()
-        installTEMPy.append('pip install biotempy==2.0.0 threadpoolctl && touch %s' % TEMPY_INSTALLED)
+        installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
+                            'threadpoolctl && touch %s' % TEMPY_INSTALLED)
         installCmd.pop(1) # remove conda create to only do it the first time
 
         # Install PDBFixer and OpenMM for ClustENM

@@ -11,14 +11,22 @@ from .viewer_project import ProDyProjectionsViewer
 from .viewer_ensemble import ProDyEnsembleViewer
 from .viewer_lda import ProDyLDAViewer
 
-from pwem.viewers import BasicMDViewer, showj
+from pwem.viewers import DataViewer, showj
 from pwem.viewers.viewers_data import RegistryViewerConfig
-from prody2.objects import SetOfTrajFrames, SetOfAtoms
-BasicMDViewer._targets.extend([SetOfTrajFrames, SetOfAtoms])
+from prody2.objects import (SetOfTrajFrames, SetOfAtoms,
+                            SetOfClassesTraj)
+DataViewer._targets.extend([SetOfTrajFrames, SetOfAtoms,
+                            SetOfClassesTraj])
 
-labels = labels = 'id enabled label _filename '
+from pwem.viewers.views import Classes3DView
+
 RegistryViewerConfig.registerConfig(SetOfTrajFrames,
-                                    {showj.ORDER: labels,
-                                     showj.VISIBLE: labels,
+                                    {showj.ORDER: 'id enabled label _filename ',
+                                     showj.VISIBLE: 'id enabled label _filename ',
+                                     showj.MODE: showj.MODE_MD,
+                                     showj.RENDER: 'no'})
+RegistryViewerConfig.registerConfig(SetOfClassesTraj,
+                                    {showj.ORDER: 'id enabled label _size ',
+                                     showj.VISIBLE: 'id enabled label _size ',
                                      showj.MODE: showj.MODE_MD,
                                      showj.RENDER: 'no'})
