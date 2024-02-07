@@ -66,7 +66,7 @@ class ProDyCompare(EMProtocol):
                       pointerClass='SetOfNormalModes',
                       help='The input modes can be a SetOfNormalModes '
                            'from an atomic model (true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms)'
+                           '(an EM volume compared into pseudoatoms) '
                            'or a SetOfPrincipalComponents.\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
@@ -76,7 +76,7 @@ class ProDyCompare(EMProtocol):
                       pointerClass='SetOfNormalModes',
                       help='The input modes can be a SetOfNormalModes '
                            'from an atomic model (true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms)'
+                           '(an EM volume compared into pseudoatoms) '
                            'or a SetOfPrincipalComponents.\n'
                            'The two sets should have the same number of nodes '
                            'unless one of them has exactly 1 mode in it.')
