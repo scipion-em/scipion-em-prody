@@ -79,13 +79,32 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(exists(protSel1._getPath(outputFilename)))
         cls.assertTrue(hasattr(protSel1, "outputStructure"))
 
-        # Select chain C and name CA to show it doesn't work
+        # Select chain C CA to show it doesn't work
         protSel1a = cls.newProtocol(ProDySelect, selection="chain C and name CA")
+        protSel1a.inputStructure.set(protImportPdb1.outputPdb)
+        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        cls.launchProtocol(protSel1a)
+
+        cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertFalse(hasattr(protSel1a, "outputStructure"))
+
+        # Select whole chain C with uniteChains False (default) to show it does work
+        protSel1a = cls.newProtocol(ProDySelect, selection="chain C")
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
         protSel1a.setObjLabel('Sel 4ake_C_pointer_1')
         cls.launchProtocol(protSel1a)
 
-        cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
+        cls.assertTrue(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertTrue(hasattr(protSel1a, "outputStructure"))
+
+        # Select whole chain C with uniteChains True to show it doesn't work
+        protSel1a = cls.newProtocol(ProDySelect, selection="chain C",
+                                    uniteChains=True)
+        protSel1a.inputStructure.set(protImportPdb1.outputPdb)
+        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        cls.launchProtocol(protSel1a)
+
+        cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
         cls.assertFalse(hasattr(protSel1a, "outputStructure"))
 
         # Select chain C whole to show it does work with uniteChains False (default)
