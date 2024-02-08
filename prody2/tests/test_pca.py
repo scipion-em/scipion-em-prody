@@ -335,7 +335,7 @@ class TestProDyPCA(TestWorkflow):
 
         protPca5 = cls.newProtocol(ProDyPCA)
         protPca5.inputEnsemble.set(protImportEns.outputNpz)
-        protPca5.setObjLabel('PCA_2k39')
+        protPca5.setObjLabel('PCA_2k39_n_ca')
         cls.launchProtocol(protPca5)
 
         # ------------------------------------------------
@@ -346,7 +346,7 @@ class TestProDyPCA(TestWorkflow):
         # Launch ANM NMA for selected atoms (2k39 CA)
         protANM1 = cls.newProtocol(ProDyANM)
         protANM1.inputStructure.set(protSel5.outputStructure)
-        protANM1.setObjLabel('ANM_2k39_CA')
+        protANM1.setObjLabel('ANM_2k39_n_ca')
         cls.launchProtocol(protANM1)
 
         # Import scipion ANM modes
@@ -354,7 +354,7 @@ class TestProDyPCA(TestWorkflow):
         protImportModes1.importType.set(SCIPION)
         protImportModes1.filesPath.set(protANM1.outputModes.getFileName())
         protImportModes1.inputStructure.set(protSel5.outputStructure)
-        protImportModes1.setObjLabel('import_scipion_ANM_CA')
+        protImportModes1.setObjLabel('import_scipion_ANM_n_ca')
         cls.launchProtocol(protImportModes1)
 
         # Import scipion PCA modes
@@ -362,7 +362,7 @@ class TestProDyPCA(TestWorkflow):
         protImportModes2.importType.set(SCIPION)
         protImportModes2.filesPath.set(protPca5.outputModes.getFileName())
         protImportModes2.inputStructure.set(protSel5.outputStructure)
-        protImportModes2.setObjLabel('import_scipion_PCA_CA')
+        protImportModes2.setObjLabel('import_scipion_PCA_n_ca')
         cls.launchProtocol(protImportModes2)
 
         # Check types
