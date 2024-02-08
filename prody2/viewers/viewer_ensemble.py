@@ -73,6 +73,7 @@ class ProDyEnsembleViewer(Viewer):
         cmdFn = ensPath + "ensemble.vmd"
         fhCmd = open(cmdFn, "w")
         fhCmd.write("mol new %s\n" % atomsFn)
+        fhCmd.write("animate delete all\n")
         fhCmd.write("mol addfile %s\n" % ensFn)
         fhCmd.write("mol modcolor 0 0 Chain\n")
         fhCmd.write("mol modstyle 0 0 Tube\n")
