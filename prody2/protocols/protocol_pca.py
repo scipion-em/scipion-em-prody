@@ -92,10 +92,10 @@ class ProDyPCA(ProDyModesBase):
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
                       'For no deselection, this parameter should be set to 0 . \n')
-        form.addParam('selstr', StringParam, default="name CA",
+        form.addParam('selstr', StringParam, default="all",
                       label="Selection string",
                       help='Selection string for atoms to include in the calculation.\n'
-                           'It is recommended to use "name CA" (default)')
+                           'It is recommended to use "all" (default) or "name CA"')
         form.addParam('keepAlignment', BooleanParam, default=True,
                       label="Keep alignment", help="The alternative is to realign the structures")
 
