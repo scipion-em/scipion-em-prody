@@ -171,6 +171,9 @@ class ProDyEdit(ProDyModesBase):
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
 
+        if isinstance(self.outModes, prody.GNM):
+            self.gnm = True
+
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
