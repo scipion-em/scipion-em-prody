@@ -53,7 +53,7 @@ class ProDyRmsd(EMProtocol):
     """
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
-    _label = 'RMSD Reorder and Cluster'
+    _label = 'RMSD Cluster'
     _possibleOutputs = {'outputEnsemble': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
@@ -113,7 +113,7 @@ class ProDyRmsd(EMProtocol):
                       help='Kmedoids will create this many clusters')
         
         form.addParam('writePDBFiles', BooleanParam, default=False,
-                      label="Whether to write lots of PDB files",
+                      label="Write representative PDB files",
                       help='These will be registered as output too')
 
     # --------------------------- STEPS functions ------------------------------
