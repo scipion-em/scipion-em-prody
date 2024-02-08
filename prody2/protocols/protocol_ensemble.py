@@ -161,14 +161,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Sequence identity cutoff",
-                      help='Alignment mapping with lower sequence identity will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
+                      help='Alignment mapping with lower percent sequence identity will not be accepted.\n'
+                           'This can be a number between 0 and 100')
 
         form.addParam('overlap', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Overlap cutoff",
-                      help='Alignment mapping with lower sequence coverage will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
+                      help='Alignment mapping with lower percent sequence coverage will not be accepted.\n'
+                           'This can be a number between 0 and 100')
 
         form.addParam('rmsdReject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
@@ -410,7 +410,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          atommaps=atommaps,
                                          unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
-                                         degeneracy=self.degeneracy.get())
+                                         degeneracy=self.degeneracy.get(),
+                                         mapping=mappings)
             
             if self.delReference.get():
                 ens.delCoordset(ref)
