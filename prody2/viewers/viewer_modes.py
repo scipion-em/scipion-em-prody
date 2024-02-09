@@ -65,7 +65,8 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        if not os.path.isfile(self.protocol._getPath("modes.nmd")):
+        if not (hasattr(modes, '_nmdFileName') or
+                os.path.isfile(glob(self.protocol._getPath("modes.nmd")))):
             prody_modes = prody.parseScipionModes(modes.getFileName())
             modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
 
@@ -78,10 +79,13 @@ class ProDyModeViewer(Viewer):
             else:
                 prody_atoms = atoms
 
-            prody.writeNMD(modesPath+"/modes.nmd", prody_modes, prody_atoms)
+            self.nmdFileName = modesPath+"/modes.nmd"
+            prody.writeNMD(self.nmdFileName, prody_modes, prody_atoms)
+        else:
+            self.nmdFileName = modes._nmdFileName
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
         
-        return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
+        return [VmdView('-e "%s"' % self.nmdFileName)]
 

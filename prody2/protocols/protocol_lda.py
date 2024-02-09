@@ -206,7 +206,7 @@ class ProDyLDA(ProDyModesBase):
         prody.writeArray(self._getPath('lda_fract_vars.txt'), self.fract_vars)
 
         prody.writeScipionModes(self._getPath(), self.outModes)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
+        prody.writeNMD(self._getPath('modes.lda.nmd'), self.outModes, self.atoms)
         prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
     def qualifyModesStep(self, numberOfModes):
@@ -267,8 +267,7 @@ class ProDyLDA(ProDyModesBase):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfLdaModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-
+        nmSet._nmdFileName = String(self._getPath('modes.lda.nmd'))
 
         self.fractVarsDict = {}
         for i, item in enumerate(nmSet):

@@ -72,12 +72,11 @@ class ProDyGNMViewer(ProtocolViewer):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         if isinstance(self.protocol, SetOfNormalModes):
-            protocolPath = os.path.dirname(os.path.dirname(self.protocol._getMapper().selectFirst().getModeFile()))
-            nmdFile = protocolPath + "/modes.nmd"
+            modes = self.protocol
         else:
-            nmdFile = self.protocol._getPath("modes.nmd")
+            modes =  self.protocol.outputModes
 
-        modes =  self.protocol.outputModes
+        nmdFile = modes._nmdFileName
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         self.atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
@@ -322,9 +321,9 @@ def createDistanceProfilePlot(protocol, modeNumber):
 
 def createVmdNmwizView(protocol):
     if isinstance(protocol, SetOfNormalModes):
-        nmdFile = os.path.dirname(os.path.dirname(protocol._getMapper().selectFirst().getModeFile())) + "/modes.nmd"
+        nmdFile = protocol._nmdFileName
     else:
-        nmdFile = protocol._getPath("modes.nmd")
+        nmdFile = protocol.outputModes._nmdFileName
     return VmdView('-e %s' % nmdFile)
 
 def showDistanceProfilePlot(protocol, modeNumber):

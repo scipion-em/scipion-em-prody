@@ -36,7 +36,8 @@ from pwem.objects import (String, AtomStruct, SetOfAtomStructs, EMFile,
                           SetOfNormalModes, SetOfPrincipalComponents)
 from pwem.protocols import ProtImportFiles
 
-from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.objects import (ProDyNpzEnsemble, TrajFrame,
+                            SetOfGnmModes, SetOfLdaModes)
 from prody2.constants import ENSEMBLE_WEIGHTS
 
 import pyworkflow.object as pwobj
@@ -147,12 +148,28 @@ class ProDyImportModes(ProtImportFiles):
             folderPath = os.path.split(filesPaths[0])[0]
             self.pattern1 = os.path.split(filesPaths[0])[1]
 
-        pdbFilename = self.inputStructure.get().getFileName()
+        if self.inputStructure.get() is not None:
+            pdbFilename = self.inputStructure.get().getFileName()
         
         if self.importType == NMD:
             if not self.pattern1.endswith('.nmd'):
                 self.pattern1 += '.nmd'
-            self.outModes, _ = prody.parseNMD(os.path.join(folderPath, self.pattern1))
+
+            if self.pattern1.find('pca') != -1:
+                prodyType = prody.PCA
+            elif self.pattern1.find('lda') != -1:
+                prodyType = prody.LDA
+            elif self.pattern1.find('gnm') != -1:
+                prodyType = prody.GNM
+            else:
+                prodyType = prody.NMA
+
+            self.outModes, self.atoms = prody.parseNMD(os.path.join(folderPath, self.pattern1),
+                                                       type=prodyType)
+
+            if self.inputStructure.get() is None:
+                pdbFilename = prody.writePDB(self._getExtraPath('atoms'), self.atoms)
+                self.inputStructure = AtomStruct(filename=pdbFilename)
 
         elif self.importType == MODES_NPZ:
             if not self.pattern1.endswith('.npz'):
@@ -170,9 +187,14 @@ class ProDyImportModes(ProtImportFiles):
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         
         if self.importType != NMD:
-            atoms = prody.parsePDB(pdbFilename)
-            self.nmdFileName = self._getPath('modes.nmd')
-            prody.writeNMD(self.nmdFileName, self.outModes, atoms)
+            self.atoms = prody.parsePDB(pdbFilename)
+            if isinstance(self.outModes, prody.PCA):
+                self.nmdFileName = self._getPath('modes.pca.nmd')
+            elif isinstance(self.outModes, prody.GNM):
+                self.nmdFileName = self._getPath('modes.gnm.nmd')
+            else:
+                self.nmdFileName = self._getPath('modes.nmd')
+            prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
         else:
             self.nmdFileName = self.pattern1
             
@@ -182,8 +204,13 @@ class ProDyImportModes(ProtImportFiles):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
-        if self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1] or self.outModes.getEigvals()[0] < ZERO:
+        if isinstance(self.outModes, prody.GNM) or self.outModes.numAtoms() < self.atoms.numAtoms():
+            nmSet = SetOfGnmModes(filename=fnSqlite)
+        elif (self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1]
+            or self.outModes.getEigvals()[0] < ZERO):
             nmSet = SetOfNormalModes(filename=fnSqlite)
+        elif isinstance(self.outModes, prody.LDA):
+            nmSet = SetOfLdaModes(filename=fnSqlite)
         else:
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
 

@@ -169,7 +169,14 @@ class ProDyEdit(ProDyModesBase):
 
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
+
+        if isinstance(self.outModes, prody.PCA):
+            self.nmdFileName = self._getPath('modes.pca.nmd')
+        elif isinstance(self.outModes, prody.GNM):
+            self.nmdFileName = self._getPath('modes.gnm.nmd')
+        else:
+            self.nmdFileName = self._getPath('modes.nmd')
+        prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
 
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
@@ -179,7 +186,7 @@ class ProDyEdit(ProDyModesBase):
 
         inputClass = type(self.modes.get())
         nmSet = inputClass(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self.nmdFileName)
         nmSet.setPdb(self.newNodes.get())
 
         self._defineOutputs(outputModes=nmSet)

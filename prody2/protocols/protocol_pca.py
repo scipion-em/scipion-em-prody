@@ -180,7 +180,7 @@ class ProDyPCA(ProDyModesBase):
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
-               ' -o {3} -p modes -n {4} -P {5}'.format(self.dcdFileName,
+               ' -o {3} -p modes.pca -n {4} -P {5}'.format(self.dcdFileName,
                                                        self.pdbFileName,
                                                        self.selstr.get(),
                                                        self._getPath(), n,
@@ -190,7 +190,7 @@ class ProDyPCA(ProDyModesBase):
 
         self.runJob(Plugin.getProgram('pca'), args)
         
-        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), type=prody.PCA)
         
         plt.figure()
         prody.showFractVars(self.outModes)
@@ -261,8 +261,7 @@ class ProDyPCA(ProDyModesBase):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-
+        nmSet._nmdFileName = String(self._getPath('modes.pca.nmd'))
 
         self.fractVarsDict = {}
         for i, item in enumerate(nmSet):

@@ -158,7 +158,14 @@ class ProDyCompare(EMProtocol):
             else:
                 atoms = prody.parsePDB(pdb1)
 
-            prody.writeNMD(self._getExtraPath('matched_modes.nmd'), mode_ens[1], atoms)
+            if isinstance(modes2, prody.PCA):
+                self.nmdFileName = self._getExtraPath('matched_modes.pca.nmd')
+            elif isinstance(modes2, prody.GNM):
+                self.nmdFileName = self._getExtraPath('matched_modes.gnm.nmd')
+            else:
+                self.nmdFileName = self._getExtraPath('matched_modes.nmd')
+
+            prody.writeNMD(self.nmdFileName, mode_ens[1], atoms)
             prody.writeScipionModes(self._getPath(), mode_ens[1], write_star=True)
         else:
             mode_ens = [modes1, modes2]
@@ -196,7 +203,7 @@ class ProDyCompare(EMProtocol):
             fnSqlite = self._getPath('modes.sqlite')
             inputClass = type(self.modes1.get())
             nmSet = inputClass(filename=fnSqlite)
-            nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+            nmSet._nmdFileName = String(self.nmdFileName)
 
             outputPdb = AtomStruct()
             outputPdb.setFileName(self._getPath('atoms.pdb'))

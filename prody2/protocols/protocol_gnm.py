@@ -146,7 +146,7 @@ class ProDyGNM(EMProtocol):
         prody.writePDB(self.pdbFileName, ag)
 
         args = '{0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
-               '-o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+               '-o {1} -p modes.gnm -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                               self._getPath(), n,
                                                               self.gamma.get(),
                                                               self.cutoff.get(),
@@ -284,7 +284,7 @@ class ProDyGNM(EMProtocol):
 
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfGnmModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath('modes.gnm.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
