@@ -76,7 +76,7 @@ class ProDyGNMViewer(ProtocolViewer):
         else:
             modes =  self.protocol.outputModes
 
-        nmdFile = modes._nmdFileName
+        nmdFile = modes._nmdFileName.get()
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         self.atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
