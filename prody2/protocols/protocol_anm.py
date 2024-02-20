@@ -153,22 +153,23 @@ class ProDyANM(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n, nzeros):
+    def _insertAllSteps(self, n=20, nzeros=6,
+                        collecThreshold=0.15):
         # Insert processing steps
 
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
-        n = self.numberOfModes.get()
+        numModes = self.numberOfModes.get()
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
-        self._insertFunctionStep('animateModesStep', n,
+        self.gnm = False
+
+        self._insertFunctionStep('computeModesStep', inputFn, numModes)
+        self._insertFunctionStep('qualifyModesStep', numModes,
+                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('animateModesStep', numModes,
                                  self.rmsd.get(), self.numSteps.get(),
                                  self.neg.get(), self.pos.get())
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
@@ -176,11 +177,7 @@ class ProDyANM(ProDyModesBase):
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
 
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
-
+        self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
@@ -282,45 +279,6 @@ class ProDyANM(ProDyModesBase):
         
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
-
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        
-        for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", vecStr % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==self.startMode+1:
-                        maxShift.append(d)
-                        maxShiftMode.append(self.startMode+1)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

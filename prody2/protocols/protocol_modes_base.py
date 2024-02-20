@@ -137,7 +137,6 @@ class ProDyModesBase(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
-        #n = self.numberOfModes.get()
 
         self.gnm = False
 
