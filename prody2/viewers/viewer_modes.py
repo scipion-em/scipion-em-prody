@@ -65,22 +65,24 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        if not (hasattr(modes, '_nmdFileName') or
-                os.path.isfile(glob(self.protocol._getPath("modes.nmd")))):
-            prody_modes = prody.parseScipionModes(modes.getFileName())
-            modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-
-            atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"), altloc="all")
-            if isinstance(atoms, list):
-                for atoms_i in atoms:
-                    if atoms_i.numAtoms() == prody_modes.numAtoms():
-                        prody_atoms = atoms_i
-                        break
+        if not hasattr(modes, '_nmdFileName'):
+            if os.path.isfile(glob(self.protocol._getPath("modes*.nmd"))[0]):
+                self.nmdFileName = glob(self.protocol._getPath("modes*.nmd"))[0]
             else:
-                prody_atoms = atoms
+                prody_modes = prody.parseScipionModes(modes.getFileName())
+                modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
 
-            self.nmdFileName = modesPath+"/modes.nmd"
-            prody.writeNMD(self.nmdFileName, prody_modes, prody_atoms)
+                atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"), altloc="all")
+                if isinstance(atoms, list):
+                    for atoms_i in atoms:
+                        if atoms_i.numAtoms() == prody_modes.numAtoms():
+                            prody_atoms = atoms_i
+                            break
+                else:
+                    prody_atoms = atoms
+
+                self.nmdFileName = modesPath+"/modes.nmd"
+                prody.writeNMD(self.nmdFileName, prody_modes, prody_atoms)
         else:
             self.nmdFileName = modes._nmdFileName
 
