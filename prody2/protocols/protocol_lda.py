@@ -43,6 +43,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         LEVEL_ADVANCED, Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2.protocols.protocol_pca import loadAndWriteEnsemble
 from prody2.objects import ProDyNpzEnsemble, TrajFrame, SetOfLdaModes
 from prody2.constants import LDA_FRACT_VARS
 
@@ -153,35 +154,8 @@ class ProDyLDA(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        inputEnsemble = self.inputEnsemble.get()
-        if isinstance(inputEnsemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                              overlap=0., superpose=False,
-                                              degeneracy=self.degeneracy.get())
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            self.ens = inputEnsemble.loadEnsemble()
-
-        self.ens.select(self.selstr.get())
-
+        loadAndWriteEnsemble(self)
         self.atoms = self.ens.getAtoms()
-        self.atoms.setCoords(self.ens.getCoords())
-
-        self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, self.atoms)
-        self.averageStructure = AtomStruct()
-        self.averageStructure.setFileName(self.pdbFileName)
-
-        self.dcdFileName = self._getPath('ensemble.dcd')
-        prody.writeDCD(self.dcdFileName, self.ens)
-
-        self.npzFileName = self._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(self.ens, self.npzFileName)
-        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        for j in range(self.ens.numConfs()):
-            frame = TrajFrame((j+1, self.npzFileName), objLabel=self.ens.getLabels()[j])
-            self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
@@ -202,13 +176,14 @@ class ProDyLDA(ProDyModesBase):
         prody.writeArray(self._getPath('lda_fract_vars.txt'), self.fract_vars)
 
         prody.writeScipionModes(self._getPath(), self.outModes)
-        prody.writeNMD(self._getPath('modes.lda.nmd'), self.outModes, self.atoms)
+        self._nmdFileName = String(self._getPath('modes.lda.nmd'))
+        prody.writeNMD(self._nmdFileName.get(), self.outModes, self.atoms)
         prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfLdaModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.lda.nmd'))
+        nmSet._nmdFileName = self._nmdFileName
 
         self.fractVarsDict = {}
         for i, item in enumerate(nmSet):
@@ -216,7 +191,7 @@ class ProDyLDA(ProDyModesBase):
 
         outSet = SetOfLdaModes().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
-        outSet._nmdFileName = String(self._getPath('modes.lda.nmd'))
+        outSet._nmdFileName = self._nmdFileName
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)

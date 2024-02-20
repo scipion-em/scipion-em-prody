@@ -143,35 +143,8 @@ class ProDyPCA(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        inputEnsemble = self.inputEnsemble.get()
-        if isinstance(inputEnsemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                              overlap=0., superpose=False, degeneracy=self.degeneracy.get())
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            self.ens = inputEnsemble.loadEnsemble()
-
-        self.ens.select(self.selstr.get())
-
-        avgStruct = self.ens.getAtoms()
-        avgStruct.setCoords(self.ens.getCoords())
-
-        self.pdbFileName = self._getPath('atoms.pdb')
-        prody.writePDB(self.pdbFileName, avgStruct)
-        self.averageStructure = AtomStruct()
-        self.averageStructure.setFileName(self.pdbFileName)
-
-        self.dcdFileName = self._getPath('ensemble.dcd')
-        prody.writeDCD(self.dcdFileName, self.ens)
-
-        self.npzFileName = self._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(self.ens, self.npzFileName)
-        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        for j in range(self.ens.numConfs()):
-            frame = TrajFrame((j+1, self.npzFileName), objLabel=self.ens.getLabels()[j])
-            self.npz.append(frame)
-
+        loadAndWriteEnsemble(self)
+        
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
@@ -289,3 +262,36 @@ class ProDyPCA(ProDyModesBase):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
         setattr(item, PCA_FRACT_VARS, fractVar)
+
+def loadAndWriteEnsemble(cls):
+    """Handle inputs to load ensemble into ProDy and write outputs"""
+
+    inputEnsemble = cls.inputEnsemble.get()
+
+    if isinstance(inputEnsemble, SetOfAtomStructs):
+        ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+        cls.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
+                                            overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
+        # the ensemble gets built exactly as the input is setup and nothing gets rejected
+    else:
+        cls.ens = inputEnsemble.loadEnsemble()
+
+    cls.ens.select(cls.selstr.get())
+
+    avgStruct = cls.ens.getAtoms()
+    avgStruct.setCoords(cls.ens.getCoords())
+
+    cls.pdbFileName = cls._getPath('atoms.pdb')
+    prody.writePDB(cls.pdbFileName, avgStruct)
+    cls.averageStructure = AtomStruct()
+    cls.averageStructure.setFileName(cls.pdbFileName)
+
+    cls.dcdFileName = cls._getPath('ensemble.dcd')
+    prody.writeDCD(cls.dcdFileName, cls.ens)
+
+    cls.npzFileName = cls._getPath('ensemble.ens.npz')
+    prody.saveEnsemble(cls.ens, cls.npzFileName)
+    cls.npz = ProDyNpzEnsemble().create(cls._getExtraPath())
+    for j in range(cls.ens.numConfs()):
+        frame = TrajFrame((j+1, cls.npzFileName), objLabel=cls.ens.getLabels()[j])
+        cls.npz.append(frame)
