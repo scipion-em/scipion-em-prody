@@ -147,8 +147,8 @@ class ProDyModesBase(EMProtocol):
                                  structureEM=False, suffix='')
         if self.doAnimation:
             self._insertFunctionStep('animateModesStep', n,
-                                    self.rmsd.get(), self.n_steps.get(),
-                                    self.neg.get(), self.pos.get(), nzeros)
+                                     self.rmsd.get(), self.n_steps.get(),
+                                     self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
@@ -180,15 +180,11 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.write("display projection Orthographic\n")
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
+                numAtomsP = numAtomsCA = 0
                 if self.atoms.select('name P') is not None:
                     numAtomsP = self.atoms.select('name P').numAtoms()
-                else:
-                    numAtomsP = 0
-
                 if self.atoms.ca is not None:
                     numAtomsCA = self.atoms.ca.numAtoms()
-                else:
-                    numAtomsCA = 0
 
                 numAtomsRep = numAtomsCA + numAtomsP
                 if numAtomsRep == self.atoms.numAtoms():
