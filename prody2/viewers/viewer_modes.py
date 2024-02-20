@@ -30,7 +30,7 @@ visualization program and the normal mode wizard NMWiz.
 """
 
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.utils import *
+from pyworkflow.utils import glob
 
 from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
@@ -65,26 +65,17 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        if not hasattr(modes, '_nmdFileName'):
-            if os.path.isfile(glob(self.protocol._getPath("modes*.nmd"))[0]):
+        try:
+            self.nmdFileName = modes._nmdFileName
+        except AttributeError:
+            if glob(self.protocol._getPath("modes*.nmd")):
                 self.nmdFileName = glob(self.protocol._getPath("modes*.nmd"))[0]
             else:
-                prody_modes = prody.parseScipionModes(modes.getFileName())
+                prodyModes = prody.parseScipionModes(modes.getFileName())
                 modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-
-                atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"), altloc="all")
-                if isinstance(atoms, list):
-                    for atoms_i in atoms:
-                        if atoms_i.numAtoms() == prody_modes.numAtoms():
-                            prody_atoms = atoms_i
-                            break
-                else:
-                    prody_atoms = atoms
-
+                atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb")[0], altloc="all")
                 self.nmdFileName = modesPath+"/modes.nmd"
-                prody.writeNMD(self.nmdFileName, prody_modes, prody_atoms)
-        else:
-            self.nmdFileName = modes._nmdFileName
+                prody.writeNMD(self.nmdFileName, prodyModes, atoms)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
