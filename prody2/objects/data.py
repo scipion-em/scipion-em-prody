@@ -374,5 +374,3 @@ class SetOfClassesTraj(SetOfClasses3D):
     ITEM_TYPE = ClassTraj
     REP_TYPE = AtomStruct
     REP_SET_TYPE = SetOfAtomStructs
-
-    pass
