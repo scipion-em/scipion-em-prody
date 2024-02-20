@@ -69,6 +69,7 @@ class TestProDyCore(TestWorkflow):
 
         chainAselstr = "protein and chain A"
         outputFilename = "4ake_atoms.pdb"
+        chainCselstr = "chain C"
 
         # Select Chain A
         protSel1 = cls.newProtocol(ProDySelect, selection=chainAselstr)
@@ -85,30 +86,30 @@ class TestProDyCore(TestWorkflow):
         protSel1a.setObjLabel('Sel 4ake_C_pointer')
         cls.launchProtocol(protSel1a)
 
-        cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
         cls.assertFalse(hasattr(protSel1a, "outputStructure"))
 
         # Select whole chain C with uniteChains False (default) to show it does work
-        protSel1a = cls.newProtocol(ProDySelect, selection="chain C")
+        protSel1a = cls.newProtocol(ProDySelect, selection=chainCselstr)
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
         protSel1a.setObjLabel('Sel 4ake_C_pointer_1')
         cls.launchProtocol(protSel1a)
 
-        cls.assertTrue(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertTrue(exists(protSel1a._getPath(outputFilename)))
         cls.assertTrue(hasattr(protSel1a, "outputStructure"))
 
         # Select whole chain C with uniteChains True to show it doesn't work
-        protSel1a = cls.newProtocol(ProDySelect, selection="chain C",
+        protSel1a = cls.newProtocol(ProDySelect, selection=chainCselstr,
                                     uniteChains=True)
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
         protSel1a.setObjLabel('Sel 4ake_C_pointer')
         cls.launchProtocol(protSel1a)
 
-        cls.assertFalse(exists(protSel1a._getPath("4ake_atoms.pdb")))
+        cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
         cls.assertFalse(hasattr(protSel1a, "outputStructure"))
 
         # Select chain C whole to show it does work with uniteChains False (default)
-        protSel1a2 = cls.newProtocol(ProDySelect, selection="chain C")
+        protSel1a2 = cls.newProtocol(ProDySelect, selection=chainCselstr)
         protSel1a2.inputStructure.set(protImportPdb1.outputPdb)
         protSel1a2.setObjLabel('Sel 4ake_C_pointer_2')
         cls.launchProtocol(protSel1a2)
@@ -117,7 +118,7 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(hasattr(protSel1a2, "outputStructure"))
 
         # Select chain C whole to show it does work with uniteChains True
-        protSel1a3 = cls.newProtocol(ProDySelect, selection="chain C",
+        protSel1a3 = cls.newProtocol(ProDySelect, selection=chainCselstr,
                                      uniteChains=True)
         protSel1a3.inputStructure.set(protImportPdb1.outputPdb)
         protSel1a3.setObjLabel('Sel 4ake_C_pointer_3')
