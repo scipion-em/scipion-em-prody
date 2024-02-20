@@ -244,7 +244,7 @@ class ProDyGNM(EMProtocol):
         makePath(fnOutDir)
         maxShift=[]
         maxShiftMode=[]
-        
+        vecStr = "vec.%d"
         for n in range(self.startMode+1, numberOfModes+1):
             fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
