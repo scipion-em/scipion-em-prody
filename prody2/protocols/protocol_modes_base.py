@@ -214,7 +214,11 @@ class ProDyModesBase(EMProtocol):
             self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
+        collectivity = prody.calcCollectivity(self.outModes)
+        if isinstance(collectivity, float):
+            collectivityList = [collectivity]
+        else:
+            collectivityList = list(collectivity)
         eigvals = self.outModes.getEigvals()
 
         vecStr = "vec.%d"

@@ -35,7 +35,7 @@ from pyworkflow.protocol.params import LabelParam, IntParam, BooleanParam
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
-from pwem.viewers import ObjectView, VmdView, DataView
+from pwem.viewers import VmdView, DataView
 from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
@@ -142,18 +142,18 @@ class ProDyGNMViewer(ProtocolViewer):
                 help="Orientational cross-correlation matrices are shown as heatmaps. "
                      "Cross correlation is equal to Normalized Covariance matrix")   
 
-        form.addParam('displayVmd2', LabelParam,
+        form.addParam('displayVmd', LabelParam,
                       condition=os.path.isfile(nmdFile),
                       label="Display mode color structures with VMD NMWiz?",
                       help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
-                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html") 
+                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
         
     def _getVisualizeDict(self):
         return {'displayModes': self._viewParam,
                 'displayMaxDistanceProfile': self._viewParam,
                 'displaySqFlucts': self._viewSQF,
                 'displayRMSFlucts': self._viewSQF,
-                'displayVmd2': self._viewAllModes,
+                'displayVmd': self._viewAllModes,
                 'displayRangeSqFluct': self._viewSQF,
                 'displayRangeRMSFluct': self._viewSQF,
                 'displayCovMatrix': self._viewAllModes,
@@ -165,7 +165,7 @@ class ProDyGNMViewer(ProtocolViewer):
 
     def _viewAllModes(self, paramName):
         """ visualisation for 2D covariance and cross-correlation matrices"""
-        if paramName == 'displayVmd2':
+        if paramName == 'displayVmd':
             return [createVmdNmwizView(self.protocol)]
         
         elif paramName=='displayCovMatrix':

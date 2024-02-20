@@ -36,6 +36,8 @@ import os
 from pyworkflow.protocol import params
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
+from pwem.objects import SetOfNormalModes
+from pwem.viewers import VmdView
 from pwem.viewers.plotter import EmPlotter
 from prody2.protocols.protocol_lda import ProDyLDA
 
@@ -58,8 +60,20 @@ class ProDyLDAViewer(ProtocolViewer):
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
                            'LDAs will be used to select most mobile residues.')
 
+        if isinstance(self.protocol, SetOfNormalModes):
+            modes = self.protocol
+        else:
+            modes =  self.protocol.outputModes
+
+        form.addParam('displayVmd', params.LabelParam,
+                      condition=os.path.isfile(modes._nmdFileName.get()),
+                      label="Display mode color structures with VMD NMWiz?",
+                      help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
+                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
+
     def _getVisualizeDict(self):
-        return {'showPlot': self._viewFlucts}            
+        return {'showPlot': self._viewFlucts,
+                'displayVmd': self._viewAllModes}
 
     def _viewFlucts(self, paramName):
         """visualisation for LDA fluctuations and residues"""
@@ -70,37 +84,40 @@ class ProDyLDAViewer(ProtocolViewer):
         plotter = EmPlotter()
 
         shuffled = lda.getShuffledEigvecs()
-        rmsf_lda = prody.calcRMSFlucts(lda)
+        rmsf = prody.calcRMSFlucts(lda)
 
         percentile = np.percentile(shuffled, self.percentile.get())
-        lda_inds = prody.calcMostMobileNodes(lda, cutoff=percentile)
+        inds = prody.calcMostMobileNodes(lda, cutoff=percentile)
 
         prody.showRMSFlucts(lda, atoms=atoms)
-        plt.plot(lda_inds, rmsf_lda[lda_inds], 'r*')
+        plt.plot(inds, rmsf[inds], 'r*')
         resnums = atoms.getResnums()
-        for i, ind in enumerate(lda_inds):
+        for i, ind in enumerate(inds):
             plt.text(ind - np.mod(i,2)*2, 
-                     rmsf_lda[ind], resnums[ind])
+                     rmsf[ind], resnums[ind])
             
         plt.title('LDA RMSF with pecentile {0}'.format(self.percentile.get()))
         plt.savefig(self.protocol._getPath('lda_rmsf_best_{0}.png'.format(self.percentile.get())))
 
         fo = open(self.protocol._getExtraPath('lda_best_residues_{0}.txt'.format(self.percentile.get())), 'w')
-        for ind in lda_inds:
+        for ind in inds:
             fo.write('\t'.join(['{:5d}'.format(ind), 
-                                '{:5.3f}'.format(rmsf_lda[ind]), 
-                                str(atoms[ind].getResname()), 
+                                '{:5.3f}'.format(rmsf[ind]),
+                                str(atoms[ind].getResname()),
                                 str(atoms[ind].getResnum())]) + '\n')
         fo.close()    
 
-        for i, ind in enumerate(lda_inds):
-            plt.plot(lda_inds, rmsf_lda[lda_inds], 'r*')
+        for i, ind in enumerate(inds):
+            plt.plot(inds, rmsf[inds], 'r*')
             plt.text(ind - np.mod(i,2)*2, 
-                    rmsf_lda[ind], resnums[ind])        
-
-
+                     rmsf[ind], resnums[ind])
 
         return [plotter]
+
+    def _viewAllModes(self, paramName):
+        """ visualisation for 2D covariance and cross-correlation matrices"""
+        if paramName == 'displayVmd':
+            return [createVmdNmwizView(self.protocol)]
 
     def _cleanLabels(self, ensemble):
 
@@ -123,3 +140,10 @@ class ProDyLDAViewer(ProtocolViewer):
             ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
 
         return ensemble
+
+def createVmdNmwizView(protocol):
+    if isinstance(protocol, SetOfNormalModes):
+        nmdFile = protocol._nmdFileName
+    else:
+        nmdFile = protocol.outputModes._nmdFileName
+    return VmdView('-e %s' % nmdFile)

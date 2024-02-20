@@ -134,9 +134,10 @@ class ProDyLDA(ProDyModesBase):
         # Insert processing steps
         numModes = self.numberOfModes.get()
         self.gnm = False
+        self.nzero = nzeros
 
         self._insertFunctionStep('computeModesStep', numModes)
-        self._insertFunctionStep('qualifyModesStep', numModes)
+        self._insertFunctionStep('qualifyModesStep', numModes, 0.)
         self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
         self._insertFunctionStep('animateModesStep', numModes,
                                  self.rmsd.get(), self.n_steps.get(),
@@ -204,61 +205,6 @@ class ProDyLDA(ProDyModesBase):
         prody.writeNMD(self._getPath('modes.lda.nmd'), self.outModes, self.atoms)
         prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=''):
-        fnVec = glob(self._getPath("modes/vec.*"))
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute. "
-            msg += "The maximum number of components allowed by the method for linear discriminant analysis is "
-            msg += "the number of classes - 1 (%d)."
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, len(set(self.classes))-1)))
-
-        mdOut = MetaData()
-        collectivity = prody.calcCollectivity(self.outModes)
-        if isinstance(collectivity, float):
-            collectivityList = [collectivity]
-        else:
-            collectivityList = list(collectivity)
-        eigvals = self.outModes.getEigvals()
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            mdOut.setValue(MDL_ENABLED, 1, objId)
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList),
-                                          key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write(self._getPath("modes.xmd"))
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score,
-                                only_sqlite=True)
-
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfLdaModes(filename=fnSqlite)
@@ -270,6 +216,7 @@ class ProDyLDA(ProDyModesBase):
 
         outSet = SetOfLdaModes().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
+        outSet._nmdFileName = String(self._getPath('modes.lda.nmd'))
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
