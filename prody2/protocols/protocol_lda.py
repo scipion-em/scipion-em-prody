@@ -204,7 +204,7 @@ class ProDyLDA(ProDyModesBase):
         prody.writeNMD(self._getPath('modes.lda.nmd'), self.outModes, self.atoms)
         prody.saveModel(self.outModes, self._getPath('modes.lda.npz'), matrices=True)
 
-    def qualifyModesStep(self, numberOfModes):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=''):
         fnVec = glob(self._getPath("modes/vec.*"))
 
         if len(fnVec) < numberOfModes:
@@ -219,7 +219,7 @@ class ProDyLDA(ProDyModesBase):
         if isinstance(collectivity, float):
             collectivityList = [collectivity]
         else:
-            collectivityList = list(prody.calcCollectivity(self.outModes))
+            collectivityList = list(collectivity)
         eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):

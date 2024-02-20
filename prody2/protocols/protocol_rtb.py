@@ -163,24 +163,21 @@ class ProDyRTB(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
                            
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=20, nzeros=6):
         # Insert processing steps
 
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
-        n = self.numberOfModes.get()
-
+        numModes = self.numberOfModes.get()
         self.gnm = False
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
-        self._insertFunctionStep('animateModesStep', n,
+        self._insertFunctionStep('computeModesStep', inputFn, numModes)
+        self._insertFunctionStep('animateModesStep', numModes,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get())
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('qualifyModesStep', numModes,
+                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('computeAtomShiftsStep', numModes)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
@@ -191,11 +188,7 @@ class ProDyRTB(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
-
+        self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
 
         if self.blockDef.get() == BLOCKS_FROM_RES:
