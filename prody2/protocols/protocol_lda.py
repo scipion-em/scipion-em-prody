@@ -132,8 +132,6 @@ class ProDyLDA(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-
-        self.model_type = 'lda'
         n = self.numberOfModes.get()
 
         self.gnm = False

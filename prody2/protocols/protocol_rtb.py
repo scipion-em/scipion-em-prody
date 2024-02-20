@@ -169,8 +169,6 @@ class ProDyRTB(ProDyModesBase):
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
-
-        self.model_type = 'rtb'
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)

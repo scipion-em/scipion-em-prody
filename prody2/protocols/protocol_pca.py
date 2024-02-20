@@ -120,8 +120,6 @@ class ProDyPCA(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-
-        self.model_type = 'pca'
         n = self.numberOfModes.get()
 
         self.gnm = False

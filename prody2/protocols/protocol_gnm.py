@@ -121,8 +121,6 @@ class ProDyGNM(EMProtocol):
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
-
-        self.model_type = 'gnm'
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)
