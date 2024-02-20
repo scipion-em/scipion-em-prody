@@ -130,22 +130,20 @@ class ProDyLDA(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=1, nzeros=0):
         # Insert processing steps
-        n = self.numberOfModes.get()
-
+        numModes = self.numberOfModes.get()
         self.gnm = False
-        nzeros = 0
 
-        self._insertFunctionStep('computeModesStep', n)
-        self._insertFunctionStep('qualifyModesStep', n)
-        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
-        self._insertFunctionStep('animateModesStep', n,
+        self._insertFunctionStep('computeModesStep', numModes)
+        self._insertFunctionStep('qualifyModesStep', numModes)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
+        self._insertFunctionStep('animateModesStep', numModes,
                                  self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, n=5):
+    def computeModesStep(self, n=1):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
@@ -191,8 +189,7 @@ class ProDyLDA(ProDyModesBase):
         self.classes = list(labelsMap.values())
 
         self.outModes = prody.LDA()
-        self.outModes.calcModes(self.ens, self.classes,
-                                self.numberOfModes.get(),
+        self.outModes.calcModes(self.ens, self.classes, n,
                                 n_shuffles=self.numberOfShuffles.get())
         
         plt.figure()
