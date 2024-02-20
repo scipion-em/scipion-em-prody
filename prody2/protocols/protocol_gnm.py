@@ -191,11 +191,13 @@ class ProDyGNM(EMProtocol):
         collectivityList = list(prody.calcCollectivity(self.gnm))
         eigvals = self.gnm.getEigvals()
 
+        vecStr = "vec.%d"
+
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -246,7 +248,7 @@ class ProDyGNM(EMProtocol):
         maxShiftMode=[]
         
         for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
+            fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
@@ -267,7 +269,7 @@ class ProDyGNM(EMProtocol):
                 
         md = MetaData()
         for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
             if exists(fnVec):
                 objId = md.addObject()
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)

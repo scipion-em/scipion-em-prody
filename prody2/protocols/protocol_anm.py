@@ -37,7 +37,7 @@ from os.path import exists, join
 import math
 from multiprocessing import cpu_count
 
-from pwem import *
+#from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
@@ -287,11 +287,13 @@ class ProDyANM(EMProtocol):
         collectivityList = list(prody.calcCollectivity(self.anm))
         eigvals = self.anm.getEigvals()
 
+        vecStr = "vec.%d"
+
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -341,7 +343,7 @@ class ProDyANM(EMProtocol):
         maxShiftMode=[]
         
         for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
+            fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
@@ -362,7 +364,7 @@ class ProDyANM(EMProtocol):
                 fhIn.close()
         md = MetaData()
         for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
             if exists(fnVec):
                 objId = md.addObject()
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
