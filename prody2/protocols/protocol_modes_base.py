@@ -29,19 +29,16 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import params
-
-from os.path import exists, join
 import math
+from os.path import exists, join
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
@@ -166,11 +163,11 @@ class ProDyModesBase(EMProtocol):
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
         else:
-            animations_dir = self._getExtraPath('animations')
-            makePath(animations_dir)
+            animationsDir = self._getExtraPath('animations')
+            makePath(animationsDir)
             for i, mode in enumerate(self.outModes[nzero:]):
                 modenum = i+nzero+1
-                fnAnimation = join(animations_dir, "animated_mode_%03d"
+                fnAnimation = join(animationsDir, "animated_mode_%03d"
                                 % modenum)
                 prody.writePDB(fnAnimation+".pdb", 
                                prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=nSteps,
@@ -184,17 +181,17 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
                 if self.atoms.select('name P') is not None:
-                    num_p_atoms = self.atoms.select('name P').numAtoms()
+                    numAtomsP = self.atoms.select('name P').numAtoms()
                 else:
-                    num_p_atoms = 0
+                    numAtomsP = 0
 
                 if self.atoms.ca is not None:
-                    num_ca_atoms = self.atoms.ca.numAtoms()
+                    numAtomsCA = self.atoms.ca.numAtoms()
                 else:
-                    num_ca_atoms = 0
+                    numAtomsCA = 0
 
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.atoms.numAtoms():
+                numAtomsRep = numAtomsCA + numAtomsP
+                if numAtomsRep == self.atoms.numAtoms():
                     fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
@@ -206,10 +203,9 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         suffix='', nzero=None):
+                         suffix=''):
 
-        if nzero is None:
-            nzero = self.nzero
+        nzero = self.nzero
 
         self._enterWorkingDir()
 
@@ -250,7 +246,7 @@ class ProDyModesBase(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -280,6 +276,7 @@ class ProDyModesBase(EMProtocol):
         maxShiftMode=[]
         
         nzp1 = nzero + 1
+        vecStr = "vec.%d"
         
         for n in range(nzp1, numberOfModes+1):
             fnVec = self._getPath("modes", vecStr % n)

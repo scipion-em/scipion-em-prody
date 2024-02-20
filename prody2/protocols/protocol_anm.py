@@ -29,31 +29,27 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import params
-
-import os
-from os.path import exists, join
-
 import math
 from multiprocessing import cpu_count
+from os.path import exists, join
 
-#from pwem import *
+import prody
+from prody2 import Plugin
+from prody2.protocols.protocol_modes_base import ProDyModesBase
+
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
+from pwem.objects import SetOfNormalModes, String
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
-import prody
+vecStr = "vec.%d"
 
-from prody2 import Plugin
-
-class ProDyANM(EMProtocol):
+class ProDyANM(ProDyModesBase):
     """
     This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
     """
@@ -224,54 +220,9 @@ class ProDyANM(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
         
-        self.anm = prody.loadModel(self._getPath(filename))
+        self.outModes = prody.loadModel(self._getPath(filename))
 
-    def animateModesStep(self, numberOfModes, rmsd, numSteps, pos, neg):
-        animationsDir = self._getExtraPath('animations')
-        makePath(animationsDir)
-        for i, mode in enumerate(self.anm[self.startMode:]):
-            modenum = i+self.startMode+1
-            fnAnimation = join(animationsDir, "animated_mode_%03d"
-                               % modenum)
-             
-            self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
-                                               n_steps=numSteps,
-                                               pos=pos, neg=neg)
-            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
-
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            if self.structureEM:
-                fhCmd.write("mol modcolor 0 0 Beta\n")
-                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
-            else:
-                fhCmd.write("mol modcolor 0 0 Index\n")
-
-                if self.atoms.select('name P') is not None:
-                    numPhosAtoms = self.atoms.select('name P').numAtoms()
-                else:
-                    numPhosAtoms = 0
-
-                if self.atoms.ca is not None:
-                    numCaAtoms = self.atoms.ca.numAtoms()
-                else:
-                    numCaAtoms = 0
-
-                numRepAtoms = numCaAtoms + numPhosAtoms
-                if numRepAtoms == self.atoms.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
@@ -284,10 +235,8 @@ class ProDyANM(EMProtocol):
             self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.anm))
-        eigvals = self.anm.getEigvals()
-
-        vecStr = "vec.%d"
+        collectivityList = list(prody.calcCollectivity(self.outModes))
+        eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -313,7 +262,7 @@ class ProDyANM(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -333,7 +282,7 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
 
     def computeAtomShiftsStep(self, numberOfModes):

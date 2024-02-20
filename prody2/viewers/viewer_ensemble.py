@@ -30,11 +30,7 @@ visualization program and the normal mode wizard NMWiz.
 """
 
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.utils import *
-
-from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
-
 from prody2.objects import ProDyNpzEnsemble
 from prody2.protocols import ProDyBuildPDBEnsemble, ProDyImportEnsemble
 

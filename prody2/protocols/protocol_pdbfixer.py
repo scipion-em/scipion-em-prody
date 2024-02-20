@@ -29,16 +29,13 @@
 """
 This module will provide the ProDy wrapper for OpenMM PDBFixer
 """
-from pyworkflow.protocol import params
 
 from os.path import basename, splitext
 
-
-from pwem import *
 from pwem.objects import AtomStruct
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import PointerParam, FloatParam, LEVEL_ADVANCED
 
 import prody
@@ -92,11 +89,11 @@ class ProDyPDBFixer(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             summ = ['Output structure not ready yet']
         else:
-            input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
-            output_ag = prody.parsePDB(self.outputStructure.getFileName())
+            inputAg = prody.parsePDB(self.inputStructure.get().getFileName())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName())
             summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
-                   output_ag.numAtoms(), input_ag.numAtoms())]
+                   outputAg.numAtoms(), inputAg.numAtoms())]
             summ.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
-                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
         return summ

@@ -32,13 +32,12 @@ This module will provide ProDy principal component analysis (PCA) using atomic s
 
 from multiprocessing import cpu_count
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
                                         LEVEL_ADVANCED, Float)
