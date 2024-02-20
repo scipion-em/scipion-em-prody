@@ -31,13 +31,12 @@ This module will provide ProDy linear discriminant analysis (LDA) using atomic s
 """
 from collections import OrderedDict
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
+from pwem.objects import SetOfAtomStructs, String, AtomStruct
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr, getListFromRangeString
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam, TextParam, 
                                         NumericRangeParam, 
@@ -49,6 +48,7 @@ from prody2.constants import LDA_FRACT_VARS
 
 import prody
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class ProDyLDA(ProDyModesBase):
