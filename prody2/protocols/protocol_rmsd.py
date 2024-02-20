@@ -226,7 +226,6 @@ class ProDyRmsd(EMProtocol):
             frames.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
                                     objLabel=label, weight=allWeights[i]))
 
-        # self.npzClasses = self._createSetOfClassesTraj(frames)
         for i, sg in enumerate(sgIdx):
             newClass = ClassTraj().create(self._getExtraPath(), suffix=i+1)
             newClass.setRef(frames[repIdx[i]])
