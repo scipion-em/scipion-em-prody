@@ -63,6 +63,8 @@ SAME_CHID = 1
 SAME_POS = 2
 CUSTOM = 3
 
+ENS_FILENAME = 'ensemble.dcd'
+
 try:
     from pwchem.objects import MDSystem
     imported_chem = True
@@ -501,7 +503,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
         if self.writeDCDFile.get():
-            prody.writeDCD(self._getPath('ensemble.dcd'), ens)
+            prody.writeDCD(self._getPath(ENS_FILENAME), ens)
             prody.writePDB(self._getPath('refStructure.pdb'), ens.getAtoms())
 
     def createOutputStep(self):
@@ -516,10 +518,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if imported_chem:
                 outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
                 outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
-                outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+                outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outMDSystem
             else:
-                outEMFile = EMFile(filename=self._getPath('ensemble.dcd'))
+                outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outEMFile
 
         if self.writePDBFiles.get():
