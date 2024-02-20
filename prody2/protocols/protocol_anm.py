@@ -153,7 +153,7 @@ class ProDyANM(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
 
         # Link the input
@@ -173,7 +173,7 @@ class ProDyANM(ProDyModesBase):
         self._insertFunctionStep('computeAtomShiftsStep', n)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn, n):
+    def computeModesStep(self, inputFn='', n=20):
         # configure ProDy to automatically handle secondary structure information and verbosity
         self.oldSecondary = prody.confProDy("auto_secondary")
         self.oldVerbosity = prody.confProDy("verbosity")
