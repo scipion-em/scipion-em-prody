@@ -312,8 +312,6 @@ class ProDyModesBase(EMProtocol):
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # write shifts to sqlite scipion objects
-
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, 
                         verbosity='{0}'.format(self.oldVerbosity))
