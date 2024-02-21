@@ -35,6 +35,7 @@ import os
 
 from pyworkflow.protocol import params
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
+from pyworkflow.utils import glob
 
 from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
@@ -60,13 +61,8 @@ class ProDyLDAViewer(ProtocolViewer):
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
                            'LDAs will be used to select most mobile residues.')
 
-        if isinstance(self.protocol, SetOfNormalModes):
-            modes = self.protocol
-        else:
-            modes =  self.protocol.outputModes
-
         form.addParam('displayVmd', params.LabelParam,
-                      condition=os.path.isfile(modes._nmdFileName.get()),
+                      condition=os.path.isfile(findNmdFile(self.protocol)),
                       label="Display mode color structures with VMD NMWiz?",
                       help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
                            "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
@@ -141,9 +137,20 @@ class ProDyLDAViewer(ProtocolViewer):
 
         return ensemble
 
-def createVmdNmwizView(protocol):
-    if isinstance(protocol, SetOfNormalModes):
-        nmdFile = protocol._nmdFileName
-    else:
-        nmdFile = protocol.outputModes._nmdFileName
+def createVmdNmwizView(obj):
+    nmdFile = findNmdFile(obj)
     return VmdView('-e %s' % nmdFile)
+
+def findNmdFile(obj):
+    if isinstance(obj, SetOfNormalModes):
+        modes = obj
+    else:
+        modes = obj.outputModes
+
+    if hasattr(modes, "_nmdFileName"):
+        nmdFile = modes._nmdFileName
+    else:
+        modesPath = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
+        nmdFile = glob(modesPath+"/*nmd")[0]
+
+    return nmdFile
