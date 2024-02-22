@@ -143,7 +143,7 @@ class ProDyPCA(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        loadAndWriteEnsemble(self)
+        loadAndWriteEnsemble(self) # creates self.npz and others
         
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
@@ -155,12 +155,16 @@ class ProDyPCA(ProDyModesBase):
                                                        self.selstr.get(),
                                                        self._getPath(), n,
                                                        self.numberOfThreads.get())
-        if self.keepAlignment:
+        if self.keepAlignment.get():
             args += " --aligned"
 
         self.runJob(Plugin.getProgram('pca'), args)
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), type=prody.PCA)
+        if not self.keepAlignment.get():
+            dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
+            dcdEnsemble.iterpose()
+            self.npz.replaceCoordsets(dcdEnsemble.getCoordsets(), suffix='_aligned')
         
         plt.figure()
         prody.showFractVars(self.outModes)

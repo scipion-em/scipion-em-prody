@@ -189,6 +189,25 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
 
         return newEnsemble
 
+    def replaceCoordsets(self, coordsets, suffix=''):
+        oldEnsemble = self.loadEnsemble()
+
+        newEnsemble = prody.PDBEnsemble()
+        newEnsemble.addCoordset(coordsets, 
+                                weights=oldEnsemble.getWeights(), 
+                                label=oldEnsemble.getLabels())
+        newEnsemble.setAtoms(oldEnsemble.getAtoms())
+
+        newFilename = self[1].getFileName().replace('.ens.npz', f'{suffix}.ens.npz')
+        prody.saveEnsemble(newEnsemble, newFilename)
+
+        for i, frame in enumerate(self.iterItems()):
+            frame.setLocation((i+1, newFilename))
+            self.update(frame)
+
+        self.write()
+
+
 class SetOfGnmModes(SetOfNormalModes):
     pass
 
