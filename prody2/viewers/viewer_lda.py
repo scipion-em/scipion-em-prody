@@ -148,7 +148,7 @@ def findNmdFile(obj):
         modes = obj.outputModes
 
     if hasattr(modes, "_nmdFileName"):
-        nmdFile = modes._nmdFileName
+        nmdFile = modes._nmdFileName.get()
     else:
         modesPath = os.path.dirname(os.path.dirname(modes[1].getModeFile()))
         nmdFile = glob(modesPath+"/*nmd")[0]
