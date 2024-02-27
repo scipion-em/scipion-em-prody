@@ -274,8 +274,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
-        atommaps = [] # output argument for collecting atommaps
-
         # handle reference
         self.weights = []
         if self.refType.get() == STRUCTURE:
