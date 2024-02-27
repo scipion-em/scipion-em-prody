@@ -24,6 +24,8 @@
 # *
 # **************************************************************************
 
+import os
+import prody2
 
 def getProDyEnvName(version):
     return "prody-%s" % version
@@ -36,4 +38,8 @@ PRODY_DEFAULT_VER_NUM = DEVEL
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
 MEASURES = "_prodyMeasures"
-FRACT_VARS = "_prodyFractVars"
+
+PCA_FRACT_VARS = "_prodyPcaFractVars"
+LDA_FRACT_VARS = "_prodyLdaFractVars"
+
+PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__), "protocols", "scripts")

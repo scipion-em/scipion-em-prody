@@ -34,15 +34,11 @@ import numpy as np
 
 from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
 
-from pyworkflow.utils import glob
+from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         FloatParam, IntParam, LEVEL_ADVANCED)
 
 import prody
-
-import logging
-logger = logging.getLogger(__name__)
-
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 NMA_SLICE = 0
@@ -91,21 +87,28 @@ class ProDyEdit(ProDyModesBase):
                       label='Normalise sliced vectors',
                       help='Elect whether to normalise vectors.')
                       
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
@@ -166,14 +169,24 @@ class ProDyEdit(ProDyModesBase):
 
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
+
+        if isinstance(self.outModes, prody.PCA):
+            self.nmdFileName = self._getPath('modes.pca.nmd')
+        elif isinstance(self.outModes, prody.GNM):
+            self.nmdFileName = self._getPath('modes.gnm.nmd')
+        else:
+            self.nmdFileName = self._getPath('modes.nmd')
+        prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
+
+        if isinstance(self.outModes, prody.GNM):
+            self.gnm = True
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
         inputClass = type(self.modes.get())
         nmSet = inputClass(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self.nmdFileName)
         nmSet.setPdb(self.newNodes.get())
 
         self._defineOutputs(outputModes=nmSet)

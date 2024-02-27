@@ -29,19 +29,17 @@
 """
 This module will provide the ProDy wrapper for OpenMM PDBFixer
 """
-from pyworkflow.protocol import params
 
 from os.path import basename, splitext
 
-
-from pwem import *
 from pwem.objects import AtomStruct
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import PointerParam, FloatParam, LEVEL_ADVANCED
 
 import prody
+from prody2 import Plugin
 
 class ProDyPDBFixer(EMProtocol):
     """
@@ -79,9 +77,9 @@ class ProDyPDBFixer(EMProtocol):
     def computeStep(self):
         inputFn = self.inputStructure.get().getFileName()
         self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
-        
-        prody.addMissingAtoms(inputFn, method='pdbfixer', pH=self.pH.get(), outfile=self.outputFn, 
-                              model_residues=True)
+
+        args = '--inputFn {0} --pH {1} --outputFn {2}'.format(inputFn, self.pH.get(), self.outputFn)
+        self.runJob(Plugin.getProgram('fixer.py', script=True), args)
 
     def createOutputStep(self):
         outAS = AtomStruct(self.outputFn)
@@ -91,11 +89,11 @@ class ProDyPDBFixer(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             summ = ['Output structure not ready yet']
         else:
-            input_ag = prody.parsePDB(self.inputStructure.get().getFileName())
-            output_ag = prody.parsePDB(self.outputStructure.getFileName())
+            inputAg = prody.parsePDB(self.inputStructure.get().getFileName())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName())
             summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
-                   output_ag.numAtoms(), input_ag.numAtoms())]
+                   outputAg.numAtoms(), inputAg.numAtoms())]
             summ.append('The new structure has *{0}* protein residues '
                         'from original *{1}* protein residues'.format(
-                        output_ag.ca.numAtoms(), input_ag.ca.numAtoms()))
+                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
         return summ

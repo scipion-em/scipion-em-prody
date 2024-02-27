@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = "3.3.0"
+__version__ = "3.4.0"
 _logo = "icon.png"
 _references = ['ProDy2']
 
@@ -69,35 +69,57 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
-        PRODY_INSTALLED = 'prody_%s_installed' % version
-        installCmd = []
 
-        if version == DEVEL:
-            # Use latest prody on github
-            installCmd.append('cd .. &&')
-            clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
-            if not os.path.exists(clonePath):
-                installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
-            installCmd.append('cd ProDy &&')
-            installCmd.append('git pull &&')
+        ENV_NAME = getProDyEnvName(version)
 
-        # Install downloaded code
-        installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')
+        installCmd = [
+            cls.getCondaActivationCmd(),
+            f'conda create -y -n {ENV_NAME} python=3.9 &&',
+            f'conda activate {ENV_NAME} &&']
 
-        if version == DEVEL:
-            installCmd.append('cd .. && cd prody-github &&')
-
-        installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
-
-        # Flag installation finished
-        installCmd.append('touch %s' % PRODY_INSTALLED)
+        # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
+        # and threadpoolctl for control of thread pools for apps generally
+        TEMPY_INSTALLED = 'tempy_installed'
+        installTEMPy = installCmd.copy()
+        installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
+                            'threadpoolctl && touch %s' % TEMPY_INSTALLED)
+        installCmd.pop(1) # remove conda create to only do it the first time
 
         # Install PDBFixer and OpenMM for ClustENM
-        OPEN_MM_INSTALLED = 'openmm_installed'
-        installOpenMM = 'conda install -c conda-forge pdbfixer -y && touch %s' % OPEN_MM_INSTALLED
+        OPENMM_INSTALLED = 'openmm_installed'
+        installOpenMM = installCmd.copy()
+        installOpenMM.append('conda install -c conda-forge openmm==7.6 pdbfixer -y && touch %s' % OPENMM_INSTALLED)
 
-        prody_commands = [(" ".join(installCmd), PRODY_INSTALLED),
-                          (installOpenMM, OPEN_MM_INSTALLED)]
+        prodyCommands = [(" ".join(installTEMPy), TEMPY_INSTALLED),
+                         (" ".join(installOpenMM), OPENMM_INSTALLED)]
+
+        PRODY_INSTALLED_OWN = 'prody_%s_installed_own_env' % version
+        PRODY_INSTALLED_SCIPION = 'prody_%s_installed_scipion_env' % version
+        for i, PRODY_INSTALLED in enumerate([PRODY_INSTALLED_OWN, PRODY_INSTALLED_SCIPION]):
+            if i == 1:
+                installCmd = []
+
+            if version == DEVEL:
+                # Use latest prody on github
+                installCmd.append('cd .. &&')
+                clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
+                if not os.path.exists(clonePath):
+                    installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+                installCmd.append('cd ProDy &&')
+                installCmd.append('git pull &&')
+
+            # Install downloaded code
+            installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')
+
+            if version == DEVEL:
+                installCmd.append('cd .. && cd prody-github &&')
+
+            installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
+
+            # Flag installation finished
+            installCmd.append('touch %s' % PRODY_INSTALLED)
+
+            prodyCommands.append((" ".join(installCmd.copy()), PRODY_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
@@ -107,7 +129,7 @@ class Plugin(pwem.Plugin):
         if version == DEVEL:
             env.addPackage('prody', version=version,
                             tar='void.tgz',
-                            commands=prody_commands,
+                            commands=prodyCommands,
                             neededProgs=cls.getDependencies(),
                             default=default,
                             vars=installEnvVars)
@@ -115,16 +137,25 @@ class Plugin(pwem.Plugin):
             env.addPackage('prody', version=version,
                            url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
                            buildDir='ProDy-{0}'.format(version),
-                           commands=prody_commands,
+                           commands=prodyCommands,
                            neededProgs=cls.getDependencies(),
                            default=default,
                            vars=installEnvVars)            
 
     @classmethod
-    def getProgram(cls, program):
+    def getProgram(cls, program, script=False):
         """ Create ProDy command line. """
-        fullProgram = '%s && prody %s' % (
-            cls.getCondaActivationCmd(),
-            program)
+        if script:
+            fullProgram = '%s %s && python %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                PRODY_SCRIPTS+'/'+program)
+        else:
+            fullProgram = '%s %s && prody %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                program)
 
         return fullProgram
+
+    @classmethod
+    def getEnvActivation(cls):
+        return "conda activate %s" % getProDyEnvName(DEVEL)

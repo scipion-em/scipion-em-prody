@@ -36,19 +36,21 @@ from pwem.objects import (AtomStruct, SetOfAtomStructs, SetOfSequences,
                           EMFile)
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import logger, getListFromRangeString
+from pyworkflow.utils import logger, getListFromRangeString, redStr
 from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
                                         EnumParam, TextParam, NumericRangeParam,
                                         BooleanParam, LEVEL_ADVANCED)
+from pyworkflow.object import Integer
 
 import prody
-import time
-
+from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
 from prody2.constants import ENSEMBLE_WEIGHTS
+
+import time
 
 STRUCTURE = 0
 INDEX = 1
@@ -60,6 +62,8 @@ BEST_MATCH = 0
 SAME_CHID = 1
 SAME_POS = 2
 CUSTOM = 3
+
+ENS_FILENAME = 'ensemble.dcd'
 
 try:
     from pwchem.objects import MDSystem
@@ -96,15 +100,21 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       pointerClass='AtomStruct,SetOfAtomStructs', allowsNull=True,
                       help='The structures to be aligned must be atomic models.')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Unite chains in mmCIF segments",
+                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
                       condition=inputTypeCheck % INDEX,
                       help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
 
         form.addParam('degeneracy', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED, 
+                      expertLevel=LEVEL_ADVANCED,
                       label="Take only first conformation from each structure/set",
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
-                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
+                           '(**False**) of each structure should be added to the ensemble. Default is **False**.')
 
         form.addParam('lenCutoff', StringParam, label="length cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
@@ -135,6 +145,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       pointerClass='AtomStruct', allowsNull=True,
                       help='Select an atomic model as the reference structure. '
                       'When using Dali, this is optional and is used for selecting atoms at the end.')
+
         form.addParam('delReference', BooleanParam, default=False,
                       label="Whether to delete the reference from the ensemble",
                       help='This could be useful if you just want to use the reference for alignment.')
@@ -152,14 +163,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Sequence identity cutoff",
-                      help='Alignment mapping with lower sequence identity will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
+                      help='Alignment mapping with lower percent sequence identity will not be accepted.\n'
+                           'This can be a number between 0 and 100')
 
         form.addParam('overlap', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Overlap cutoff",
-                      help='Alignment mapping with lower sequence coverage will not be accepted.\n'
-                           'This can be a number between 0 and 100 or a decimal between 0 and 1')
+                      help='Alignment mapping with lower percent sequence coverage will not be accepted.\n'
+                           'This can be a number between 0 and 100')
 
         form.addParam('rmsdReject', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
@@ -189,7 +200,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
         
         group.addParam('chainOrders', TextParam, width=50,
-                       condition=matchFuncCheck % CUSTOM, default="{}",
+                       condition=matchFuncCheck % CUSTOM, default="",
                        label='Custom chain match dictionary',
                        help='Defined order of chains from custom matching. \nManual modification will have no '
                             'effect, use the wizards to add / delete the entries')
@@ -240,6 +251,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition=imported_chem==True,
                       label="Whether to write many PDB files",
                       help='These will be registered as output too')
+        
+        form.addParam('doReorder', BooleanParam, default=False,
+                      condition=matchFuncCheck % CUSTOM,
+                      label="Whether to reorder ensemble by custom match dict",
+                      help='Otherwise the order matches the input')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -260,13 +276,16 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         atommaps = [] # output argument for collecting atommaps
 
-        # handle inputs
+        # handle reference
+        self.weights = []
         if self.refType.get() == STRUCTURE:
-            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all')
+            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
+                                 unite_chains=self.uniteChains.get())
+            self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
-        self.weights = []
+        # handle other inputs
         if self.inputType.get() == STRUCTURE:
             self.pdbs = []
             for i, obj in enumerate(self.structures):
@@ -320,15 +339,30 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if idstr not in self.pdbs:
                 self.pdbs.insert(0, idstr)
 
-        self.tars = prody.parsePDB(self.pdbs, alt='all')
-        if isinstance(self.tars, prody.Atomic):
-            nModels = self.tars.numCoordsets()
-            self.tars = []
-            for i in range(nModels):
-                self.tars.append(prody.parsePDB(self.pdbs, alt='all',
-                                                model=i+1))
+        if not hasattr(self, "tars"):
+            self.tars = prody.parsePDB(self.pdbs, alt='all',
+                                        unite_chains=self.uniteChains.get())
+            if isinstance(self.tars, prody.Atomic):
+                nModels = self.tars.numCoordsets()
+                self.tars = []
+                for i in range(nModels):
+                    self.tars.append(prody.parsePDB(self.pdbs, alt='all',
+                                                    model=i+1,
+                                                    unite_chains=self.uniteChains.get()))
 
-        if self.inputType.get() == STRUCTURE:
+        atommaps = [] # output argument for collecting atommaps
+        unmapped = []
+
+        if self.inputType.get() != STRUCTURE:
+            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
+                                          seqid=self.seqid.get(),
+                                          overlap=self.overlap.get(),
+                                          mapping=mappings,
+                                          atommaps=atommaps,
+                                          unmapped=unmapped,
+                                          rmsd_reject=self.rmsdReject.get())
+            self.weights = list(np.ones(ens.numConfs()))
+        else:
             if self.matchFunc.get() == BEST_MATCH:
                 matchFunc = prody.bestMatch
                 logger.info('\nUsing bestMatch\n')
@@ -339,40 +373,41 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 matchFunc = prody.sameChainPos
                 logger.info('\nUsing sameChainPos\n')
 
-            self.tars = prody.parsePDB(self.pdbs, alt='all')
-            if isinstance(self.tars, prody.Atomic):
-                self.tars = [self.tars]
-
-            if self.refType.get() == STRUCTURE and self.matchFunc.get() < CUSTOM:
-                # This will happen inside createMatchDic for CUSTOM
-                self.tars = [ref] + self.tars
+            if self.refType.get() == STRUCTURE:
+                if self.matchFunc.get() < CUSTOM:
+                    self.tars = [ref] + self.tars
                 ref=0
-                
-            if self.matchFunc.get() < CUSTOM:
+
+            if self.matchFunc <= SAME_POS:
                 tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
                 self.labels = [tar.getTitle() for tar in tars]
             else:
-                self.matchDic = self.createMatchDic("1")
+                self.matchDic = self.createMatchDic(self.insertOrder.get())
                 self.labels = list(self.matchDic.keys())
+                self.orders = list(self.matchDic.values())
 
-                chmap = self.matchDic
+                if isinstance(self.labels[0], tuple):
+                    self.labels = [label[1] for label in self.labels]
+
+                self.matchDic = OrderedDict()
+                self.matchDic.update(zip(self.labels, self.orders))
+
                 logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, self.matchDic)
 
                 tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
 
-            for i, label in enumerate(self.labels):
-                if label.endswith(" Selection 'name CA'"):
-                    label = label.replace(" Selection 'name CA'", "")
-                    if not label.endswith("_ca"):
-                        label += "_ca"
-
-                label = label.replace("_atoms", "")
-
-                tars[i].setTitle(label)
-                self.labels[i] = label
-
-            self.labels = list(np.array(self.labels, dtype='<U20'))
+            if len(tars) != len(self.labels):
+                logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
+                            'target structures ({1})'.format(len(self.labels), len(tars))))
+                
+            matchDictLabels = self.labels
+                
+            titles = [tar.getTitle() for tar in tars]
+            for i, title in enumerate(titles):
+                title = title.replace(" Selection 'name CA'", "")
+                title = title.replace("_atoms", "")
+                tars[i].setTitle(title)
 
             ens = prody.buildPDBEnsemble(tars,
                                          ref=ref,
@@ -380,51 +415,16 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          overlap=self.overlap.get(),
                                          match_func=matchFunc,
                                          atommaps=atommaps,
+                                         unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get(),
-                                         labels=self.labels)
+                                         mapping=mappings)
             
             if self.delReference.get():
                 ens.delCoordset(ref)
                 self.tars.pop(ref)
 
-        else:
-            idstr = self.id.get()
-            daliRec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
-            while daliRec.isSuccess != True:
-                daliRec.fetch(timeout=1000)
-                time.sleep(10)
-
-            lenCutoff = eval(str(self.lenCutoff.get()))
-            if lenCutoff == -1:
-                lenCutoff = None
-
-            rmsdCutoff = eval(str(self.rmsdCutoff.get()))
-            if rmsdCutoff == -1:
-                rmsdCutoff = None
-
-            zCutoff = eval(str(self.zCutoff.get()))
-            if zCutoff == -1:
-                zCutoff = None
-
-            idCutoff = eval(str(self.idCutoff.get()))
-            if idCutoff == -1:
-                idCutoff = None
-
-            self.pdbs = daliRec.filter(cutoff_len=lenCutoff, cutoff_rmsd=rmsdCutoff,
-                                       cutoff_Z=zCutoff, cutoff_identity=idCutoff,
-                                       stringency=True)
-            mappings = daliRec.getMappings()
-
-            if idstr not in self.pdbs:
-                self.pdbs.insert(0, idstr)
-
-            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          mapping=mappings,
-                                          atommaps=atommaps,
-                                          rmsd_reject=self.rmsdReject.get())
+        logger.info('\nUnmapped structures: {0}\n'.format(unmapped))
 
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
@@ -446,6 +446,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         if self.trim.get():
             ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
+
+        if self.doReorder.get():
+            newIndices = [self.labels.index(label) for label in matchDictLabels 
+                          if label in self.labels]
+            ens = ens[newIndices]
 
         msa = ens.getMSA()
         prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
@@ -485,6 +490,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
                 prody.writePDB(filename, amap)
                 pdb = AtomStruct(filename)
+                setattr(pdb, ENSEMBLE_WEIGHTS, Integer(self.weights[i]))
                 self.pdbs.append(pdb)
 
         prody.writePDB(self._getPath('ensemble.pdb'), ens)
@@ -495,13 +501,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for j in range(ens.numConfs()):
             frame = TrajFrame((j+1, self.npzFileName), objLabel=ens.getLabels()[j])
+            setattr(frame, ENSEMBLE_WEIGHTS, Integer(self.weights[j]))
             self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
         if self.writeDCDFile.get():
-            prody.writeDCD(self._getPath('ensemble.dcd'), ens)
+            prody.writeDCD(self._getPath(ENS_FILENAME), ens)
             prody.writePDB(self._getPath('refStructure.pdb'), ens.getAtoms())
 
     def createOutputStep(self):
@@ -516,10 +523,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if imported_chem:
                 outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
                 outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
-                outMDSystem.setTrajectoryFile(self._getPath('ensemble.dcd'))
+                outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outMDSystem
             else:
-                outEMFile = EMFile(filename=self._getPath('ensemble.dcd'))
+                outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outEMFile
 
         if self.writePDBFiles.get():
@@ -537,55 +544,54 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.chainOrders.get().strip() != "":
+        if self.chainOrders.get() != "":
             self.matchDic = eval(self.chainOrders.get())
-            self.labels = list(self.matchDic.keys())
-            self.orders = list(self.matchDic.values())
         else:
-            self.labels = []
-            self.orders = []
+            self.matchDic = OrderedDict()
+        self.labels = list(self.matchDic.keys())
+        self.orders = list(self.matchDic.values())
 
         # reinitialise to update with new keys
         # that are still ordered correctly
         self.matchDic = OrderedDict()
 
-        if self.labels == []:
-            if self.refType.get() == STRUCTURE:
-                structures = [self.refStructure] + self.structures
-            else:
-                structures = self.structures
-
-            pdbs = []
-            for _, obj in enumerate(structures):
-                if isinstance(obj.get(), AtomStruct):
-                    pdbs.append(obj.get().getFileName())
-                else:
-                    pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-            
-            tars = prody.parsePDB(pdbs)
-        else:
-            tars = self.tars
-
-        titles = [ag.getTitle() for ag in tars]
-        _, counts = np.unique(np.array(titles), return_counts=True)
-          
         inds = [item-1 for item in getListFromRangeString(index)]
-        for idx, ag in enumerate(tars):
-            if idx in inds or counts[idx] > 1:
-                if label == "":
-                    label = titles[idx]
 
-                if len(inds) == 1:
-                    ag.setTitle(label)
+        if len(self.labels) == 0:
+            if not hasattr(self, 'tars'):
+                if self.refType.get() == STRUCTURE:
+                    structures = [self.refStructure] + self.structures
                 else:
-                    ag.setTitle(label + str(inds.index(idx)))
+                    structures = self.structures
 
-            title = ag.getTitle()
-            self.labels.append(title)
-            self.orders.append(self.getInitialChainOrder(ag))
+                pdbs = []
+                for _, obj in enumerate(structures):
+                    if isinstance(obj.get(), AtomStruct):
+                        pdbs.append(obj.get().getFileName())
+                    else:
+                        pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
 
-        self.labels = np.array(self.labels)
+                self.tars = prody.parsePDB(pdbs, alt='all',
+                                        unite_chains=self.uniteChains.get())
+            
+            titles = [ag.getTitle() for ag in self.tars]
+            _, counts = np.unique(np.array(titles), return_counts=True)
+
+            for idx, ag in enumerate(self.tars):
+                if (idx in inds or counts[idx] > 1) and label!="":
+                    if len(inds) == 1:
+                        ag.setTitle(label)
+                    else:
+                        ag.setTitle(label + str(inds.index(idx)))
+
+                title = ag.getTitle()
+                self.labels.append(title)
+                self.orders.append(self.getInitialChainOrder(ag))
+
         self.orders = np.array(self.orders)
+
+        if not isinstance(self.labels[0], tuple):
+            self.labels = [(i+1, label) for i, label in enumerate(self.labels)]
         
         for idx in inds:
             if self.customOrder.get() != '':
@@ -594,7 +600,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
-        self.matchDic.update(zip(self.labels, self.orders))
+        self.matchDic.update(zip(list(self.labels), list(self.orders)))
         return self.matchDic
     
     def getInitialChainOrder(self, ag):
@@ -609,4 +615,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                    ens.numConfs(), ens.numAtoms())]
         return summ
     
-    
+    def _setWeights(self, item, row=None):
+            weight = Integer(self.weights[item.getObjId()-1])
+            setattr(item, ENSEMBLE_WEIGHTS, weight)

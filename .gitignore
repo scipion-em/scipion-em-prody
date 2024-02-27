@@ -7,3 +7,4 @@ prody2/protocols/__pycache__/
 
 # IDE files
 .idea
+.vscode

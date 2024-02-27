@@ -28,47 +28,30 @@
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDyBiomol, ProDySelect, ProDyANM, ProDyGNM)
+from prody2.protocols import (ProDySelect, ProDyPDBFixer)
+import prody
 
-class TestProDyMembraneANM(TestWorkflow):
+class TestProDyFixer(TestWorkflow):
     @classmethod
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
-        importBiomols(cls)
-        selectCalpha(cls)
+        importSelect(cls)
 
-    def testProDyMembraneANM(cls):
-        protANM = cls.newProtocol(ProDyANM, membrane=True)
-        protANM.inputStructure.set(cls.protSel.outputStructure)
-        protANM.setObjLabel('exANM_2NWL')
-        cls.launchProtocol(protANM)
+    def testProDyFixer(cls):
+        protFix = cls.newProtocol(ProDyPDBFixer)
+        protFix.inputStructure.set(cls.protSel.outputStructure)
+        protFix.setObjLabel('fix_3hsyB')
+        cls.launchProtocol(protFix)
 
-class TestProDyMembraneGNM(TestWorkflow):
-    @classmethod
-    def setUpClass(cls):
-        # Create a new project
-        setupTestProject(cls)
-        importBiomols(cls)
-        selectCalpha(cls)
-
-    def testMemGNM(cls):
-        protGNM = cls.newProtocol(ProDyGNM, membrane=True)
-        protGNM.inputStructure.set(cls.protSel.outputStructure)
-        protGNM.setObjLabel('exGNM_2NWL')
-        cls.launchProtocol(protGNM)
+        ag = prody.parsePDB(protFix.outputStructure.getFileName())
+        cls.assertTrue(ag.numAtoms() == 5956,
+                       "After fixing, 3hsy B should have 5956 atoms, not {0}".format(ag.numAtoms()))
 
 
-def importBiomols(cls):
-    cls.protBM = cls.newProtocol(ProDyBiomol, inputPdbData=0, membrane=True)
-    cls.protBM.pdbId.set("2NWL")
-    cls.protBM.setObjLabel('Biomol_2NWL-opm')
-    cls.launchProtocol(cls.protBM)
-
-def selectCalpha(cls):
-    cls.protSel = cls.newProtocol(ProDySelect, selection="name CA",
-                                inputPdbData=2) # import from pointer
-    cls.protSel.inputStructure.set(cls.protBM.outputStructures)
-    cls.protSel.inputStructure.setExtended(1)
-    cls.protSel.setObjLabel('Sel_2NWL-opm_CA')
+def importSelect(cls):
+    cls.protSel = cls.newProtocol(ProDySelect, selection="protein and chain B",
+                                  inputPdbData=0)
+    cls.protSel.pdbId.set("3hsy")
+    cls.protSel.setObjLabel('sel_3hsyB')
     cls.launchProtocol(cls.protSel)
