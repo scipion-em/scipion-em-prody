@@ -232,6 +232,7 @@ class ProDyRmsd(EMProtocol):
             self.npzClasses.append(newClass)
             for j in sg:
                 newClass.append(frames[int(j+1)])
+            self.npzClasses.update(newClass)
             
             if self.writePDBFiles.get():
                 ag.setCoords(self.ens.getCoordsets()[i])
@@ -240,9 +241,6 @@ class ProDyRmsd(EMProtocol):
                 prody.writePDB(filename, ag)
                 pdb = AtomStruct(filename)
                 self.pdbs.append(pdb)
-
-        for cls in self.npzClasses:
-            self.npzClasses.update(cls)
 
         self.npzClasses.write()
 
