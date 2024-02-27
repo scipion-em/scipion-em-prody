@@ -189,23 +189,26 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
 
         return newEnsemble
 
-    def replaceCoordsets(self, coordsets, suffix=''):
-        oldEnsemble = self.loadEnsemble()
+def replaceCoordsets(oldNpzEns, coordsets, suffix=''):
+    oldEnsemble = oldNpzEns.loadEnsemble()
 
-        newEnsemble = prody.PDBEnsemble()
-        newEnsemble.addCoordset(coordsets, 
-                                weights=oldEnsemble.getWeights(), 
-                                label=oldEnsemble.getLabels())
-        newEnsemble.setAtoms(oldEnsemble.getAtoms())
+    newEnsemble = prody.PDBEnsemble()
+    newEnsemble.addCoordset(coordsets, 
+                            weights=oldEnsemble.getWeights(), 
+                            label=oldEnsemble.getLabels())
+    newEnsemble.setAtoms(oldEnsemble.getAtoms())
 
-        newFilename = self[1].getFileName().replace('.ens.npz', f'{suffix}.ens.npz')
-        prody.saveEnsemble(newEnsemble, newFilename)
+    newFilename = oldNpzEns[1].getFileName().replace('.ens.npz', f'{suffix}.ens.npz')
+    prody.saveEnsemble(newEnsemble, newFilename)
 
-        for i, frame in enumerate(self.iterItems()):
-            frame.setLocation((i+1, newFilename))
-            self.update(frame)
+    newNpzEns = ProDyNpzEnsemble().create(os.path.split(newFilename)[0])
 
-        self.write()
+    frames = [frame.clone() for frame in oldNpzEns.iterItems()]
+    for i, frame in enumerate(frames):
+        frame.setLocation((i+1, newFilename))
+        newNpzEns.append(frame)
+
+    return newNpzEns
 
 
 class SetOfGnmModes(SetOfNormalModes):

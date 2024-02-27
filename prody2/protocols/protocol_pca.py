@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         LEVEL_ADVANCED, Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets
 from prody2.constants import PCA_FRACT_VARS
 from prody2 import Plugin
 
@@ -164,7 +164,9 @@ class ProDyPCA(ProDyModesBase):
         if not self.keepAlignment.get():
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
             dcdEnsemble.iterpose()
-            self.npz.replaceCoordsets(dcdEnsemble.getCoordsets(), suffix='_aligned')
+            self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), suffix='_aligned')
+        else:
+            self.npz2 = self.npz
         
         plt.figure()
         prody.showFractVars(self.outModes)
@@ -248,7 +250,7 @@ class ProDyPCA(ProDyModesBase):
         self._defineOutputs(refPdb=inputPdb)
         outSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=outSet, outputEnsemble=self.npz)
+        self._defineOutputs(outputModes=outSet, outputEnsemble=self.npz2)
         self._defineSourceRelation(inputPdb, outSet)
 
     def _summary(self):
