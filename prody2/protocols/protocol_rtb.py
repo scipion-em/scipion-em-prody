@@ -171,13 +171,16 @@ class ProDyRTB(ProDyModesBase):
         numModes = self.numberOfModes.get()
         self.gnm = False
 
+        self.gnm = False
+        self.nzeros = 6 if self.zeros.get() else 0
+
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
         self._insertFunctionStep('animateModesStep', numModes,
                                  self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
+                                 self.neg.get(), self.pos.get(), self.nzeros)
         self._insertFunctionStep('qualifyModesStep', numModes,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('computeAtomShiftsStep', numModes)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):

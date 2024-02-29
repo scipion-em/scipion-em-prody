@@ -45,6 +45,11 @@ from prody.tests.datafiles import pathDatafile
 oldVerbosity = prody.confProDy("verbosity")
 oldSecondary = prody.confProDy("auto_secondary")
 
+animationsFile7 = "animations/animated_mode_007.pdb"
+animationsFile1 = "animations/animated_mode_001.pdb"
+distProfile1 = "distanceProfiles/vec1.xmd"
+distProfile7 = "distanceProfiles/vec7.xmd"
+
 class TestProDyCore(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 
@@ -145,7 +150,6 @@ class TestProDyCore(TestWorkflow):
         protSel1c.setObjLabel('Sel_6xr8_A_all_id')
         cls.launchProtocol(protSel1c)
 
-
     def testProDyCore(cls):
         """ Run NMA simple workflow for two Atomic structures. """
         # --------------------------------------------------------------
@@ -158,17 +162,22 @@ class TestProDyCore(TestWorkflow):
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
-        # Launch ANM NMA for chain A (all atoms)
+        # Launch ANM NMA for chain A (all atoms) with zero modes (default)
         protANM1 = cls.newProtocol(ProDyANM, cutoff=8)
         protANM1.inputStructure.set(protImportPdb1.outputPdb)
         protANM1.setObjLabel('ANM_all')
         cls.launchProtocol(protANM1)
 
+        # check that we have animations and distance profiles for non-zero modes from 7
+        cls.assertFalse(exists(protANM1._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protANM1._getExtraPath(animationsFile7)))
+
+        cls.assertFalse(exists(protANM1._getExtraPath(distProfile1)))
+        cls.assertTrue(exists(protANM1._getExtraPath(distProfile7)))
+
         # ------------------------------------------------
         # Step 2. CA ANM NMA
         # ------------------------------------------------
-
-        animationsFile7 = "animations/animated_mode_007.pdb"
 
         # Launch ANM NMA for selected atoms (CA) with zeros (default)
         protANM2 = cls.newProtocol(ProDyANM)
@@ -176,11 +185,12 @@ class TestProDyCore(TestWorkflow):
         protANM2.setObjLabel('ANM_CA_z')
         cls.launchProtocol(protANM2)
 
-        cls.assertFalse(exists(protANM1._getExtraPath("animations/animated_mode_001.pdb")))
-        cls.assertTrue(exists(protANM1._getExtraPath(animationsFile7)))
+        # check that we have animations and distance profiles for non-zero modes from 7
+        cls.assertFalse(exists(protANM2._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protANM2._getExtraPath(animationsFile7)))
 
-        cls.assertFalse(exists(protANM1._getExtraPath("distanceProfiles/vec1.xmd")))
-        cls.assertTrue(exists(protANM1._getExtraPath("distanceProfiles/vec7.xmd")))
+        cls.assertFalse(exists(protANM2._getExtraPath(distProfile1)))
+        cls.assertTrue(exists(protANM2._getExtraPath(distProfile7)))
 
         # Launch ANM NMA for selected atoms (CA) without zeros
         protANM2b = cls.newProtocol(ProDyANM)
@@ -189,8 +199,9 @@ class TestProDyCore(TestWorkflow):
         protANM2b.setObjLabel('ANM_CA_n-z')
         cls.launchProtocol(protANM2b)
 
-        cls.assertTrue(exists(protANM2b._getExtraPath("animations/animated_mode_001.pdb")))
-        cls.assertTrue(exists(protANM2b._getExtraPath("distanceProfiles/vec1.xmd")))
+        # check that we have animations and distance profiles for non-zero modes from 1
+        cls.assertTrue(exists(protANM2b._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protANM2b._getExtraPath(distProfile1)))
 
         # Launch ed-ENM NMA for selected atoms (CA) without zeros
         protANM3 = cls.newProtocol(ProDyANM)
@@ -200,6 +211,10 @@ class TestProDyCore(TestWorkflow):
         protANM3.cutoff.set("2.9 * math.log(214) - 2.9")
         protANM3.setObjLabel('edENM_CA_n-z')
         cls.launchProtocol(protANM3)
+
+        # check that we have animations and distance profiles for non-zero modes from 1
+        cls.assertTrue(exists(protANM3._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protANM3._getExtraPath(distProfile1)))
 
         # ------------------------------------------------
         # Step 3. Slice -> Compare
@@ -358,16 +373,30 @@ class TestProDyCore(TestWorkflow):
         # -------------------------------------------------------
 
         # Launch RTB NMA for selected atoms (CA) with 10 res per block
+        #  with zeros (default)
         protRTB1 = cls.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_RES)
         protRTB1.inputStructure.set(cls.protSel.outputStructure)
         protRTB1.setObjLabel('RTB_CA_10_res')
         cls.launchProtocol(protRTB1)
 
+        # check that we have animations and distance profiles for non-zero modes from 7
+        cls.assertFalse(exists(protRTB1._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protRTB1._getExtraPath(animationsFile7)))
+
+        cls.assertFalse(exists(protRTB1._getExtraPath(distProfile1)))
+        cls.assertTrue(exists(protRTB1._getExtraPath(distProfile7)))
+
         # Launch RTB NMA for selected atoms (CA) with secstr block
+        #  without zeros
         protRTB2 = cls.newProtocol(ProDyRTB, blockDef=BLOCKS_FROM_SECSTR)
         protRTB2.inputStructure.set(cls.protSel.outputStructure)
+        protRTB2.zeros.set(False)
         protRTB2.setObjLabel('RTB_CA_secstr')
         cls.launchProtocol(protRTB2)
+
+        # check that we have animations and distance profiles for non-zero modes from 1
+        cls.assertTrue(exists(protRTB2._getExtraPath(animationsFile1)))
+        cls.assertTrue(exists(protRTB2._getExtraPath(distProfile1)))
 
         # Compare RTB1 and RTB2
         protComp6 = cls.newProtocol(ProDyCompare)
