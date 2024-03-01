@@ -53,10 +53,13 @@ class ProDyLDAViewer(ProtocolViewer):
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        form.addParam('showPlot', params.LabelParam,
+        group = form.addGroup('Single mode')  
+        group.addParam('showPlot', params.LabelParam,
                       label='Show root mean square fluctuations (RMSFs)?',
                       help='RMSFs are plotted with key residues highlighted')
-        form.addParam('percentile', params.FloatParam, default=99,
+        group.addParam('modeNumber', params.IntParam, default=7,
+              label='Mode number')
+        group.addParam('percentile', params.FloatParam, default=99,
                       label='Percentile cutoff for best residues',
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
                            'LDAs will be used to select most mobile residues.')
@@ -77,15 +80,23 @@ class ProDyLDAViewer(ProtocolViewer):
         atoms = self.protocol.outputEnsemble.loadEnsemble().getAtoms()
         lda = prody.loadModel(self.protocol._getPath('modes.lda.npz'))
 
-        plotter = EmPlotter()
+        modeNumber = self.modeNumber.get()-1 # Scipion to ProDy
+        try:
+            mode = lda[modeNumber]
+        except IndexError:
+            return [self.errorMessage("Invalid mode number *%d*\n"
+                                        "Display the output Normal Modes to see "
+                                        "the availables ones." % (modeNumber+1),
+                                        title="Invalid input")]
 
-        shuffled = lda.getShuffledEigvecs()
-        rmsf = prody.calcRMSFlucts(lda)
+        plotter = EmPlotter()
+        shuffled = lda.getShuffledEigvecs()[modeNumber]
+        rmsf = prody.calcRMSFlucts(mode)
 
         percentile = np.percentile(shuffled, self.percentile.get())
-        inds = prody.calcMostMobileNodes(lda, cutoff=percentile)
+        inds = prody.calcMostMobileNodes(mode, cutoff=percentile)
 
-        prody.showRMSFlucts(lda, atoms=atoms)
+        prody.showRMSFlucts(mode, atoms=atoms)
         plt.plot(inds, rmsf[inds], 'r*')
         resnums = atoms.getResnums()
         for i, ind in enumerate(inds):
@@ -93,9 +104,11 @@ class ProDyLDAViewer(ProtocolViewer):
                      rmsf[ind], resnums[ind])
             
         plt.title('LDA RMSF with pecentile {0}'.format(self.percentile.get()))
-        plt.savefig(self.protocol._getPath('lda_rmsf_best_{0}.png'.format(self.percentile.get())))
+        plt.savefig(self.protocol._getPath('lda_{0}_rmsf_best_{1}.png'.format(modeNumber+1,
+                                                                              self.percentile.get())))
 
-        fo = open(self.protocol._getExtraPath('lda_best_residues_{0}.txt'.format(self.percentile.get())), 'w')
+        fo = open(self.protocol._getExtraPath('lda_{0}_best_residues_{1}.txt'.format(modeNumber+1,
+                                                                                     self.percentile.get())), 'w')
         for ind in inds:
             fo.write('\t'.join(['{:5d}'.format(ind), 
                                 '{:5.3f}'.format(rmsf[ind]),
