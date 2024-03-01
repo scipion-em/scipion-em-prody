@@ -74,7 +74,7 @@ class ProDyGNMViewer(ProtocolViewer):
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
         else:
-            modes =  self.protocol.outputModes
+            modes = self.protocol.outputModes
 
         nmdFile = modes._nmdFileName.get()
 
