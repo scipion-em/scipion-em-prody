@@ -126,9 +126,10 @@ class ProDyLDAViewer(ProtocolViewer):
                                                                                   self.percentile.get())), 'w')
         for ind in inds:
             fo.write('\t'.join(['{:5d}'.format(ind), 
-                                '{:5.3f}'.format(rmsf[ind]),
+                                '{:8.5f}'.format(rmsf[ind]),
                                 str(atoms[ind].getResname()),
-                                str(atoms[ind].getResnum())]) + '\n')
+                                '{:5d}'.format(atoms[ind].getResnum()),
+                                atoms[ind].getChid()]) + '\n')
         fo.close()    
 
         for i, ind in enumerate(inds):
