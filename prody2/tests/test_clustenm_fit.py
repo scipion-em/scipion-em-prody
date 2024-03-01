@@ -42,8 +42,6 @@ class TestProDyClustenmFit(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def testProDyClustENMFitting(cls):
-
         # Import starting structure
         cls.protPdb4ake = cls.newProtocol(ProtImportPdb, inputPdbData=1,
                                           pdbFile=pathDatafile('pdb4ake_fixed'))
@@ -56,7 +54,9 @@ class TestProDyClustenmFit(TestWorkflow):
         cls.protImportVol.setObjLabel('EM map')
         cls.launchProtocol(cls.protImportVol)
 
-        # Run ClustENM fitting
+    def testProDyClustENMFitting(cls):
+
+        # Run ClustENM fitting in with replace filtered False (default)
         protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
                                         clusterMode=1, threshold='1.5',
                                         n_confs=20, sim=False, doFitting=True)
@@ -65,14 +65,22 @@ class TestProDyClustenmFit(TestWorkflow):
         protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
         cls.launchProtocol(protClustenm3)
 
-        stderr = open(protClustenm3._getLogsPath('run.stderr'), 'r')
-        lines = stderr.readlines()
-        stderr.close()
+        ens = prody.loadEnsemble(list(protClustenm3.outputNpz1.getFiles())[0])
+        cls.assertTrue(ens._cc[-1] > ens._cc[0],
+                       "Best last CC should be more than starting CC")
 
-        cc = []
-        for line in lines:
-            if line.find('CC') != -1:
-                cc.append(float(line.split()[4]))
+    def testProDyClustENMFittingReplace(cls):
 
-        cls.assertTrue(cc[-1] > cc[0],
+        # Run ClustENM fitting in with replace filtered True
+        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
+                                        clusterMode=1, threshold='1.5',
+                                        n_confs=20, sim=False, doFitting=True,
+                                        replaceFiltered=True)
+        protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
+        protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
+        protClustenm3.setObjLabel('ClustENM_fitting_4akeA_replace')
+        cls.launchProtocol(protClustenm3)
+
+        ens = prody.loadEnsemble(list(protClustenm3.outputNpz1.getFiles())[0])
+        cls.assertTrue(ens._cc[-1] > ens._cc[0],
                        "Best last CC should be more than starting CC")
