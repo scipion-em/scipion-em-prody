@@ -226,16 +226,8 @@ class ProDyLDA(ProDyModesBase):
         from pyworkflow import Config
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
-        
-        if self.chainOrders.get() != "":
-            self.matchDic = eval(self.chainOrders.get())
-        else:
-            self.matchDic = OrderedDict()
 
-        if not isinstance(self.matchDic, OrderedDict):
-            self.matchDic = OrderedDict()
-            
-        self.labels = list(self.matchDic.keys())
+        parseMatchDict(self)
         self.classes = list(self.matchDic.values())
 
         # reinitialise to update with new keys
@@ -267,3 +259,14 @@ class ProDyLDA(ProDyModesBase):
 
         self.matchDic.update(zip(self.labels, self.classes))
         return self.matchDic
+
+def parseMatchDict(cls):
+    if cls.chainOrders.get() != "":
+        cls.matchDic = eval(cls.chainOrders.get())
+    else:
+        cls.matchDic = OrderedDict()
+
+    if not isinstance(cls.matchDic, OrderedDict):
+        cls.matchDic = OrderedDict()
+
+    cls.labels = list(cls.matchDic.keys())

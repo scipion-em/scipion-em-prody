@@ -48,6 +48,7 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
+from prody2.protocols.protocol_lda import parseMatchDict
 from prody2.constants import ENSEMBLE_WEIGHTS
 
 import time
@@ -539,15 +540,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
-        if self.chainOrders.get() != "":
-            self.matchDic = eval(self.chainOrders.get())
-        else:
-            self.matchDic = OrderedDict()
-
-        if not isinstance(self.matchDic, OrderedDict):
-            self.matchDic = OrderedDict()
-
-        self.labels = list(self.matchDic.keys())
+        parseMatchDict(self)
         self.orders = list(self.matchDic.values())
 
         # reinitialise to update with new keys
