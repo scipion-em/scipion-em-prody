@@ -75,6 +75,7 @@ class ProDyLDA(ProDyModesBase):
                       'where all structures have the same number of atoms or a ProDy ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
+                      condition='isinstance(inputEnsemble, SetOfAtomStructs)',
                       label="Take only first conformation from each structure/set",
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
                            '(**False**) of each structure should be added to the ensemble. Default is **True**.')
@@ -239,7 +240,7 @@ class ProDyLDA(ProDyModesBase):
             if isinstance(inputEnsemble, SetOfAtomStructs):
                 ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
                 self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                                overlap=0., superpose=False, degeneracy=self.degeneracy.get())
+                                                  overlap=0., superpose=False, degeneracy=self.degeneracy.get())
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
             else:
                 self.ens = inputEnsemble.loadEnsemble()
