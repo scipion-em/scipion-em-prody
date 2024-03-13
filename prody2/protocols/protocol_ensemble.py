@@ -543,6 +543,10 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             self.matchDic = eval(self.chainOrders.get())
         else:
             self.matchDic = OrderedDict()
+
+        if not isinstance(self.matchDic, OrderedDict):
+            self.matchDic = OrderedDict()
+
         self.labels = list(self.matchDic.keys())
         self.orders = list(self.matchDic.values())
 

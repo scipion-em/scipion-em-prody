@@ -227,7 +227,14 @@ class ProDyLDA(ProDyModesBase):
         prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
         prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
         
-        self.matchDic = eval(self.chainOrders.get())
+        if self.chainOrders.get() != "":
+            self.matchDic = eval(self.chainOrders.get())
+        else:
+            self.matchDic = OrderedDict()
+
+        if not isinstance(self.matchDic, OrderedDict):
+            self.matchDic = OrderedDict()
+            
         self.labels = list(self.matchDic.keys())
         self.classes = list(self.matchDic.values())
 
