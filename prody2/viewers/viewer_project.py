@@ -109,14 +109,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
                            'The alternative is to show points for 2D and an ordered series in 1D.')
         
         form.addParam('bins', IntParam, label="number of bins", default=-1,
-                        help='Enter a number of bins here, which should be positive.\n'
-                             '-1 is the dummy value and needs changing to have an effect.\n'
-                             'This option will not do anything for line plots.',
-                        condition="numModes==%d" % ONE)
+                      help='Enter a number of bins here, which should be positive.\n'
+                           '-1 is the dummy value and needs changing to have an effect.\n'
+                           'This option will not do anything for line plots.',
+                      condition="numModes==%d and density==True" % ONE)
         
         form.addParam('alpha', FloatParam, label="transparency alpha", default=0.5,
-                        help='A lower number makes the plot more transparent and a higher number makes it more opaque',
-                        condition="numModes==%d" % ONE)
+                      help='A lower number makes the plot more transparent and a higher number makes it more opaque',
+                      condition="numModes==%d" % ONE)
         
         groupX = form.addGroup('xrange')
         groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
