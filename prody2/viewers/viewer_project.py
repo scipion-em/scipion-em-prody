@@ -119,13 +119,13 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       condition="numModes==%d" % ONE)
         
         groupX = form.addGroup('xrange')
-        groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
-                        help='Enter values here and below to specify x-axis limits for bins.\n'
+        groupX.addParam('xrange1', FloatParam, label="x-axis limit 1", default=-1,
+                        help='Enter values here and below to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
                         condition=self.numModes==ONE)
-        groupX.addParam('xrange2', FloatParam, label="x-axis range limit 2 for bins", default=-1,
-                        help='Enter values here and above to specify x-axis limits for bins.\n'
+        groupX.addParam('xrange2', FloatParam, label="x-axis limit 2", default=-1,
+                        help='Enter values here and above to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
                         condition=self.numModes==ONE)
