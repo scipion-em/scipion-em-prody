@@ -91,7 +91,7 @@ class ProDyLDAViewer(ProtocolViewer):
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
-        modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modesPath+"/*atoms.pdb"))
+        modes = prody.loadModel(glob(modesPath+"/modes*npz")[0])
 
         modeNumber = self.modeNumber.get()-1 # Scipion to ProDy
         try:
