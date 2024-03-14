@@ -504,8 +504,9 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
 
         if self.writeDCDFile.get():
+            self.pdbFilename = self._getPath('refStructure.pdb')
             prody.writeDCD(self._getPath(ENS_FILENAME), ens)
-            prody.writePDB(self._getPath('refStructure.pdb'), ens.getAtoms())
+            prody.writePDB(self.pdbFilename, ens.getAtoms())
 
     def createOutputStep(self):
         
@@ -517,8 +518,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         if self.writeDCDFile.get():
             if imported_chem:
-                outMDSystem = MDSystem(filename=self._getPath('refStructure.pdb'))
-                outMDSystem.setTopologyFile(self._getPath('refStructure.pdb'))
+                outMDSystem = MDSystem(filename=self.pdbFilename)
+                outMDSystem.setTopologyFile(self.pdbFilename)
                 outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outMDSystem
             else:
