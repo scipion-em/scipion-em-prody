@@ -37,7 +37,7 @@ from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
 from pwem.objects import SetOfAtomStructs, String, AtomStruct
 
 from pyworkflow.utils import glob, redStr, getListFromRangeString
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
+from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam, TextParam, 
                                         NumericRangeParam, 
                                         LEVEL_ADVANCED, Float)
@@ -68,11 +68,10 @@ class ProDyLDA(ProDyModesBase):
         # You need a params to belong to a section:
 
         form.addSection(label='ProDy LDA')
-        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
-                      help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms or a ProDy ensemble.')
+                      help='Each input ensemble should be a SetOfAtomStructs or a ProDy NPZ ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       condition='isinstance(inputEnsemble, SetOfAtomStructs)',
@@ -235,15 +234,7 @@ class ProDyLDA(ProDyModesBase):
         self.matchDic = OrderedDict()
 
         if self.labels == []:
-            inputEnsemble = self.inputEnsemble.get()
-            if isinstance(inputEnsemble, SetOfAtomStructs):
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-                self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                                  overlap=0., superpose=False, degeneracy=self.degeneracy.get())
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-            else:
-                self.ens = inputEnsemble.loadEnsemble()
-
+            loadAndWriteEnsemble(self)
             self.labels = self.ens.getLabels()
             self.classes = list(np.ones(len(self.labels), dtype=str))
 
