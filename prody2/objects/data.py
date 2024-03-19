@@ -217,7 +217,7 @@ class SetOfGnmModes(SetOfNormalModes):
 class SetOfLdaModes(SetOfNormalModes):
     pass
 
-class SetOfLogisticModes(SetOfNormalModes):
+class SetOfLogisticModes(SetOfLdaModes):
     pass
 
 class Atom(EMObject):

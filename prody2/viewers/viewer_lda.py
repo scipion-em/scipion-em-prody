@@ -82,9 +82,11 @@ class ProDyLDAViewer(ProtocolViewer):
 
         plotter = EmPlotter()
 
-        if isinstance(self.protocol, SetOfNormalModes) and not isinstance(self.protocol, SetOfLdaModes):
+        if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
             isLDA = False
+            if isinstance(self.protocol, SetOfLdaModes):
+                isLDA = True
         else:
             modes = self.protocol.outputModes
             isLDA = True
@@ -103,8 +105,7 @@ class ProDyLDAViewer(ProtocolViewer):
                                         title="Invalid input")]
 
         if isLDA:
-            shuffledRmsf = np.array([prody.calcRMSF(shuffle) for shuffle in modes.getShuffledEigvecs()[:, modeNumber]])
-            cutoff = np.percentile(shuffledRmsf, self.percentile.get())
+            cutoff = modes.getShuffledPercentile(self.percentile.get())
             inds = prody.calcMostMobileNodes(mode, cutoff=cutoff)
         else:
             inds = prody.calcMostMobileNodes(mode, percentile=self.percentile.get())
