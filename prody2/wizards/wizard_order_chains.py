@@ -39,6 +39,7 @@ import re
 from ..protocols.protocol_atoms import ProDyAlign
 from ..protocols.protocol_ensemble import ProDyBuildPDBEnsemble
 from ..protocols.protocol_lda import ProDyLDA
+from ..protocols.protocol_logistic import ProDyLRC
 
 from pwem.wizards import VariableWizard
 
@@ -91,6 +92,11 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyLDA,
                                          inputs=['insertOrder', 'label'],
                                          outputs=['chainOrders'])
 
+ProDyAddChainOrderWizard().addTarget(protocol=ProDyLRC,
+                                         targets=['insertOrder'],
+                                         inputs=['insertOrder', 'label'],
+                                         outputs=['chainOrders'])
+
 class ProDyRecoverChainOrderWizard(VariableWizard):
     """Watch the parameters of the step of the workflow defined by the index"""
     _targets, _inputs, _outputs = [], {}, {}
@@ -117,6 +123,11 @@ ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
                                          outputs=['label', 'customOrder', 'insertOrder'])
 
 ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLDA,
+                                         targets=['recoverOrder'],
+                                         inputs=['recoverOrder'],
+                                         outputs=['label', 'customOrder', 'insertOrder'])
+
+ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLRC,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
                                          outputs=['label', 'customOrder', 'insertOrder'])

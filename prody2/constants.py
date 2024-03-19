@@ -41,5 +41,6 @@ MEASURES = "_prodyMeasures"
 
 PCA_FRACT_VARS = "_prodyPcaFractVars"
 LDA_FRACT_VARS = "_prodyLdaFractVars"
+LRC_FRACT_VARS = "_prodyLogisticFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__), "protocols", "scripts")

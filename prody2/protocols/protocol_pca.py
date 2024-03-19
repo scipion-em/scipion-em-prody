@@ -307,7 +307,7 @@ def loadAndWriteEnsemble(cls):
 
         cls.npzFileName = cls._getPath('ensemble.ens.npz')
         prody.saveEnsemble(cls.ens, cls.npzFileName)
-        cls.npz = ProDyNpzEnsemble().create(cls._getExtraPath())
+        cls.npz = ProDyNpzEnsemble().create(cls._getPath())
         for j in range(cls.ens.numConfs()):
             frame = TrajFrame((j+1, cls.npzFileName), objLabel=cls.ens.getLabels()[j])
             cls.npz.append(frame)

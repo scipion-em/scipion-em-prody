@@ -217,6 +217,8 @@ class SetOfGnmModes(SetOfNormalModes):
 class SetOfLdaModes(SetOfNormalModes):
     pass
 
+class SetOfLogisticModes(SetOfNormalModes):
+    pass
 
 class Atom(EMObject):
     """Atom information"""

@@ -103,8 +103,8 @@ class ProDyLDAViewer(ProtocolViewer):
                                         title="Invalid input")]
 
         if isLDA:
-            shuffled = modes.getShuffledEigvecs()[modeNumber]
-            cutoff = np.percentile(shuffled, self.percentile.get())
+            shuffledRmsf = np.array([prody.calcRMSF(shuffle) for shuffle in modes.getShuffledEigvecs()[:, modeNumber]])
+            cutoff = np.percentile(shuffledRmsf, self.percentile.get())
             inds = prody.calcMostMobileNodes(mode, cutoff=cutoff)
         else:
             inds = prody.calcMostMobileNodes(mode, percentile=self.percentile.get())
