@@ -369,8 +369,6 @@ class ProDyImportEnsemble(ProtImportFiles):
                     self.outEns = prody.PDBEnsemble(self.outEns)
                 if 'size' in self.outEns.getDataLabels():
                     self.weights = self.outEns.getData('size')
-                    if np.array_equal(self.weights, np.zeros(self.weights.shape)):
-                        self.weights = np.ones(self.weights.shape)
 
                 self.atoms = self.outEns.getAtoms()
         else:
@@ -406,8 +404,8 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
                 self.atoms = prody.parsePDB(point.getSystemFile())
 
-        if self.weights is None:
-            self.weights = list(np.ones(self.outEns.numConfs()))
+        if self.weights is None or np.array_equal(self.weights, np.zeros(self.weights.shape)):
+            self.weights = np.ones(self.outEns.numConfs())
 
         selstr = self.selstr.get()
 
