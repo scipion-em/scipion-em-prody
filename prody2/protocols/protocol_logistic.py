@@ -27,7 +27,7 @@
 
 
 """
-This module will provide ProDy linear discriminant analysis (LRC) using atomic structures
+This module will provide ProDy linear discriminant analysis (LRA) using atomic structures
 """
 from pwem.objects import Float, String
 
@@ -40,11 +40,11 @@ from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 import prody
 
 
-class ProDyLRC(ProDyLDA):
+class ProDyLRA(ProDyLDA):
     """
-    This protocol will perform ProDy linear discriminant analysis (LRC) using atomic structures
+    This protocol will perform ProDy linear discriminant analysis (LRA) using atomic structures
     """
-    _label = 'LRC'
+    _label = 'LRA'
     _possibleOutputs = {'outputModes': SetOfLogisticModes}
 
     def computeModesStep(self, n=1):
@@ -56,7 +56,7 @@ class ProDyLRC(ProDyLDA):
 
         restoreVerbositySecondary(self)
 
-        self.outModes = prody.LRC()
+        self.outModes = prody.LRA()
         self.outModes.calcModes(self.ens, self.classes,
                                 n_shuffles=self.numberOfShuffles.get())
 
@@ -92,7 +92,7 @@ class ProDyLRC(ProDyLDA):
             modes = prody.parseScipionModes(self.outputModes.getFileName())
             ens = self.outputEnsemble.loadEnsemble()
 
-            summ = ['*{0}* LRC components calculated from *{1}* structures of *{2}* atoms'.format(
+            summ = ['*{0}* LRA components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
         return summ
 

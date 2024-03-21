@@ -39,7 +39,7 @@ import re
 from ..protocols.protocol_atoms import ProDyAlign
 from ..protocols.protocol_ensemble import ProDyBuildPDBEnsemble
 from ..protocols.protocol_lda import ProDyLDA
-from ..protocols.protocol_logistic import ProDyLRC
+from ..protocols.protocol_logistic import ProDyLRA
 
 from pwem.wizards import VariableWizard
 
@@ -92,7 +92,7 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyLDA,
                                          inputs=['insertOrder', 'label'],
                                          outputs=['chainOrders'])
 
-ProDyAddChainOrderWizard().addTarget(protocol=ProDyLRC,
+ProDyAddChainOrderWizard().addTarget(protocol=ProDyLRA,
                                          targets=['insertOrder'],
                                          inputs=['insertOrder', 'label'],
                                          outputs=['chainOrders'])
@@ -127,7 +127,7 @@ ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLDA,
                                          inputs=['recoverOrder'],
                                          outputs=['label', 'customOrder', 'insertOrder'])
 
-ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLRC,
+ProDyRecoverChainOrderWizard().addTarget(protocol=ProDyLRA,
                                          targets=['recoverOrder'],
                                          inputs=['recoverOrder'],
                                          outputs=['label', 'customOrder', 'insertOrder'])
