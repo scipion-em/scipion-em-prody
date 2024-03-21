@@ -189,7 +189,7 @@ class ProDyRmsd(EMProtocol):
                     submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
                     repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
 
-                    weight = len(sg)
+                    weight = len(sg)/self.ens.numCoordsets()
                     self.weights[i] = allWeights[repIdx[i]] * weight
                     allWeights[sgIdx[i]] *= weight
                     classLabels[sgIdx[i]] = i
