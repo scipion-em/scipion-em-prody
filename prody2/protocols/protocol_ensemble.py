@@ -589,9 +589,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         if not hasattr(self, 'outputNpz'):
             summ = ['Output ensemble not ready yet']
         else:
-            ens = self.outputNpz.loadEnsemble()
-            summ = ['Ensemble built with *{0}* structures of *{1}* atoms'.format(
-                   ens.numConfs(), ens.numAtoms())]
+            if len(self.outputNpz) < 100:
+                ens = self.outputNpz.loadEnsemble()
+                summ = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
+                    ens.numConfs(), ens.numAtoms())]
+            else:
+                summ = ['Ensemble imported with *{0}* structures'.format(len(self.outputNpz))]
         return summ
     
     def _setWeights(self, item, row=None):
