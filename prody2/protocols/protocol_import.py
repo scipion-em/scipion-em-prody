@@ -311,6 +311,11 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='This takes up storage and time, but '
                            'may be helpful for interfacing with ContinuousFlex.')
 
+        form.addParam('selstr', params.StringParam, default="all",
+                      label="Selection string",
+                      help='Selection string for atoms to include in the ensemble.\n'
+                           'It is recommended to use "all" (default), "protein" or "name CA"')
+
         form.addParam('writeDCDFile', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
                       condition='selstr!=all or importType!=%d' % DCD,
@@ -322,11 +327,6 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='An input psf topology can also be provided. '
                            'The psf should have the same number of atoms '
                            'as the original ensemble.')
-
-        form.addParam('selstr', params.StringParam, default="all",
-                      label="Selection string",
-                      help='Selection string for atoms to include in the ensemble.\n'
-                           'It is recommended to use "all" (default), "protein" or "name CA"')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
