@@ -228,16 +228,17 @@ class ProDyRmsd(EMProtocol):
 
         for i, sg in enumerate(sgIdx):
             newClass = ClassTraj().create(self._getExtraPath(), suffix=i+1)
-            newClass.setRef(frames[repIdx[i]])
+            repId = int(repIdx[i]) # numpy.int64 doesn't work to index
+            newClass.setRef(frames[repId+1])
             self.npzClasses.append(newClass)
             for j in sg:
                 newClass.append(frames[int(j+1)])
             self.npzClasses.update(newClass)
             
             if self.writePDBFiles.get():
-                ag.setCoords(self.ens.getCoordsets()[i])
-                filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(i+1, 
-                                                                       self.ens.getLabels()[i]))
+                ag.setCoords(self.ens.getCoordsets()[repId])
+                filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(repId+1,
+                                                                       self.ens.getLabels()[repId]))
                 prody.writePDB(filename, ag)
                 pdb = AtomStruct(filename)
                 self.pdbs.append(pdb)
