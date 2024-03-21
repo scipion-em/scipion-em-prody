@@ -318,12 +318,12 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('writeDCDFile', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
-                      condition='selstr!=all or importType!=%d' % DCD,
+                      condition="selstr!='all' or importType!=%d" % DCD,
                       label="Whether to write DCD trajectory file",
                       help='This will be registered as output too')
 
         form.addParam('inputPsf', params.PathParam, label="Input PSF topology", allowsNull=True,
-                      condition="writeDCDFile==True or (selstr==all and importType==%d)"  % DCD,
+                      condition="writeDCDFile==True or (selstr=='all' and importType==%d)"  % DCD,
                       help='An input psf topology can also be provided. '
                            'The psf should have the same number of atoms '
                            'as the original ensemble.')
