@@ -210,7 +210,7 @@ class ProDyRmsd(EMProtocol):
                 for i, weight in enumerate(weights):
                     weight /= weights.sum()
                     allWeights[sgIdx[i]] *= weight
-                    self.weights[i] = allWeights[repIdx[i]] * weight
+                    self.weights[i] = allWeights[repIdx[i]]
 
         prody.writePDB(self.ensBaseName, self.ens)
         self.ens.setData('size', allWeights)
@@ -265,7 +265,7 @@ class ProDyRmsd(EMProtocol):
         return summ
 
     def _setWeights(self, item, row=None):
-            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
             setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def _createSetOfClassesTraj(self, frameSet, suffix=''):

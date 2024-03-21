@@ -459,7 +459,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                 filename = self._getExtraPath('{:s}_{:06d}_{:s}.pdb'.format(refLabel, i+1, labels[i]))
                 prody.writePDB(filename, atoms)
                 pdb = AtomStruct(filename)
-                setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
+                setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Float(self.weights[i]))
                 self.pdbs.append(pdb)
 
         if self.writeDCDFile.get():
@@ -471,7 +471,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for i in range(self.outEns.numConfs()):
             frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i],
-                              weight=pwobj.Integer(self.weights[i]))
+                              weight=pwobj.Float(self.weights[i]))
             self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity

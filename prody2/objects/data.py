@@ -23,7 +23,7 @@ class TrajFrame(EMObject):
         self._filename = String()
         if location:
             self.setLocation(location)
-        setattr(self, ENSEMBLE_WEIGHTS, Integer(kwargs.get('weight')))
+        setattr(self, ENSEMBLE_WEIGHTS, Float(kwargs.get('weight')))
 
     def getIndex(self):
         return self._index.get()

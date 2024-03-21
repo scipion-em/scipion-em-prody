@@ -321,7 +321,7 @@ class ProDyClustENM(EMProtocol):
         self.args["outputNpz" + suffix] = npz
 
     def _setWeights(self, item, row=None):
-            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
             setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def createOutputStep(self):

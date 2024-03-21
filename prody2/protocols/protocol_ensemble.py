@@ -41,7 +41,7 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
                                         StringParam, IntParam, FloatParam,
                                         EnumParam, TextParam, NumericRangeParam,
                                         BooleanParam, LEVEL_ADVANCED)
-from pyworkflow.object import Integer
+from pyworkflow.object import Float
 
 import prody
 from prody2.constants import ENSEMBLE_WEIGHTS
@@ -486,7 +486,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
                 prody.writePDB(filename, amap)
                 pdb = AtomStruct(filename)
-                setattr(pdb, ENSEMBLE_WEIGHTS, Integer(self.weights[i]))
+                setattr(pdb, ENSEMBLE_WEIGHTS, Float(self.weights[i]))
                 self.pdbs.append(pdb)
 
         prody.writePDB(self._getPath('ensemble.pdb'), ens)
@@ -497,7 +497,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for j in range(ens.numConfs()):
             frame = TrajFrame((j+1, self.npzFileName), objLabel=ens.getLabels()[j])
-            setattr(frame, ENSEMBLE_WEIGHTS, Integer(self.weights[j]))
+            setattr(frame, ENSEMBLE_WEIGHTS, Float(self.weights[j]))
             self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity
@@ -609,5 +609,5 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         return summ
     
     def _setWeights(self, item, row=None):
-            weight = Integer(self.weights[item.getObjId()-1])
+            weight = Float(self.weights[item.getObjId()-1])
             setattr(item, ENSEMBLE_WEIGHTS, weight)
