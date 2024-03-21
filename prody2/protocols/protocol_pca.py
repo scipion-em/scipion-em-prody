@@ -39,7 +39,7 @@ from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
 from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
 
 from pyworkflow.utils import glob, redStr
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
+from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
                                         LEVEL_ADVANCED, Float, Pointer)
 
@@ -70,7 +70,7 @@ class ProDyPCA(ProDyModesBase):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ProDy PCA')
-        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
@@ -270,18 +270,19 @@ def loadAndWriteEnsemble(cls):
     else:
         inputEnsemble = [ensemble.get() for ensemble in cls.inputEnsemble]
 
-    if isinstance(inputEnsemble[0], SetOfAtomStructs):
-        ags = []
-        for ensemble in inputEnsemble:
-            ags.extend(prody.parsePDB([tarStructure.getFileName() for tarStructure in ensemble]))
+    for i, ensemble in enumerate(inputEnsemble):
+        if isinstance(ensemble, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensemble])
+            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
+                                        overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        else:
+            ens = inputEnsemble[0].loadEnsemble()
 
-        cls.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                         overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
-        # the ensemble gets built exactly as the input is setup and nothing gets rejected
-    else:
-        cls.ens = inputEnsemble[0].loadEnsemble()
-        for ensemble in inputEnsemble[1:]:
-            cls.ens += ensemble.loadEnsemble()
+        if i == 0:
+            cls.ens = ens
+        else:
+            cls.ens += ens
 
     cls.ens.select(cls.selstr.get())
 
