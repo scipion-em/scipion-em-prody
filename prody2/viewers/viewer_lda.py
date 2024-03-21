@@ -25,8 +25,8 @@
 # *
 # **************************************************************************
 """
-This module implements wrappers around the ProDy tools 
-for plotting projections of ensembles onto modes or distance distributions.
+This module implements viewers for fluctuations with percentiles and was 
+originally designed for LDA.
 """
 import matplotlib.pyplot as plt
 import numpy as np
@@ -144,28 +144,6 @@ class ProDyLDAViewer(ProtocolViewer):
         """ visualisation for 2D covariance and cross-correlation matrices"""
         if paramName == 'displayVmd':
             return [createVmdNmwizView(self.protocol)]
-
-    def _cleanLabels(self, ensemble):
-
-        if ensemble.getLabels()[0].find('Selection') != -1:
-            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0].endswith('_atoms_amap'):
-            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0].endswith('_ca'):
-            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0][:6].isnumeric():
-            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0].startswith('Unknown_m'):
-            ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
-
-        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
-            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
-
-        return ensemble
 
 def createVmdNmwizView(obj):
     nmdFile = findNmdFile(obj)

@@ -25,8 +25,8 @@
 # *
 # **************************************************************************
 """
-This module implements wrappers around the ProDy tools 
-for plotting projections of ensembles onto modes or distance distributions.
+This module implements viewers for plotting projections of ensembles onto 
+modes or distance distributions.
 """
 import matplotlib.pyplot as plt
 import numpy as np
