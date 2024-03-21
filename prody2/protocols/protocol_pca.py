@@ -45,7 +45,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets
-from prody2.constants import PCA_FRACT_VARS
+from prody2.constants import PRODY_FRACT_VARS
 from prody2 import Plugin
 
 import prody
@@ -268,7 +268,7 @@ class ProDyPCA(ProDyModesBase):
     def _setFractVars(self, item, row=None):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
-        setattr(item, PCA_FRACT_VARS, fractVar)
+        setattr(item, PRODY_FRACT_VARS, fractVar)
 
 def loadAndWriteEnsemble(cls):
     """Handle inputs to load ensemble into ProDy and write outputs"""

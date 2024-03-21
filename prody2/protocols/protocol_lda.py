@@ -45,7 +45,7 @@ from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.protocols.protocol_pca import loadAndWriteEnsemble
 from prody2.objects import ProDyNpzEnsemble, TrajFrame, SetOfLdaModes
-from prody2.constants import LDA_FRACT_VARS
+from prody2.constants import PRODY_FRACT_VARS
 
 import prody
 import matplotlib.pyplot as plt
@@ -78,10 +78,6 @@ class ProDyLDA(ProDyModesBase):
                       label="Take only first conformation from each structure/set",
                       help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
                            '(**False**) of each structure should be added to the ensemble. Default is **True**.')
-        form.addParam('numberOfModes', IntParam, default=1,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic linear discriminant analysis is the number of classes - 1.')
         form.addParam('numberOfShuffles', IntParam, default=10,
                       label='Number of random shuffles',
                       help='The class labels will be shuffled this many times for LDA to '
@@ -133,7 +129,9 @@ class ProDyLDA(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n=1, nzeros=0):
         # Insert processing steps
-        numModes = self.numberOfModes.get()
+        labelsMap = self.createMatchDic(self.insertOrder.get())
+        self.classes = list(labelsMap.values())
+        numModes = len(set(self.classes)) - 1
         self.gnm = False
         self.nzero = nzeros
 
@@ -159,9 +157,6 @@ class ProDyLDA(ProDyModesBase):
 
         # configure ProDy to restore secondary structure information and verbosity
         prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
-
-        labelsMap = self.createMatchDic(self.insertOrder.get())
-        self.classes = list(labelsMap.values())
 
         self.outModes = prody.LDA()
         self.outModes.calcModes(self.ens, self.classes, n,
@@ -214,7 +209,7 @@ class ProDyLDA(ProDyModesBase):
     def _setFractVars(self, item, row=None):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
-        setattr(item, LDA_FRACT_VARS, fractVar)
+        setattr(item, PRODY_FRACT_VARS, fractVar)
 
     def createMatchDic(self, index, label=None):
 
