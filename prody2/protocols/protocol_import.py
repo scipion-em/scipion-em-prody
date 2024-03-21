@@ -313,6 +313,7 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         form.addParam('writeDCDFile', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
+                      condition='selstr!=all or importType!=%d' % DCD,
                       label="Whether to write DCD trajectory file",
                       help='This will be registered as output too')
 
@@ -464,7 +465,10 @@ class ProDyImportEnsemble(ProtImportFiles):
             prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
             if self.inputPsf.get() is not None:
                 psfAtoms = prody.parsePSF(self.inputPsf.get())
-                prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
+                if selstr=='all':
+                    os.symlink(self.inputPsf.get(), self._getPath(PSF_FILENAME))
+                else:
+                    prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
 
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
