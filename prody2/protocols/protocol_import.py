@@ -482,8 +482,12 @@ class ProDyImportEnsemble(ProtImportFiles):
         if self.writeDCDFile.get():
             if imported_chem:
                 outMDSystem = MDSystem(filename=self._getPath(PDB_FILENAME))
-                outMDSystem.setTopologyFile(self._getPath(PDB_FILENAME))
+                if os.path.exists(self._getPath(PSF_FILENAME)):
+                    outMDSystem.setTopologyFile(self._getPath(PSF_FILENAME))
+                else:
+                    outMDSystem.setTopologyFile(self._getPath(PDB_FILENAME))
                 outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
+                
                 outputs["outputTrajectory"] = outMDSystem
             else:
                 outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
