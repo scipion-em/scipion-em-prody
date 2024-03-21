@@ -470,8 +470,8 @@ class ProDyImportEnsemble(ProtImportFiles):
 
         self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
         for i in range(self.outEns.numConfs()):
-            frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i])
-            setattr(frame, ENSEMBLE_WEIGHTS, pwobj.Integer(self.weights[i]))
+            frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i],
+                              weight=pwobj.Integer(self.weights[i]))
             self.npz.append(frame)
 
         # configure ProDy to restore secondary structure information and verbosity

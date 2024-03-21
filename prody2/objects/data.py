@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import prody
+from prody2.constants import ENSEMBLE_WEIGHTS
 from pwem.objects import (EMObject, EMSet, SetOfNormalModes, SetOfClasses3D,
                           Pointer, Integer, Float, String,
                           AtomStruct, SetOfAtomStructs)
@@ -22,7 +23,7 @@ class TrajFrame(EMObject):
         self._filename = String()
         if location:
             self.setLocation(location)
-        self._weight = Integer(kwargs.get('weight'))
+        setattr(self, ENSEMBLE_WEIGHTS, Integer(kwargs.get('weight')))
 
     def getIndex(self):
         return self._index.get()
@@ -31,10 +32,10 @@ class TrajFrame(EMObject):
         self._index.set(index)
 
     def getWeight(self):
-        return self._weight.get()
+        return getattr(self, ENSEMBLE_WEIGHTS)
 
-    def setWeight(self, index):
-        self._weight.set(index)
+    def setWeight(self, weight):
+        setattr(self, ENSEMBLE_WEIGHTS, weight)
 
     def getFileName(self):
         """ Use the _objValue attribute to store filename. """
