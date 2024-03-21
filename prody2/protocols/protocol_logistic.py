@@ -35,6 +35,7 @@ from prody2.protocols.protocol_lda import ProDyLDA
 from prody2.protocols.protocol_pca import loadAndWriteEnsemble
 from prody2.objects import SetOfLogisticModes
 from prody2.constants import PRODY_FRACT_VARS
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 
@@ -48,18 +49,12 @@ class ProDyLRC(ProDyLDA):
 
     def computeModesStep(self, n=1):
         # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         loadAndWriteEnsemble(self)
         self.atoms = self.ens.getAtoms()
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
         self.outModes = prody.LRC()
         self.outModes.calcModes(self.ens, self.classes,
