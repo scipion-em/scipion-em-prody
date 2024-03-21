@@ -46,10 +46,10 @@ from prody2.objects import SetOfLdaModes
 
 import prody
 
-class ProDyLDAViewer(ProtocolViewer):
+class ProDyRmsfViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
-    """    
-    _label = 'Projection viewer'
+    """
+    _label = 'Fluctuations viewer'
     _targets = [ProDyLDA, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
@@ -59,9 +59,9 @@ class ProDyLDAViewer(ProtocolViewer):
         group.addParam('showPlot', params.LabelParam,
                       label='Show root mean square fluctuations (RMSFs)?',
                       help='RMSFs are plotted with key residues highlighted')
-        group.addParam('modeNumber', params.IntParam, default=7,
-              label='Mode number')
-        group.addParam('percentile', params.FloatParam, default=99,
+        group.addParam('modeNumber', params.IntParam, default=1,
+                       label='Mode number')
+        group.addParam('percentile', params.FloatParam, default=99.9,
                       label='Percentile cutoff for best residues',
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
                            'LDAs will be used to select most mobile residues if the input is LDA. '

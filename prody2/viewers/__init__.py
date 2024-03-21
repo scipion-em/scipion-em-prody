@@ -9,7 +9,7 @@ from .viewer_gnm import ProDyGNMViewer
 from .viewer_domdec import ProDyDomainViewer
 from .viewer_project import ProDyProjectionsViewer
 from .viewer_ensemble import ProDyEnsembleViewer
-from .viewer_lda import ProDyLDAViewer
+from .viewer_lda import ProDyRmsfViewer
 
 from pwem.viewers import DataViewer, showj
 from pwem.viewers.viewers_data import RegistryViewerConfig
