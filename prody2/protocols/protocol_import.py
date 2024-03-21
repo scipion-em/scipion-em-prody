@@ -318,7 +318,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                       help='This will be registered as output too')
 
         form.addParam('inputPsf', params.PathParam, label="Input PSF topology", allowsNull=True,
-                      condition="writeDCDFile==True",
+                      condition="writeDCDFile==True or (selstr==all and importType==%d)"  % DCD,
                       help='An input psf topology can also be provided. '
                            'The psf should have the same number of atoms '
                            'as the original ensemble.')
@@ -460,15 +460,16 @@ class ProDyImportEnsemble(ProtImportFiles):
                 setattr(pdb, ENSEMBLE_WEIGHTS, pwobj.Float(self.weights[i]))
                 self.pdbs.append(pdb)
 
+        if self.inputPsf.get() is not None:
+            psfAtoms = prody.parsePSF(self.inputPsf.get())
+            if selstr=='all':
+                os.symlink(self.inputPsf.get(), self._getPath(PSF_FILENAME))
+            else:
+                prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
+
         if self.writeDCDFile.get():
             prody.writeDCD(self._getPath(ENS_FILENAME), self.outEns)
             prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
-            if self.inputPsf.get() is not None:
-                psfAtoms = prody.parsePSF(self.inputPsf.get())
-                if selstr=='all':
-                    os.symlink(self.inputPsf.get(), self._getPath(PSF_FILENAME))
-                else:
-                    prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
 
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
@@ -483,7 +484,7 @@ class ProDyImportEnsemble(ProtImportFiles):
     def createOutputStep(self):
         outputs = {"outputNpz": self.npz}
 
-        if self.writeDCDFile.get():
+        if self.writeDCDFile.get() or (self.selstr.get()=="all" and self.importType.get()==DCD):
             if imported_chem:
                 outMDSystem = MDSystem(filename=self._getPath(PDB_FILENAME))
                 if os.path.exists(self._getPath(PSF_FILENAME)):
