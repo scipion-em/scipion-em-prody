@@ -44,6 +44,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 BLOCKS_FROM_RES = 0
 BLOCKS_FROM_SECSTR = 1
@@ -184,12 +185,7 @@ class ProDyRTB(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
         
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
@@ -230,6 +226,8 @@ class ProDyRTB(ProDyModesBase):
         prody.writeScipionModes(self._getPath(), self.outModes)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.amap)
         prody.saveModel(self.outModes, self._getPath('modes.rtb.npz'), matrices=True)
+
+        restoreVerbositySecondary(self)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()

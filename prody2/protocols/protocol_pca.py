@@ -46,7 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets
 from prody2.constants import PRODY_FRACT_VARS
-from prody2 import Plugin
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 import matplotlib.pyplot as plt
@@ -136,18 +136,8 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=5):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
+        fixVerbositySecondary(self)
         loadAndWriteEnsemble(self) # creates self.npz and others
-        
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
@@ -176,6 +166,8 @@ class ProDyPCA(ProDyModesBase):
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
+
+        restoreVerbositySecondary(self)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold):
         self._enterWorkingDir()

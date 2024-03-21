@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
 import prody
 from pyworkflow.utils import logger
 
-from prody2 import Plugin
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 from prody2.objects import Atom, SetOfAtoms
 
 def notFoundException(inputFn):
@@ -147,8 +147,7 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
-        oldSecondary = prody.confProDy("auto_secondary")
-        prody.confProDy(auto_secondary=True)
+        fixVerbositySecondary(self)
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
@@ -157,8 +156,7 @@ class ProDySelect(EMProtocol):
             args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary)
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):
@@ -311,13 +309,7 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
@@ -414,8 +406,7 @@ class ProDyAlign(EMProtocol):
                 self.matrixFileName = self._getPath('transformation.txt')
                 prody.writeArray(self.matrixFileName, self.T.getMatrix())
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
@@ -564,13 +555,7 @@ class ProDyBiomol(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def extractionStep(self, inputFn):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                              biomol=True, extend_biomol=True,
@@ -585,8 +570,7 @@ class ProDyBiomol(EMProtocol):
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         self._defineOutputs(outputStructures=self.pdbs)

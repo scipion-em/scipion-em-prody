@@ -38,6 +38,7 @@ from pwem.viewers import VmdView
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
                               ProDyImportModes, ProDyRTB,
                               ProDyPCA)
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import os
 import prody
@@ -53,12 +54,7 @@ class ProDyModeViewer(Viewer):
 
     def _visualize(self, obj, **kwargs):
         """visualisation for mode sets"""
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         if isinstance(obj, SetOfNormalModes):
             modes = obj
@@ -77,8 +73,7 @@ class ProDyModeViewer(Viewer):
                 self.nmdFileName = modesPath+"/modes.nmd"
                 prody.writeNMD(self.nmdFileName, prodyModes, atoms)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
         
         return [VmdView('-e "%s"' % self.nmdFileName)]
 

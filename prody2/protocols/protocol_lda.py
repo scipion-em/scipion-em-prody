@@ -46,6 +46,7 @@ from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.protocols.protocol_pca import loadAndWriteEnsemble
 from prody2.objects import ProDyNpzEnsemble, TrajFrame, SetOfLdaModes
 from prody2.constants import PRODY_FRACT_VARS
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 import matplotlib.pyplot as plt
@@ -144,19 +145,12 @@ class ProDyLDA(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=1):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         loadAndWriteEnsemble(self)
         self.atoms = self.ens.getAtoms()
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
         self.outModes = prody.LDA()
         self.outModes.calcModes(self.ens, self.classes, n,
@@ -213,13 +207,7 @@ class ProDyLDA(ProDyModesBase):
 
     def createMatchDic(self, index, label=None):
 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         parseMatchDict(self)
         self.classes = list(self.matchDic.values())
@@ -240,8 +228,7 @@ class ProDyLDA(ProDyModesBase):
         for idx in inds:
             self.classes[idx] = self.customOrder.get()
         
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
         self.matchDic.update(zip(self.labels, self.classes))
         return self.matchDic

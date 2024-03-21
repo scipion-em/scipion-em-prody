@@ -45,8 +45,6 @@ from prody2.objects import SetOfGnmModes
 import os
 
 import prody
-oldSecondary = prody.confProDy("auto_secondary")
-oldVerbosity = prody.confProDy("verbosity")
 
 OBJCMD_NMA_PLOTDIST = "Plot distance profile"
 
@@ -332,7 +330,3 @@ def showDistanceProfilePlot(protocol, modeNumber):
 
 ProjectWindow.registerObjectCommand(OBJCMD_NMA_PLOTDIST,
                                     showDistanceProfilePlot)
-
-
-# configure ProDy to restore secondary structure information and verbosity
-prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))

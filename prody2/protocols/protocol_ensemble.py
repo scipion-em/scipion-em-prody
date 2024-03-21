@@ -49,7 +49,7 @@ from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
                                              DEFAULT)  # residue mapping methods
 from prody2.protocols.protocol_lda import parseMatchDict
-from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import time
 
@@ -267,13 +267,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         # handle reference
         self.weights = []
@@ -500,13 +494,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             setattr(frame, ENSEMBLE_WEIGHTS, Float(self.weights[j]))
             self.npz.append(frame)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
-
         if self.writeDCDFile.get():
             self.pdbFilename = self._getPath('refStructure.pdb')
             prody.writeDCD(self._getPath(ENS_FILENAME), ens)
             prody.writePDB(self.pdbFilename, ens.getAtoms())
+
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         
@@ -533,13 +526,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
     def createMatchDic(self, index, label=""):
 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=False, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
         
         parseMatchDict(self)
         self.orders = list(self.matchDic.values())
@@ -590,8 +577,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             if self.customOrder.get() != '':
                 self.orders[idx] = self.customOrder.get()
         
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
         self.matchDic.update(zip(list(self.labels), list(self.orders)))
         return self.matchDic

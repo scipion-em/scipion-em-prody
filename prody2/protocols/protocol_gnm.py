@@ -46,7 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 from prody2.objects import SetOfGnmModes
-from prody2 import Plugin
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
 class ProDyGNM(EMProtocol):
     """
@@ -131,10 +131,7 @@ class ProDyGNM(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
+
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
@@ -161,9 +158,7 @@ class ProDyGNM(EMProtocol):
 
         self.runJob(Plugin.getProgram('gnm'), args)
 
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
 
@@ -274,9 +269,7 @@ class ProDyGNM(EMProtocol):
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))

@@ -34,7 +34,7 @@ from multiprocessing import cpu_count
 from os.path import exists, join
 
 import prody
-from prody2 import Plugin
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -173,9 +173,7 @@ class ProDyANM(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
+        fixVerbositySecondary(self)
 
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all')
@@ -211,9 +209,7 @@ class ProDyANM(ProDyModesBase):
 
         self.runJob(Plugin.getProgram('anm'), args)
 
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        restoreVerbositySecondary(self)
         
         self.outModes = prody.loadModel(self._getPath(filename))
 

@@ -38,6 +38,7 @@ from pyworkflow.protocol.params import (PointerParam, FloatParam, IntParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import math
 
@@ -101,12 +102,7 @@ class ProDyDefvec(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         mobStruct = self.mobStructure.get()
         self.mobFn = mobStruct.getFileName()
@@ -194,9 +190,7 @@ class ProDyDefvec(EMProtocol):
             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

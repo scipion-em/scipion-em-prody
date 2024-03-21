@@ -40,6 +40,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam,
                                         BooleanParam, NumericRangeParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 NMA_METRIC_OVERLAP = 0
 NMA_METRIC_COV_OVERLAP = 1
@@ -111,12 +112,7 @@ class ProDyCompare(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def compareModesStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         modesPath1 = os.path.dirname(os.path.dirname(
             self.modes1.get()._getMapper().selectFirst().getModeFile()))
@@ -191,8 +187,7 @@ class ProDyCompare(EMProtocol):
                          format='%' + str(max([len(str(int(np.max(self.matrix)))),
                                                len(str(int(np.min(self.matrix))))]) + 4) + '.2f')
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))

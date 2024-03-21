@@ -41,6 +41,7 @@ from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 from prody2.protocols.protocol_measure import ProDyMeasure
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 
@@ -53,12 +54,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
     def _defineParams(self, form):
                 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
-        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
 
         self.isProjection = isinstance(self.protocol, ProDyProject)
@@ -308,8 +304,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 else:
                     ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
                 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
         return [plotter]
 

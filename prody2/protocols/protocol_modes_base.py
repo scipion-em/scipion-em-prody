@@ -44,6 +44,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import restoreVerbositySecondary
 
 class ProDyModesBase(EMProtocol):
     """
@@ -153,7 +154,6 @@ class ProDyModesBase(EMProtocol):
 
     def computeModesStep(self):
         # This gets defined in each child protocol
-        # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
     def animateModesStep(self, numberOfModes, rmsd, nSteps, pos, neg, nzero=6):
@@ -310,9 +310,7 @@ class ProDyModesBase(EMProtocol):
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

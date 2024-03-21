@@ -36,6 +36,7 @@ from pwem.viewers.plotter import EmPlotter
 
 from prody2.protocols import ProDyCompare
 from prody2.protocols.protocol_compare import NMA_METRIC_OVERLAP
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 from matplotlib import ticker
 import numpy as np
@@ -136,12 +137,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
     def _viewMatrix(self, paramName):
         """ visualisation for 2D mode comparisons""" 
 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
@@ -182,21 +178,14 @@ class ProDyComparisonsViewer(ProtocolViewer):
             ax.yaxis.set_major_locator(locator)
             ax.yaxis.set_minor_locator(minor_locator)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
         
         return [plotter]
 
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
 
@@ -288,9 +277,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_minor_locator(minor_locator)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
         return [plotter]
 

@@ -39,6 +39,7 @@ from pwem.protocols import ProtImportFiles
 from prody2.objects import (ProDyNpzEnsemble, TrajFrame,
                             SetOfGnmModes, SetOfLdaModes)
 from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
@@ -133,12 +134,7 @@ class ProDyImportModes(ProtImportFiles):
         self._insertFunctionStep('createOutputStep')
 
     def importModesStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
-        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         filesPaths = self.getMatchFiles()
 
@@ -198,8 +194,7 @@ class ProDyImportModes(ProtImportFiles):
         else:
             self.nmdFileName = self.pattern1
             
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -332,12 +327,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         self._insertFunctionStep('createOutputStep')
 
     def importEnsembleStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
-        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
         
         self.weights = None
         self.atoms = None
@@ -474,8 +464,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                               weight=pwobj.Float(self.weights[i]))
             self.npz.append(frame)
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputs = {"outputNpz": self.npz}
