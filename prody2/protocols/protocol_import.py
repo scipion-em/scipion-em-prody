@@ -54,6 +54,7 @@ SCIPION = 2
 GROMACS = 3
 
 PDB_FILENAME = 'atoms.pdb'
+PSF_FILENAME = 'atoms.psf'
 ENS_FILENAME = 'ensemble.dcd'
 
 filesPatternHelp = """Pattern of the files to be imported.\n\n
@@ -315,6 +316,12 @@ class ProDyImportEnsemble(ProtImportFiles):
                       label="Whether to write DCD trajectory file",
                       help='This will be registered as output too')
 
+        form.addParam('inputPsf', params.PathParam, label="Input PSF topology", allowsNull=True,
+                      condition="writeDCDFile==True",
+                      help='An input psf topology can also be provided. '
+                           'The psf should have the same number of atoms '
+                           'as the original ensemble.')
+
         form.addParam('selstr', params.StringParam, default="all",
                       label="Selection string",
                       help='Selection string for atoms to include in the ensemble.\n'
@@ -455,6 +462,9 @@ class ProDyImportEnsemble(ProtImportFiles):
         if self.writeDCDFile.get():
             prody.writeDCD(self._getPath(ENS_FILENAME), self.outEns)
             prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
+            if self.inputPsf.get() is not None:
+                psfAtoms = prody.parsePSF(self.inputPsf.get())
+                prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
 
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
