@@ -428,7 +428,7 @@ def loadAndWriteEnsemble(cls):
 
         elif isinstance(ensemble, DcdMDSystem):
             atoms = prody.parsePDB(ensemble.getSystemFile())
-            ens = prody.parseDCD(ensemble.getTrajectoryFile())
+            ens = prody.PDBEnsemble(prody.parseDCD(ensemble.getTrajectoryFile()))
             ens.setAtoms(atoms)
 
         else:
