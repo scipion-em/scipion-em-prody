@@ -30,21 +30,17 @@
 This module will provide ProDy linear discriminant analysis (LDA) using atomic structures
 """
 from collections import OrderedDict
-
-from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfAtomStructs, String, AtomStruct
 
-from pyworkflow.utils import glob, redStr, getListFromRangeString
+from pyworkflow.utils import getListFromRangeString
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam, TextParam, 
                                         NumericRangeParam, 
                                         LEVEL_ADVANCED, Float)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.protocols.protocol_pca import loadAndWriteEnsemble
-from prody2.objects import ProDyNpzEnsemble, TrajFrame, SetOfLdaModes
+from prody2.objects import (ProDyNpzEnsemble, TrajFrame, SetOfLdaModes,
+                            loadAndWriteEnsemble)
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 

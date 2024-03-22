@@ -32,8 +32,7 @@ This module will provide ProDy linear discriminant analysis (LRA) using atomic s
 from pwem.objects import Float, String
 
 from prody2.protocols.protocol_lda import ProDyLDA
-from prody2.protocols.protocol_pca import loadAndWriteEnsemble
-from prody2.objects import SetOfLogisticModes
+from prody2.objects import SetOfLogisticModes, loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 

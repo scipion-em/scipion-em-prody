@@ -31,7 +31,6 @@ This module will provide ProDy principal component analysis (PCA) using atomic s
 """
 
 from multiprocessing import cpu_count
-import os
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
@@ -44,7 +43,7 @@ from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         LEVEL_ADVANCED, Float, Pointer)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets
+from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets, loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
@@ -261,46 +260,3 @@ class ProDyPCA(ProDyModesBase):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
         setattr(item, PRODY_FRACT_VARS, fractVar)
-
-def loadAndWriteEnsemble(cls):
-    """Handle inputs to load ensemble into ProDy and write outputs"""
-
-    if isinstance(cls.inputEnsemble, Pointer):
-        inputEnsemble = [cls.inputEnsemble.get()]
-    else:
-        inputEnsemble = [ensemble.get() for ensemble in cls.inputEnsemble]
-
-    for i, ensemble in enumerate(inputEnsemble):
-        if isinstance(ensemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensemble])
-            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
-                                        overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            ens = inputEnsemble[0].loadEnsemble()
-
-        if i == 0:
-            cls.ens = ens
-        else:
-            cls.ens += ens
-
-    cls.ens.select(cls.selstr.get())
-
-    if os.path.exists(cls._getPath()):
-        avgStruct = cls.ens.getAtoms()
-        avgStruct.setCoords(cls.ens.getCoords())
-
-        cls.pdbFileName = cls._getPath('atoms.pdb')
-        prody.writePDB(cls.pdbFileName, avgStruct)
-        cls.averageStructure = AtomStruct()
-        cls.averageStructure.setFileName(cls.pdbFileName)
-
-        cls.dcdFileName = cls._getPath('ensemble.dcd')
-        prody.writeDCD(cls.dcdFileName, cls.ens)
-
-        cls.npzFileName = cls._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(cls.ens, cls.npzFileName)
-        cls.npz = ProDyNpzEnsemble().create(cls._getPath())
-        for j in range(cls.ens.numConfs()):
-            frame = TrajFrame((j+1, cls.npzFileName), objLabel=cls.ens.getLabels()[j])
-            cls.npz.append(frame)
