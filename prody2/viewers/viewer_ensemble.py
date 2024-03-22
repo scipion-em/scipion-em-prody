@@ -56,7 +56,7 @@ class ProDyEnsembleViewer(Viewer):
             except AttributeError:
                 ensemble = obj.outputEnsemble
 
-        ensPath = os.path.dirname(list(ensemble.getFiles())[0]) + "/"
+        ensPath = os.path.dirname(ensemble.getFileName()) + "/"
         ensFn = ensPath + "ensemble.dcd"
         atomsFn = ensPath + "atoms.pdb"
 
