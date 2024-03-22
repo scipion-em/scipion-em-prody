@@ -64,7 +64,7 @@ class ProDyRmsfViewer(ProtocolViewer):
         group.addParam('percentile', params.FloatParam, default=99.9,
                       label='Percentile cutoff for best residues',
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
-                           'LDAs will be used to select most mobile residues if the input is LDA. '
+                           'LDAs or LRAs will be used to select most mobile residues if the input is LDA or LRA. '
                            'Otherwise, this percentile will be applied to the RMSF directly.')
 
         form.addParam('displayVmd', params.LabelParam,
