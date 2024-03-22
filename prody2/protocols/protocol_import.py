@@ -55,7 +55,7 @@ GROMACS = 3
 
 PDB_FILENAME = 'atoms.pdb'
 PSF_FILENAME = 'atoms.psf'
-ENS_FILENAME = 'ensemble.dcd'
+DCD_FILENAME = 'ensemble.dcd'
 
 filesPatternHelp = """Pattern of the files to be imported.\n\n
 The pattern can contain standard wildcards such as\n
@@ -467,9 +467,11 @@ class ProDyImportEnsemble(ProtImportFiles):
             else:
                 prody.writePSF(self._getPath(PSF_FILENAME), psfAtoms.select(selstr))
 
+        prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
         if self.writeDCDFile.get():
-            prody.writeDCD(self._getPath(ENS_FILENAME), self.outEns)
-            prody.writePDB(self._getPath(PDB_FILENAME), self.outEns.getAtoms())
+            prody.writeDCD(self._getPath(DCD_FILENAME), self.outEns)
+        elif self.selstr.get()=="all" and self.importType.get()==DCD:
+            os.symlink(os.path.join(folderPath, self.pattern1), self._getPath(DCD_FILENAME))
 
         self.filename = prody.saveEnsemble(self.outEns, self._getExtraPath('ensemble.ens.npz'))
 
@@ -491,11 +493,11 @@ class ProDyImportEnsemble(ProtImportFiles):
                     outMDSystem.setTopologyFile(self._getPath(PSF_FILENAME))
                 else:
                     outMDSystem.setTopologyFile(self._getPath(PDB_FILENAME))
-                outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
+                outMDSystem.setTrajectoryFile(self._getPath(DCD_FILENAME))
                 
                 outputs["outputTrajectory"] = outMDSystem
             else:
-                outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
+                outEMFile = EMFile(filename=self._getPath(DCD_FILENAME))
                 outputs["outputTrajectory"] = outEMFile
 
         if self.savePDBs.get():
