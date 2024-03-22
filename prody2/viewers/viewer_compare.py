@@ -65,49 +65,53 @@ class ProDyComparisonsViewer(ProtocolViewer):
         else:
             self.modes2 = self.protocol.outputModes
 
-        many_modes = len(self.modes1) > 1 and len(self.modes2) > 1
-
-        have_matrix = (many_modes and metric==NMA_METRIC_OVERLAP and diag==False)
+        MANY_MODES = len(self.modes1) > 1 and len(self.modes2) > 1
+        ONE_MODE = len(self.modes1) == 1 and len(self.modes2) == 1
+        HAVE_MATRIX = ONE_MODE or (MANY_MODES and metric==NMA_METRIC_OVERLAP 
+                                   and diag==False)
+        
+        DISPLAY_BARS_LABEL = 'Display bar graphs?'
+        DISPLAY_CUM_OV_LABEL = 'Display cumulative overlap?'
 
         form.addSection(label='Visualization')
   
         form.addParam('displayMatrix', LabelParam,
-                      condition=have_matrix == True,
+                      condition=HAVE_MATRIX == True,
                       label='Display matrix?',
                       help='Overlap matrices are shown as heatmaps.')
 
         form.addParam('displayBarsMain', LabelParam,
-                      condition=have_matrix == False,
-                      label='Display bar graphs?',
+                      condition=HAVE_MATRIX == False,
+                      label=DISPLAY_BARS_LABEL,
                       help='Values are shown as bars.')
 
         group = form.addGroup('Single mode from set 1 (row)',
-                              condition=have_matrix == True)
+                              condition=HAVE_MATRIX == True)
         group.addParam('displayBarsSet1', LabelParam, default=False,
-                       label='Display bar graphs?',
+                       label=DISPLAY_BARS_LABEL,
                        help='Matrix rows are shown as bars.')
         group.addParam('modeNumSet1', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet1', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
-                       label='Display cumulative overlap?',
+                       label=DISPLAY_CUM_OV_LABEL,
                        help='Cumulative overlaps from matrix rows are shown as lines.')
 
         group = form.addGroup('Single mode from set 2 (column)',
-                              condition=have_matrix == True)
+                              condition=HAVE_MATRIX == True)
         group.addParam('displayBarsSet2', LabelParam, default=False,
-                       label='Display bar graphs?',
+                       label=DISPLAY_BARS_LABEL,
                        help='Matrix columns are shown as bars.')
         group.addParam('modeNumSet2', IntParam, default=1,
                        label='Mode number')
         group.addParam('cumulOverlapSet2', BooleanParam, default=False,
                        condition=metric==NMA_METRIC_OVERLAP,
-                       label='Display cumulative overlap?',
+                       label=DISPLAY_CUM_OV_LABEL,
                        help='Cumulative overlaps from matrix rows are shown as lines.')
 
         form.addParam('cumulOverlapMain', BooleanParam, default=False,
-                      condition=(metric==NMA_METRIC_OVERLAP and have_matrix==False),
-                      label='Display cumulative overlap?',
+                      condition=(metric==NMA_METRIC_OVERLAP and HAVE_MATRIX==False),
+                      label=DISPLAY_CUM_OV_LABEL,
                       help='Matrix rows are shown as bars.')
 
         form.addParam('matchedModeNum', BooleanParam, default=False,
@@ -140,6 +144,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
         fixVerbositySecondary(self)
 
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
+        if matrix.ndim == 0:
+            matrix = matrix.reshape(1,1)
 
         if self.abs:
             matrix = abs(matrix)
@@ -188,6 +194,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
         fixVerbositySecondary(self)
 
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
+        if matrix.ndim == 0:
+            matrix = matrix.reshape(1,1)
 
         if paramName == 'displayBarsSet1':
             modes =  self.modes1
