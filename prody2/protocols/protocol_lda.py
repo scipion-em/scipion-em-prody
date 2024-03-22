@@ -67,7 +67,7 @@ class ProDyLDA(ProDyModesBase):
         form.addSection(label='ProDy LDA')
         form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
-                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
+                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
                       help='Each input ensemble should be a SetOfAtomStructs or a ProDy NPZ ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,

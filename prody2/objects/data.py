@@ -8,6 +8,17 @@ from pwem.objects import (EMObject, EMSet, SetOfNormalModes, SetOfClasses3D,
 from pwem.convert import AtomicStructHandler
 from pyworkflow.utils import logger
 
+HAVE_CHEM = False
+try:
+    from pwchem.objects import MDSystem
+    HAVE_CHEM = True
+
+    class DcdMDSystem(MDSystem):
+        pass
+
+except ImportError:
+    pass
+
 class TrajFrame(EMObject):
     """Represents an trajectory frame object"""
 
@@ -400,7 +411,6 @@ class SetOfClassesTraj(SetOfClasses3D):
     REP_TYPE = AtomStruct
     REP_SET_TYPE = SetOfAtomStructs
 
-
 def loadAndWriteEnsemble(cls):
     """Handle inputs to load ensemble into ProDy and write outputs"""
 
@@ -415,6 +425,12 @@ def loadAndWriteEnsemble(cls):
             ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
                                         overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
+
+        elif isinstance(ensemble, DcdMDSystem):
+            atoms = prody.parsePDB(ensemble.getSystemFile())
+            ens = prody.parseDCD(ensemble.getTrajectoryFile())
+            ens.setAtoms(atoms)
+
         else:
             ens = inputEnsemble[i].loadEnsemble()
 

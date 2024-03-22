@@ -35,15 +35,16 @@ from multiprocessing import cpu_count
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
+from pwem.objects import SetOfPrincipalComponents, String
 
 from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
-                                        LEVEL_ADVANCED, Float, Pointer)
+                                        LEVEL_ADVANCED)
+from pyworkflow.object import Float
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import ProDyNpzEnsemble, TrajFrame, replaceCoordsets, loadAndWriteEnsemble
+from prody2.objects import replaceCoordsets, loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
@@ -71,7 +72,7 @@ class ProDyPCA(ProDyModesBase):
         form.addSection(label='ProDy PCA')
         form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
+                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms or a ProDy ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,
@@ -168,7 +169,7 @@ class ProDyPCA(ProDyModesBase):
 
         restoreVerbositySecondary(self)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=None):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")

@@ -228,12 +228,9 @@ ITERPOSE = 2
 
 POINTER_TYPES = 'AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble'
 
-try:
-    from pwchem.objects import MDSystem
-    imported_chem = True
-    POINTER_TYPES += ',MDSystem'
-except ImportError:
-    imported_chem = False
+from prody2.objects import HAVE_CHEM
+if HAVE_CHEM:
+    from prody2.objects import DcdMDSystem
 
 class ProDyImportEnsemble(ProtImportFiles):
     """
@@ -487,8 +484,8 @@ class ProDyImportEnsemble(ProtImportFiles):
         outputs = {"outputNpz": self.npz}
 
         if self.writeDCDFile.get() or (self.selstr.get()=="all" and self.importType.get()==DCD):
-            if imported_chem:
-                outMDSystem = MDSystem(filename=self._getPath(PDB_FILENAME))
+            if HAVE_CHEM:
+                outMDSystem = DcdMDSystem(filename=self._getPath(PDB_FILENAME))
                 if os.path.exists(self._getPath(PSF_FILENAME)):
                     outMDSystem.setTopologyFile(self._getPath(PSF_FILENAME))
                 else:

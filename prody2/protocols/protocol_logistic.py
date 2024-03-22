@@ -41,7 +41,7 @@ import prody
 
 class ProDyLRA(ProDyLDA):
     """
-    This protocol will perform ProDy linear discriminant analysis (LRA) using atomic structures
+    This protocol will perform ProDy logistic regression analysis (LRA) using atomic structures
     """
     _label = 'LRA'
     _possibleOutputs = {'outputModes': SetOfLogisticModes}

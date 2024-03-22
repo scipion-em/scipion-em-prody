@@ -66,11 +66,9 @@ CUSTOM = 3
 
 ENS_FILENAME = 'ensemble.dcd'
 
-try:
-    from pwchem.objects import MDSystem
-    imported_chem = True
-except ImportError:
-    imported_chem = False
+from prody2.objects import HAVE_CHEM
+if HAVE_CHEM:
+    from prody2.objects import DcdMDSystem
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
@@ -249,7 +247,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         form.addParam('writePDBFiles', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
-                      condition=imported_chem==True,
+                      condition=HAVE_CHEM==True,
                       label="Whether to write many PDB files",
                       help='These will be registered as output too')
         
@@ -510,8 +508,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                    "outAlignment": outputSeqs}
         
         if self.writeDCDFile.get():
-            if imported_chem:
-                outMDSystem = MDSystem(filename=self.pdbFilename)
+            if HAVE_CHEM:
+                outMDSystem = DcdMDSystem(filename=self.pdbFilename)
                 outMDSystem.setTopologyFile(self.pdbFilename)
                 outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
                 outputs["outputTrajectory"] = outMDSystem
