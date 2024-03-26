@@ -43,16 +43,20 @@ from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, Boole
 import prody
 from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2 import Plugin
 
 IMP = 0
 EXP = 1
+
+from pyworkflow.utils import logger
 
 class ProDyClustENM(EMProtocol):
     """
     This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
     _label = 'ClustENM(D)'
-    _possibleOutputs = {'outputTraj1': SetOfAtomStructs}
+    _possibleOutputs = {'outputStructures1': SetOfAtomStructs,
+                        'outputNpz1': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -64,7 +68,7 @@ class ProDyClustENM(EMProtocol):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ClustENM(D)')
-        form.addParam('inputStructure', MultiPointerParam, label="Input structures",
+        form.addParam('inputStructures', MultiPointerParam, label="Input structures",
                       important=True,
                       pointerClass='AtomStruct',
                       help='Each input structures should be an atomic model')
@@ -194,7 +198,28 @@ class ProDyClustENM(EMProtocol):
                       label="Modified z-score threshold to label conformers as outliers",
                       help='Modified z-score threshold to label conformers as outliers')   
 
-
+        form.addSection(label='Fitting')
+        form.addParam('doFitting', BooleanParam, default=False,
+                      label="Whether to do fitting to volumes like MDeNM-EMFit?",
+                      help="If selected, this will filter structures to those that do not reduce the cross-correlation much")
+        fittingCondition = 'doFitting==True'
+        form.addParam('inputVolumes', MultiPointerParam, label="Target volumes",
+                      important=True, allowsNull=True, condition=fittingCondition,
+                      pointerClass='Volume',
+                      help='If fitting, there should be the same number of volumes as models or just one for all of them')
+        form.addParam('fitResolution', FloatParam, default=5.,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=fittingCondition,
+                      label="Resolution for simulated volumes (A)",
+                      help='Resolution (A) for simulating volumes to compare against the target')
+        form.addParam('replaceFiltered', BooleanParam, default=False, condition=fittingCondition,
+                      label="Whether to sample again to replace filtered conformations?",
+                      help="If selected, this will sample and filter structures repeatedly until the selected number are kept")
+        form.addParam('mapCutoff', FloatParam, default=0.1,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=fittingCondition,
+                      label="Intensity threshold for target maps",
+                      help='Minimum intensity cutoff for reading target maps to avoid noise')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -202,7 +227,21 @@ class ProDyClustENM(EMProtocol):
         self.args = {}
 
         # Insert processing steps
-        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
+        pdbs = [struct.get().getFileName() for struct in self.inputStructures]
+
+        if self.doFitting.get():
+            if self.inputVolumes is not None:
+                self.volumes = [vol.get().getFileName() for vol in self.inputVolumes]
+            else:
+                self.volumes = []
+
+            if len(self.volumes) < len(pdbs) and len(self.volumes) != 1:
+                if len(self.volumes) != 0:
+                    logger.warning("Ignoring volumes as the number of them does not match structures.")
+                self.volumes = None
+            
+            if len(pdbs) == 1 and len(self.volumes) > 1:
+                pdbs = [pdbs[0] for _ in self.volumes]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
@@ -221,14 +260,14 @@ class ProDyClustENM(EMProtocol):
         if not os.path.exists(direc):
             os.mkdir(direc)
 
-        args = 'clustenm {0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
+        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
                '--solvent {9} --force_field {10} --ionicStrength {11} --padding {12} --temp {13} --t_steps_i {14} --t_steps_g {15} ' \
-               '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
+               '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple -P {19}'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
                     self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(), 
                     self.maxclust.get(), self.threshold.get(),
                     self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
                     self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
-                    self.tolerance.get(), self.maxIterations.get(), direc)
+                    self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
         
         if self.sim.get() is False:
             args += ' --no-sim'
@@ -250,10 +289,17 @@ class ProDyClustENM(EMProtocol):
         else:
             args += ' --no-outlier'
 
-        self.runJob('prody', args)
+        if self.doFitting.get():
+            args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
+                                                                                 self.fitResolution.get(),
+                                                                                 self.mapCutoff.get())
+            if self.replaceFiltered.get():
+                args += ' --replace_filtered'
+
+        self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
-        for filename in os.listdir(os.path.join(direc, 'pdbs')):
+        for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
@@ -267,15 +313,15 @@ class ProDyClustENM(EMProtocol):
         self.ensBaseName = os.path.join(direc, 'pdbs')
         npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
         for j in range(ens.numCoordsets()):
-            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=ens.getLabels()[j])
+            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
+                              objLabel=ens.getLabels()[j],
+                              weight=self.weights[j])
             npz.append(frame)
 
-        outNpz = ProDyNpzEnsemble().create(self._getPath(), suffix=suffix)
-        outNpz.copyItems(npz, updateItemCallback=self._setWeights)
-        self.args["outputNpz" + suffix] = outNpz
+        self.args["outputNpz" + suffix] = npz
 
     def _setWeights(self, item, row=None):
-            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
             setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def createOutputStep(self):

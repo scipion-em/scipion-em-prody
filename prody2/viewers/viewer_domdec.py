@@ -30,16 +30,9 @@
 This module implements the dynamical domains decomposition protocol
 visualization program using VMD.
 """
-
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.utils import *
-
 from pwem.viewers import VmdView
-
 from prody2.protocols import ProDyDomainDecomp
-
-import os
-import prody
 
 class ProDyDomainViewer(Viewer):
     """ Visualization of domains from GNM domain decomposition

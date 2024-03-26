@@ -29,16 +29,16 @@
 """
 This module will provide ProDy deformation vector analysis.
 """
-from pwem import *
 from pwem.emlib import MetaData, MDL_NMA_MODEFILE, MDL_NMA_ATOMSHIFT
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import join, makePath
 from pyworkflow.protocol.params import (PointerParam, FloatParam, IntParam, 
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import math
 
@@ -102,12 +102,7 @@ class ProDyDefvec(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         mobStruct = self.mobStructure.get()
         self.mobFn = mobStruct.getFileName()
@@ -130,14 +125,14 @@ class ProDyDefvec(EMProtocol):
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.mob)
 
-    def animateModesStep(self, n_steps, pos, neg):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
+    def animateModesStep(self, nSteps, pos, neg):
+        animationsDir = self._getExtraPath('animations')
+        makePath(animationsDir)
 
-        fnAnimation = join(animations_dir, "animated_mode_001")
+        fnAnimation = join(animationsDir, "animated_mode_001")
 
         self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=self.rmsd,
-                                           n_steps=n_steps,
+                                           n_steps=nSteps,
                                            pos=pos, neg=neg)
         prody.writePDB(fnAnimation+".pdb", self.outAtoms)
 
@@ -148,17 +143,17 @@ class ProDyDefvec(EMProtocol):
         fhCmd.write("mol modcolor 0 0 Index\n")
 
         if self.mob.select('name P') is not None:
-            num_p_atoms = self.mob.select('name P').numAtoms()
+            numAtomsP = self.mob.select('name P').numAtoms()
         else:
-            num_p_atoms = 0
+            numAtomsP = 0
 
         if self.mob.ca is not None:
-            num_ca_atoms = self.mob.ca.numAtoms()
+            numAtomsCA = self.mob.ca.numAtoms()
         else:
-            num_ca_atoms = 0
+            numAtomsCA = 0
 
-        num_rep_atoms = num_ca_atoms + num_p_atoms
-        if num_rep_atoms == self.mob.numAtoms():
+        numAtomsRep = numAtomsCA + numAtomsP
+        if numAtomsRep == self.mob.numAtoms():
             fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
             # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
             #         "2.600000 0\n")
@@ -195,9 +190,7 @@ class ProDyDefvec(EMProtocol):
             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

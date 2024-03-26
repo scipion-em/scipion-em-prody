@@ -31,18 +31,17 @@ This module will provide ProDy projection of structural ensembles on principal c
 """
 import numpy as np
 
-from pwem.objects import (SetOfPrincipalComponents, SetOfNormalModes, 
-                          SetOfAtomStructs, String)
+from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.protocol.params import (PointerParam, EnumParam, 
+from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         MultiPointerParam, NumericRangeParam)
 from pyworkflow.utils import getListFromRangeString
 
 import prody
 from prody2.constants import PROJ_COEFFS
-from prody2.objects import ProDyNpzEnsemble
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 ONE = 0
 TWO = 1
@@ -88,6 +87,11 @@ class ProDyProject(EMProtocol):
                       label='Number of modes', default=TWO,
                       help='1, 2 or 3 modes can be used for projection')
 
+        form.addParam('norm', BooleanParam, label="Normalize?", default=False,
+                      help='Select whether to normalise projections.')
+
+        form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
+                      help='Select whether to scale projections to RMSDs.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -96,12 +100,7 @@ class ProDyProject(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         inputModes = self.inputModes.get()
         modesPath = inputModes.getFileName()
@@ -130,7 +129,8 @@ class ProDyProject(EMProtocol):
             else:
                 ens = ensGot.loadEnsemble()
 
-            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1])
+            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1], rmsd=self.rmsd.get(),
+                                              norm=self.norm.get())
             projDict = dict()
             for j, idx in enumerate(idSet):
                 proj = projection[j]
@@ -142,8 +142,11 @@ class ProDyProject(EMProtocol):
             prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
                              format='%8.5f', delimiter=',')
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            prody.writeArray(self._getPath('weights_{0}.csv'.format(i+1)), weights,
+                             format='%8.5f', delimiter=',')
+
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
 

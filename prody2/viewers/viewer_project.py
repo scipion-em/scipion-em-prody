@@ -25,8 +25,8 @@
 # *
 # **************************************************************************
 """
-This module implements wrappers around the ProDy tools 
-for plotting projections of ensembles onto modes or distance distributions.
+This module implements viewers for plotting projections of ensembles onto 
+modes or distance distributions.
 """
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,6 +41,7 @@ from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 from prody2.protocols.protocol_measure import ProDyMeasure
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 
@@ -53,12 +54,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
     def _defineParams(self, form):
                 
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        global oldSecondary; oldSecondary = prody.confProDy("auto_secondary")
-        global oldVerbosity; oldVerbosity = prody.confProDy("verbosity")
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
 
         self.isProjection = isinstance(self.protocol, ProDyProject)
@@ -73,14 +69,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       label='Show plot?',
                       help='Projections or measures are shown in various ways depending on the options selected')
 
-        form.addParam('norm', BooleanParam, label="Normalize?", default=False,
-                      help='Select whether to normalise projections.',
-                      condition=self.isProjection)
-
-        form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
-                      help='Select whether to scale projections to RMSDs.',
-                      condition=self.isProjection)
-        
         form.addParam('label', BooleanParam, label="Label points?", default=False,
                       help='Select whether to label points.',
                       condition=(self.numModes!=ONE and self.isProjection))
@@ -109,23 +97,23 @@ class ProDyProjectionsViewer(ProtocolViewer):
                            'The alternative is to show points for 2D and an ordered series in 1D.')
         
         form.addParam('bins', IntParam, label="number of bins", default=-1,
-                        help='Enter a number of bins here, which should be positive.\n'
-                             '-1 is the dummy value and needs changing to have an effect.\n'
-                             'This option will not do anything for line plots.',
-                        condition="numModes==%d" % ONE)
+                      help='Enter a number of bins here, which should be positive.\n'
+                           '-1 is the dummy value and needs changing to have an effect.\n'
+                           'This option will not do anything for line plots.',
+                      condition="numModes==%d and density==True" % ONE)
         
         form.addParam('alpha', FloatParam, label="transparency alpha", default=0.5,
-                        help='A lower number makes the plot more transparent and a higher number makes it more opaque',
-                        condition="numModes==%d" % ONE)
+                      help='A lower number makes the plot more transparent and a higher number makes it more opaque',
+                      condition="numModes==%d" % ONE)
         
         groupX = form.addGroup('xrange')
-        groupX.addParam('xrange1', FloatParam, label="x-axis range limit 1 for bins", default=-1,
-                        help='Enter values here and below to specify x-axis limits for bins.\n'
+        groupX.addParam('xrange1', FloatParam, label="x-axis limit 1", default=-1,
+                        help='Enter values here and below to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
                         condition=self.numModes==ONE)
-        groupX.addParam('xrange2', FloatParam, label="x-axis range limit 2 for bins", default=-1,
-                        help='Enter values here and above to specify x-axis limits for bins.\n'
+        groupX.addParam('xrange2', FloatParam, label="x-axis limit 2", default=-1,
+                        help='Enter values here and above to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
                         condition=self.numModes==ONE)
@@ -179,41 +167,57 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         if self.isProjection:
             modesPath = self.protocol.outputModes.getFileName()
-            modes = prody.parseScipionModes(modesPath)
-        else:
-            extraPath = self.protocol._getExtraPath()
-            outFiles = os.listdir(extraPath)
+            modes = prody.parseScipionModes(modesPath, parseIndices=True)
+            if isinstance(modes, prody.Mode):
+                vec = modes.getEigvec().reshape(-1, 1)
+                val = np.array([modes.getEigval()])
+                modes = prody.NMA()
+                modes.setEigens(vec, val)
 
+        extraPath = self.protocol._getExtraPath()
+
+        prevClassStrs = []
         for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
+            inputClass = type(ens)
+            inputClassStr = str(inputClass).split('.')[-1].replace("'>","").lower().replace('setofatomstructs', 
+                                                                                            'atomstructs')
+            prevClassStrs.append(inputClassStr)
+            uniqueStrs, counts = np.unique(prevClassStrs, return_counts=True)
+            j = counts[list(uniqueStrs).index(inputClassStr)]-1
+
+            ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
             
             if not self.isProjection:
-                inputClass = type(ens)
-                ens = inputClass(filename=extraPath+'/'+outFiles[i])
-                measures = np.array([float(item._prodyMeasures) for item in ens], dtype=float)
-
-            if isinstance(ens, SetOfAtomStructs):
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
-                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+                measures = prody.parseArray(self.protocol._getPath('measures_{0}.csv'.format(i+1)),
+                                            delimiter=',')
             else:
-                ensemble = ens.loadEnsemble()
+                projection = prody.parseArray(self.protocol._getPath('projection_{0}.csv'.format(i+1)),
+                                              delimiter=',')
 
-            ensemble = self._cleanLabels(ensemble)
+            if len(ens) < 500:
+                labels = [str(i) for i in ens.getIdSet()]
+            else:
+                if isinstance(ens, SetOfAtomStructs):
+                    labels = ens.getFiles()
+                    labels = self._cleanLabels(labels)
+                else:
+                    labels = [frame.getObjLabel() for frame in ens]
+                    labels = self._cleanLabels(labels)
 
             if i == 0 or self.separatePlots.get():
                 plotter = EmPlotter()
 
             c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
-            sizes = ensemble.getData('size')
-            if sizes is None:
-                weights = np.ones(ensemble.numCoordsets())
+            if os.path.exists(self.protocol._getPath('weights_{0}.csv'.format(i+1))):
+                weights = prody.parseArray(self.protocol._getPath('weights_{0}.csv'.format(i+1)),
+                                           delimiter=',')
             else:
-                if self.density.get() or sizes.max() == 1 or not self.isProjection:
-                    weights = sizes
-                else:
-                    weights = sizes * 100/sizes.max()
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
+
+            if weights.max() < 1:
+                weights *= 100
 
             if self.numModes == ONE:
                 bins = self.bins.get()
@@ -228,18 +232,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 if self.isProjection:
                     density = self.density.get()
                     if density:
-                        prody.showProjection(ensemble, modes[:1],
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=True, c=c, alpha=self.alpha.get(),
-                                            use_weights=self.useWeights.get(), weights=weights,
-                                            bins=bins, range=xrange)
-                        plt.xlabel("mode %s" % (modes[0].getIndex() + 1))
+                        prody.showProjection(projection=projection,
+                                             show_density=True, c=c, alpha=self.alpha.get(),
+                                             use_weights=self.useWeights.get(), weights=weights,
+                                             bins=bins, range=xrange)
                     else:
-                        prody.showProjection(ensemble, modes[:1],
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=False, c=c, alpha=self.alpha.get(),
-                                            use_weights=self.useWeights.get(), weights=weights)
-                        plt.ylabel("mode %s" % (modes[0].getIndex() + 1))
+                        prody.showProjection(projection=projection,
+                                             show_density=False, c=c, alpha=self.alpha.get(),
+                                             use_weights=self.useWeights.get(), weights=weights)
                 else:
                     if not self.useWeights.get():
                         weights = None
@@ -247,22 +247,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
             else:
                 if self.label.get():
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
-                                         text=ensemble.getLabels(),
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                    prody.showProjection(projection=projection,
+                                         text=labels,
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                 else:
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                    prody.showProjection(projection=projection,
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                     
                 if self.points.get():
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                    prody.showProjection(projection=projection,
                                          show_density=False, 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
@@ -302,29 +299,34 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 else:
                     ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
                 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
         return [plotter]
 
-    def _cleanLabels(self, ensemble):
+    def _cleanLabels(self, labels):
 
-        if ensemble.getLabels()[0].find('Selection') != -1:
-            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+        if labels[0].find('.pdb') != -1:
+            labels = [label.split('.pdb')[0] for label in labels]
 
-        if ensemble.getLabels()[0].endswith('_atoms_amap'):
-            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+        if labels[0].find('/') != -1:
+            labels = [os.path.basename(label) for label in labels]
 
-        if ensemble.getLabels()[0].endswith('_ca'):
-            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
+        if labels[0].find('Selection') != -1:
+            labels = [label.split('Selection')[0] for label in labels]
 
-        if ensemble.getLabels()[0][:6].isnumeric():
-            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
+        if labels[0].endswith('_atoms_amap'):
+            labels = [label[:-11] for label in labels]
 
-        if ensemble.getLabels()[0].startswith('Unknown_m'):
-            ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
+        if labels[0].endswith('_ca'):
+            labels = [label[:-3] for label in labels]
 
-        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
-            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
+        if labels[0][:6].isnumeric():
+            labels = [str(int(label[:6])) for label in labels]
 
-        return ensemble
+        if labels[0].startswith('Unknown_m'):
+            labels = [label.split('Unknown_m')[-1] for label in labels]
+
+        if labels[0][5:12] == 'atoms_m' and labels[1][5:12] == 'atoms_m':
+            labels = [label.split('atoms_m')[-1] for label in labels]
+
+        return labels

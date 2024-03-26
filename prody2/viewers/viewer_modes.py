@@ -30,13 +30,15 @@ visualization program and the normal mode wizard NMWiz.
 """
 
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.utils import *
+from pyworkflow.utils import glob
 
 from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes, ProDyRTB, ProDyPCA)
+                              ProDyImportModes, ProDyRTB,
+                              ProDyPCA)
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import os
 import prody
@@ -52,37 +54,26 @@ class ProDyModeViewer(Viewer):
 
     def _visualize(self, obj, **kwargs):
         """visualisation for mode sets"""
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
-        type_ = type(obj)
+        fixVerbositySecondary(self)
 
         if isinstance(obj, SetOfNormalModes):
             modes = obj
         else:
             modes = obj.outputModes
 
-        if not os.path.isfile(self.protocol._getPath("modes.nmd")):
-            prody_modes = prody.parseScipionModes(modes.getFileName())
-            modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-
-            atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"), altloc="all")
-            if isinstance(atoms, list):
-                for atoms_i in atoms:
-                    if atoms_i.numAtoms() == prody_modes.numAtoms():
-                        prody_atoms = atoms_i
-                        break
+        try:
+            self.nmdFileName = modes._nmdFileName
+        except AttributeError:
+            if glob(self.protocol._getPath("modes*.nmd")):
+                self.nmdFileName = glob(self.protocol._getPath("modes*.nmd"))[0]
             else:
-                prody_atoms = atoms
+                prodyModes = prody.parseScipionModes(modes.getFileName())
+                modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+                atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb")[0], altloc="all")
+                self.nmdFileName = modesPath+"/modes.nmd"
+                prody.writeNMD(self.nmdFileName, prodyModes, atoms)
 
-            prody.writeNMD(modesPath+"/modes.nmd", prody_modes, prody_atoms)
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
         
-        return [VmdView('-e "%s"' % self.protocol._getPath("modes.nmd"))]
+        return [VmdView('-e "%s"' % self.nmdFileName)]
 

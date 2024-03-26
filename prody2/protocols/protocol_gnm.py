@@ -30,7 +30,7 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the Gaussian network model (GNM).
 """
-from os.path import basename, exists, join
+from os.path import exists, join
 import math
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -46,6 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 from prody2.objects import SetOfGnmModes
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
 class ProDyGNM(EMProtocol):
     """
@@ -120,8 +121,6 @@ class ProDyGNM(EMProtocol):
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
-
-        self.model_type = 'gnm'
         n = self.numberOfModes.get()
 
         self._insertFunctionStep('computeModesStep', inputFn, n)
@@ -132,10 +131,7 @@ class ProDyGNM(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn, n):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
+
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')
         else:
@@ -144,8 +140,8 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
-        args = 'gnm {0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
-               '-o {1} -p modes -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
+        args = '{0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
+               '-o {1} -p modes.gnm -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
                                                               self._getPath(), n,
                                                               self.gamma.get(),
                                                               self.cutoff.get(),
@@ -160,11 +156,9 @@ class ProDyGNM(EMProtocol):
         if self.membrane.get():
             args += ' --membrane'
 
-        self.runJob('prody', args)
+        self.runJob(Plugin.getProgram('gnm'), args)
 
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
 
@@ -181,20 +175,22 @@ class ProDyGNM(EMProtocol):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for GNM normal mode analysis is "
+            msg += "1 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms())))
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.gnm))
         eigvals = self.gnm.getEigvals()
 
+        vecStr = "vec.%d"
+
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -243,9 +239,9 @@ class ProDyGNM(EMProtocol):
         makePath(fnOutDir)
         maxShift=[]
         maxShiftMode=[]
-        
+        vecStr = "vec.%d"
         for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
+            fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
@@ -266,16 +262,14 @@ class ProDyGNM(EMProtocol):
                 
         md = MetaData()
         for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
             if exists(fnVec):
                 objId = md.addObject()
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
@@ -283,7 +277,7 @@ class ProDyGNM(EMProtocol):
 
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfGnmModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath('modes.gnm.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)

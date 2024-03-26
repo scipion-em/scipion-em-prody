@@ -29,24 +29,22 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import params
-
-from os.path import basename, exists, join
 import math
+from os.path import exists, join
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import restoreVerbositySecondary
 
 class ProDyModesBase(EMProtocol):
     """
@@ -111,21 +109,28 @@ class ProDyModesBase(EMProtocol):
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
 
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
@@ -133,7 +138,6 @@ class ProDyModesBase(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
-        #n = self.numberOfModes.get()
 
         self.gnm = False
 
@@ -141,31 +145,31 @@ class ProDyModesBase(EMProtocol):
         self._insertFunctionStep('qualifyModesStep', n,
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), nzeros)
+        if self.doAnimation:
+            self._insertFunctionStep('animateModesStep', n,
+                                     self.rmsd.get(), self.n_steps.get(),
+                                     self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self):
         # This gets defined in each child protocol
-        # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
+    def animateModesStep(self, numberOfModes, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
 
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
         else:
-            animations_dir = self._getExtraPath('animations')
-            makePath(animations_dir)
+            animationsDir = self._getExtraPath('animations')
+            makePath(animationsDir)
             for i, mode in enumerate(self.outModes[nzero:]):
                 modenum = i+nzero+1
-                fnAnimation = join(animations_dir, "animated_mode_%03d"
+                fnAnimation = join(animationsDir, "animated_mode_%03d"
                                 % modenum)
                 prody.writePDB(fnAnimation+".pdb", 
-                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=nSteps,
                                                   pos=pos, neg=neg)
                               )
 
@@ -175,18 +179,14 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.write("display projection Orthographic\n")
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
+                numAtomsP = numAtomsCA = 0
                 if self.atoms.select('name P') is not None:
-                    num_p_atoms = self.atoms.select('name P').numAtoms()
-                else:
-                    num_p_atoms = 0
-
+                    numAtomsP = self.atoms.select('name P').numAtoms()
                 if self.atoms.ca is not None:
-                    num_ca_atoms = self.atoms.ca.numAtoms()
-                else:
-                    num_ca_atoms = 0
+                    numAtomsCA = self.atoms.ca.numAtoms()
 
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.atoms.numAtoms():
+                numAtomsRep = numAtomsCA + numAtomsP
+                if numAtomsRep == self.atoms.numAtoms():
                     fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
@@ -198,10 +198,9 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=None):
+                         suffix=''):
 
-        if nzero is None:
-            nzero = self.nzero
+        nzero = self.nzero
 
         self._enterWorkingDir()
 
@@ -209,20 +208,26 @@ class ProDyModesBase(EMProtocol):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for normal mode analysis is "
+            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
+        collectivity = prody.calcCollectivity(self.outModes)
+        if isinstance(collectivity, float):
+            collectivityList = [collectivity]
+        else:
+            collectivityList = list(collectivity)
         eigvals = self.outModes.getEigvals()
+
+        vecStr = "vec.%d"
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -240,7 +245,7 @@ class ProDyModesBase(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -270,9 +275,10 @@ class ProDyModesBase(EMProtocol):
         maxShiftMode=[]
         
         nzp1 = nzero + 1
+        vecStr = "vec.%d"
         
         for n in range(nzp1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
+            fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
@@ -297,16 +303,14 @@ class ProDyModesBase(EMProtocol):
                 fhIn.close()
         md = MetaData()
         for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
             if exists(fnVec):
                 objId = md.addObject()
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

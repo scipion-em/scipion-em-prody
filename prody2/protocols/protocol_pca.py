@@ -32,18 +32,21 @@ This module will provide ProDy principal component analysis (PCA) using atomic s
 
 from multiprocessing import cpu_count
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfAtomStructs, SetOfPrincipalComponents, String, AtomStruct
+from pwem.objects import SetOfPrincipalComponents, String
 
-from pyworkflow.utils import *
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
-                                        BooleanParam, LEVEL_ADVANCED)
+from pyworkflow.utils import glob, redStr
+from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
+                                        BooleanParam, StringParam,
+                                        LEVEL_ADVANCED)
+from pyworkflow.object import Float
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import ProDyNpzEnsemble
+from prody2.objects import replaceCoordsets, loadAndWriteEnsemble
+from prody2.constants import PRODY_FRACT_VARS
+from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 import matplotlib.pyplot as plt
@@ -67,9 +70,9 @@ class ProDyPCA(ProDyModesBase):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ProDy PCA')
-        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
+                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms or a ProDy ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,
@@ -89,6 +92,12 @@ class ProDyPCA(ProDyModesBase):
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
                       'the modes metadata file as these modes are much less collective. \n'
                       'For no deselection, this parameter should be set to 0 . \n')
+        form.addParam('selstr', StringParam, default="all",
+                      label="Selection string",
+                      help='Selection string for atoms to include in the calculation.\n'
+                           'It is recommended to use "all" (default) or "name CA"')
+        form.addParam('keepAlignment', BooleanParam, default=True,
+                      label="Keep alignment", help="The alternative is to realign the structures")
 
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=2,
@@ -112,21 +121,6 @@ class ProDyPCA(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-
-        # Link the input
-        inputEnsemble = self.inputEnsemble.get()
-        if isinstance(inputEnsemble, SetOfAtomStructs):
-            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., 
-                                              overlap=0., superpose=False, degeneracy=self.degeneracy.get())
-            # the ensemble gets built exactly as the input is setup and nothing gets rejected
-        else:
-            self.ens = inputEnsemble.loadEnsemble()
-        
-        self.dcdFileName = self._getPath('ensemble.dcd')
-        prody.writeDCD(self.dcdFileName, self.ens)
-
-        self.model_type = 'pca'
         n = self.numberOfModes.get()
 
         self.gnm = False
@@ -142,51 +136,50 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=5):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
+        loadAndWriteEnsemble(self) # creates self.npz and others
 
-        self.pdbFileName = self._getPath('atoms.pdb')
-        avgStruct = self.ens.getAtoms()
-        avgStruct.setCoords(self.ens.getCoords())
-        prody.writePDB(self.pdbFileName, avgStruct)
-        
-        self.averageStructure = AtomStruct()
-        self.averageStructure.setFileName(self.pdbFileName)
+        args = '{0} --pdb {1} -s "{2}" ' \
+               '--covariance --export-scipion --npz --npzmatrices' \
+               ' -o {3} -p modes.pca -n {4} -P {5}'.format(self.dcdFileName,
+                                                       self.pdbFileName,
+                                                       self.selstr.get(),
+                                                       self._getPath(), n,
+                                                       self.numberOfThreads.get())
+        if self.keepAlignment.get():
+            args += " --aligned"
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, verbosity='{0}'.format(self.oldVerbosity))
-
-        self.runJob('prody', 'pca {0} --pdb {1} -s "all" --covariance --export-scipion --npz --npzmatrices'
-                    ' -o {2} -p modes -n {3} -P {4} --aligned'.format(self.dcdFileName,
-                                                                      self.pdbFileName,
-                                                                      self._getPath(), n,
-                                                                      self.numberOfThreads.get()))
+        self.runJob(Plugin.getProgram('pca'), args)
         
-        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.nmd'), type=prody.PCA)
+        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), type=prody.PCA)
+        if not self.keepAlignment.get():
+            dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
+            dcdEnsemble.iterpose()
+            self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), suffix='_aligned')
+        else:
+            self.npz2 = self.npz
         
         plt.figure()
         prody.showFractVars(self.outModes)
+        prody.showCumulFractVars(self.outModes, 'r')
         plt.savefig(self._getPath('pca_fract_vars.png'))
         
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold):
+        restoreVerbositySecondary(self)
+
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=None):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for atomic principal component analysis is "
+            msg += "the number of structures - 1 (%d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.ens.numConfs())))
 
         mdOut = MetaData()
         collectivityList = list(prody.calcCollectivity(self.outModes))
@@ -237,23 +230,34 @@ class ProDyPCA(ProDyModesBase):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath('modes.pca.nmd'))
+
+        self.fractVarsDict = {}
+        for i, item in enumerate(nmSet):
+            self.fractVarsDict[item.getObjId()] = self.fract_vars[i]
+
+        outSet = SetOfPrincipalComponents().create(self._getPath())
+        outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
-        nmSet.setPdb(inputPdb)
+        outSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(inputPdb, nmSet)
+        self._defineOutputs(outputModes=outSet, outputEnsemble=self.npz2)
+        self._defineSourceRelation(inputPdb, outSet)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
             summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
-            ens = self.inputEnsemble.get().loadEnsemble()
+            ens = self.outputEnsemble.loadEnsemble()
 
             summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
                     modes.numModes(), ens.numConfs(), ens.numAtoms())]
         return summ
 
+    def _setFractVars(self, item, row=None):
+        # We provide data directly so don't need a row
+        fractVar = Float(self.fractVarsDict[item.getObjId()])
+        setattr(item, PRODY_FRACT_VARS, fractVar)
