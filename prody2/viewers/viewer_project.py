@@ -69,14 +69,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
                       label='Show plot?',
                       help='Projections or measures are shown in various ways depending on the options selected')
 
-        form.addParam('norm', BooleanParam, label="Normalize?", default=False,
-                      help='Select whether to normalise projections.',
-                      condition=self.isProjection)
-
-        form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
-                      help='Select whether to scale projections to RMSDs.',
-                      condition=self.isProjection)
-        
         form.addParam('label', BooleanParam, label="Label points?", default=False,
                       help='Select whether to label points.',
                       condition=(self.numModes!=ONE and self.isProjection))
@@ -181,17 +173,25 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 val = np.array([modes.getEigval()])
                 modes = prody.NMA()
                 modes.setEigens(vec, val)
-        else:
-            extraPath = self.protocol._getExtraPath()
-            outFiles = os.listdir(extraPath)
 
+        extraPath = self.protocol._getExtraPath()
+
+        prevClassStrs = []
         for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
+            inputClass = type(ens)
+            inputClassStr = str(inputClass).split('.')[-1].replace("'>","").lower().replace('setofatomstructs', 
+                                                                                            'atomstructs')
+            prevClassStrs.append(inputClassStr)
+            uniqueStrs, counts = np.unique(prevClassStrs, return_counts=True)
+            j = counts[list(uniqueStrs).index(inputClassStr)]-1
+
+            ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
             
             if not self.isProjection:
-                inputClass = type(ens)
-                ens = inputClass(filename=extraPath+'/'+outFiles[i])
                 measures = np.array([float(item._prodyMeasures) for item in ens], dtype=float)
+            else:
+                projection = np.array([np.array(item._prodyProjCoefficients, dtype=float) for item in ens])
 
             if isinstance(ens, SetOfAtomStructs):
                 # the ensemble gets built exactly as the input is setup and nothing gets rejected
@@ -208,14 +208,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
             c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
-            sizes = ensemble.getData('size')
-            if sizes is None:
-                weights = np.ones(ensemble.numCoordsets())
-            else:
-                if self.density.get() or sizes.max() == 1 or not self.isProjection:
-                    weights = sizes
-                else:
-                    weights = sizes * 100/sizes.max()
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
 
             if self.numModes == ONE:
                 bins = self.bins.get()
@@ -230,18 +223,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 if self.isProjection:
                     density = self.density.get()
                     if density:
-                        prody.showProjection(ensemble, modes[:1],
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=True, c=c, alpha=self.alpha.get(),
-                                            use_weights=self.useWeights.get(), weights=weights,
-                                            bins=bins, range=xrange)
-                        plt.xlabel("mode %s" % (modes[0].getIndex() + 1))
+                        prody.showProjection(projection=projection,
+                                             show_density=True, c=c, alpha=self.alpha.get(),
+                                             use_weights=self.useWeights.get(), weights=weights,
+                                             bins=bins, range=xrange)
                     else:
-                        prody.showProjection(ensemble, modes[:1],
-                                            rmsd=self.rmsd.get(), norm=self.norm.get(),
-                                            show_density=False, c=c, alpha=self.alpha.get(),
-                                            use_weights=self.useWeights.get(), weights=weights)
-                        plt.ylabel("mode %s" % (modes[0].getIndex() + 1))
+                        prody.showProjection(projection=projection,
+                                             show_density=False, c=c, alpha=self.alpha.get(),
+                                             use_weights=self.useWeights.get(), weights=weights)
                 else:
                     if not self.useWeights.get():
                         weights = None
@@ -249,22 +238,19 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
             else:
                 if self.label.get():
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
+                    prody.showProjection(projection=projection,
                                          text=ensemble.getLabels(),
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                 else:
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                    prody.showProjection(projection=projection,
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                     
                 if self.points.get():
-                    prody.showProjection(ensemble, modes[:self.numModes+1],
-                                         rmsd=self.rmsd.get(), norm=self.norm.get(),
+                    prody.showProjection(projection=projection,
                                          show_density=False, 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)

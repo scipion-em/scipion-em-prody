@@ -31,12 +31,11 @@ This module will provide ProDy projection of structural ensembles on principal c
 """
 import numpy as np
 
-from pwem.objects import (SetOfPrincipalComponents, SetOfNormalModes, 
-                          SetOfAtomStructs, String)
+from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
-from pyworkflow.protocol.params import (PointerParam, EnumParam, 
+from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         MultiPointerParam, NumericRangeParam)
 from pyworkflow.utils import getListFromRangeString
 
@@ -88,6 +87,11 @@ class ProDyProject(EMProtocol):
                       label='Number of modes', default=TWO,
                       help='1, 2 or 3 modes can be used for projection')
 
+        form.addParam('norm', BooleanParam, label="Normalize?", default=False,
+                      help='Select whether to normalise projections.')
+
+        form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
+                      help='Select whether to scale projections to RMSDs.')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -125,7 +129,8 @@ class ProDyProject(EMProtocol):
             else:
                 ens = ensGot.loadEnsemble()
 
-            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1])
+            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1], rmsd=self.rmsd.get(),
+                                              norm=self.norm.get())
             projDict = dict()
             for j, idx in enumerate(idSet):
                 proj = projection[j]
