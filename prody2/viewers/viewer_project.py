@@ -189,26 +189,35 @@ class ProDyProjectionsViewer(ProtocolViewer):
             ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
             
             if not self.isProjection:
-                measures = np.array([float(item._prodyMeasures) for item in ens], dtype=float)
+                measures = prody.parseArray(self.protocol._getPath('measures_{0}.csv'.format(i+1)),
+                                            delimiter=',')
             else:
-                projection = np.array([np.array(item._prodyProjCoefficients, dtype=float) for item in ens])
+                projection = prody.parseArray(self.protocol._getPath('projection_{0}.csv'.format(i+1)),
+                                              delimiter=',')
 
-            if isinstance(ens, SetOfAtomStructs):
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ens])
-                ensemble = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
-                                                  overlap=0., superpose=False, mapping=None)
+            if len(ens) < 500:
+                labels = [str(i) for i in ens.getIdSet()]
             else:
-                ensemble = ens.loadEnsemble()
-
-            ensemble = self._cleanLabels(ensemble)
+                if isinstance(ens, SetOfAtomStructs):
+                    labels = ens.getFiles()
+                    labels = self._cleanLabels(labels)
+                else:
+                    labels = [frame.getObjLabel() for frame in ens]
+                    labels = self._cleanLabels(labels)
 
             if i == 0 or self.separatePlots.get():
                 plotter = EmPlotter()
 
             c = plt.rcParams['axes.prop_cycle'].by_key()['color'][i]
 
-            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
+            if os.path.exists(self.protocol._getPath('weights_{0}.csv'.format(i+1))):
+                weights = prody.parseArray(self.protocol._getPath('weights_{0}.csv'.format(i+1)),
+                                           delimiter=',')
+            else:
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
+
+            if weights.max() < 1:
+                weights *= 100
 
             if self.numModes == ONE:
                 bins = self.bins.get()
@@ -239,7 +248,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
             else:
                 if self.label.get():
                     prody.showProjection(projection=projection,
-                                         text=ensemble.getLabels(),
+                                         text=labels,
                                          show_density=self.density.get(), 
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
@@ -294,24 +303,30 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         return [plotter]
 
-    def _cleanLabels(self, ensemble):
+    def _cleanLabels(self, labels):
 
-        if ensemble.getLabels()[0].find('Selection') != -1:
-            ensemble._labels = [label.split('Selection')[0] for label in ensemble.getLabels()]
+        if labels[0].find('.pdb') != -1:
+            labels = [label.split('.pdb')[0] for label in labels]
 
-        if ensemble.getLabels()[0].endswith('_atoms_amap'):
-            ensemble._labels = [label[:-11] for label in ensemble.getLabels()]
+        if labels[0].find('/') != -1:
+            labels = [os.path.basename(label) for label in labels]
 
-        if ensemble.getLabels()[0].endswith('_ca'):
-            ensemble._labels = [label[:-3] for label in ensemble.getLabels()]
+        if labels[0].find('Selection') != -1:
+            labels = [label.split('Selection')[0] for label in labels]
 
-        if ensemble.getLabels()[0][:6].isnumeric():
-            ensemble._labels = [str(int(label[:6])) for label in ensemble.getLabels()]
+        if labels[0].endswith('_atoms_amap'):
+            labels = [label[:-11] for label in labels]
 
-        if ensemble.getLabels()[0].startswith('Unknown_m'):
-            ensemble._labels = [label.split('Unknown_m')[-1] for label in ensemble.getLabels()]
+        if labels[0].endswith('_ca'):
+            labels = [label[:-3] for label in labels]
 
-        if ensemble.getLabels()[0][5:12] == 'atoms_m' and ensemble.getLabels()[1][5:12] == 'atoms_m':
-            ensemble._labels = [label.split('atoms_m')[-1] for label in ensemble.getLabels()]
+        if labels[0][:6].isnumeric():
+            labels = [str(int(label[:6])) for label in labels]
 
-        return ensemble
+        if labels[0].startswith('Unknown_m'):
+            labels = [label.split('Unknown_m')[-1] for label in labels]
+
+        if labels[0][5:12] == 'atoms_m' and labels[1][5:12] == 'atoms_m':
+            labels = [label.split('atoms_m')[-1] for label in labels]
+
+        return labels

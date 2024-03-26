@@ -142,6 +142,10 @@ class ProDyProject(EMProtocol):
             prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
                              format='%8.5f', delimiter=',')
 
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            prody.writeArray(self._getPath('weights_{0}.csv'.format(i+1)), weights,
+                             format='%8.5f', delimiter=',')
+
         restoreVerbositySecondary(self)
 
     def createOutputStep(self):
