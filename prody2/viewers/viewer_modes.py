@@ -61,9 +61,9 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        try:
+        if hasattr(self, '_nmdFileName'):
             self.nmdFileName = modes._nmdFileName
-        except AttributeError:
+        else:
             if glob(self.protocol._getPath("modes*.nmd")):
                 self.nmdFileName = glob(self.protocol._getPath("modes*.nmd"))[0]
             else:
