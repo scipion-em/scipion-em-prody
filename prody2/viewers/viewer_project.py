@@ -265,10 +265,11 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                          use_weights=self.useWeights.get(), weights=weights)
                 
                 ax = plt.gca()
-                ax.set_xlabel("mode %s" % (modes[0].getIndex() + 1))
-                ax.set_ylabel("mode %s" % (modes[1].getIndex() + 1))
+                modeStr = "mode %s"
+                ax.set_xlabel(modeStr % (modes[0].getIndex() + 1))
+                ax.set_ylabel(modeStr % (modes[1].getIndex() + 1))
                 if self.numModes == THREE:
-                    ax.set_zlabel("mode %s" % (modes[2].getIndex() + 1))
+                    ax.set_zlabel(modeStr % (modes[2].getIndex() + 1))
 
             ax = plotter.figure.gca()
             
