@@ -179,9 +179,16 @@ class ProDyANM(ProDyModesBase):
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
+        if self.membrane.get():
+            self.prefix = 'modes.exanm'
+        else:
+            self.prefix = 'modes.anm'
+        filename = self.prefix + '.npz'
+
         args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c "{4}" -P {5}'.format(self.pdbFileName,
-                                                                         self._getPath(), n,
+            '--npz -o {1} -p {2} -n {3} -g {4} -c "{5}" -P {6}'.format(self.pdbFileName,
+                                                                         self._getPath(),
+                                                                         self.prefix, n,
                                                                          self.gamma.get(),
                                                                          self.cutoff.get(),
                                                                          self.numberOfThreads.get())
@@ -203,9 +210,6 @@ class ProDyANM(ProDyModesBase):
 
         if self.membrane.get():
             args += ' --membrane'
-            filename = 'modes.exanm.npz'
-        else:
-            filename = 'modes.anm.npz'
 
         self.runJob(Plugin.getProgram('anm'), args)
 
@@ -279,7 +283,7 @@ class ProDyANM(ProDyModesBase):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)

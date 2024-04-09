@@ -140,9 +140,16 @@ class ProDyGNM(EMProtocol):
         ag = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, ag)
 
+        if self.membrane.get():
+            self.prefix = 'modes.exgnm'
+        else:
+            self.prefix = 'modes.gnm'
+        filename = self.prefix + '.npz'
+
         args = '{0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
-               '-o {1} -p modes.gnm -n {2} -g {3} -c {4} -P {5}'.format(self.pdbFileName,
-                                                              self._getPath(), n,
+               '-o {1} -p {2} -n {3} -g {4} -c {5} -P {6}'.format(self.pdbFileName,
+                                                              self._getPath(),
+                                                              self.prefix, n,
                                                               self.gamma.get(),
                                                               self.cutoff.get(),
                                                               self.numberOfThreads.get())
@@ -160,7 +167,7 @@ class ProDyGNM(EMProtocol):
 
         fixVerbositySecondary(self)
 
-        self.gnm = prody.loadModel(self._getPath('modes.gnm.npz'))
+        self.gnm = prody.loadModel(self._getPath(filename))
 
         covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
@@ -277,7 +284,7 @@ class ProDyGNM(EMProtocol):
 
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfGnmModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.gnm.nmd'))
+        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
