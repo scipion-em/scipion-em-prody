@@ -71,7 +71,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs input and added atom struct ref".format(numAS))
 
         protPca1 = cls.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca1.inputEnsemble.set(protEns1.outputNpz)
+        protPca1.inputEnsemble.set([protEns1.outputNpz])
         protPca1.setObjLabel('PCA_from_set_ref_3o21_CD')
         cls.launchProtocol(protPca1)
 
@@ -96,7 +96,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs input and index ref".format(numAS))
 
         protPca2 = cls.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca2.inputEnsemble.set(protEns2.outputNpz)
+        protPca2.inputEnsemble.set([protEns2.outputNpz])
         protPca2.setObjLabel('PCA_from_set_ref_idx')
         cls.launchProtocol(protPca2)
 
@@ -119,7 +119,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs and AtomStruct input and index ref".format(numAS))
 
         protPca3 = cls.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca3.inputEnsemble.set(protEns3.outputNpz)
+        protPca3.inputEnsemble.set([protEns3.outputNpz])
         protPca3.setObjLabel('PCA_3_from_set_plus_sel_ref_idx')
         cls.launchProtocol(protPca3)
 
@@ -128,7 +128,7 @@ class TestProDyPCA(TestWorkflow):
                                len(protPca3.outputModes)))
 
         protPca4 = cls.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca4.inputEnsemble.set(protEns3.outputNpz)
+        protPca4.inputEnsemble.set([protEns3.outputNpz])
         protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
         cls.launchProtocol(protPca4)
 
@@ -273,7 +273,7 @@ class TestProDyPCA(TestWorkflow):
         cls.launchProtocol(protImportEns)
 
         protPca5 = cls.newProtocol(ProDyPCA)
-        protPca5.inputEnsemble.set(protImportEns.outputNpz)
+        protPca5.inputEnsemble.set([protImportEns.outputNpz])
         protPca5.setObjLabel('PCA_2k39_n_ca')
         cls.launchProtocol(protPca5)
 
@@ -361,7 +361,7 @@ class TestProDyPCA(TestWorkflow):
         cls.launchProtocol(protEns6)
 
         protPca4 = cls.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca4.inputEnsemble.set(protEns6.outputNpz)
+        protPca4.inputEnsemble.set([protEns6.outputNpz])
         protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
         cls.launchProtocol(protPca4)
 
