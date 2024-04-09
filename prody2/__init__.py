@@ -160,7 +160,7 @@ class Plugin(pwem.Plugin):
     def getEnvActivation(cls):
         return "conda activate %s" % getProDyEnvName(DEVEL)
 
-def fixVerbositySecondary(cls):
+def fixVerbositySecondary(cls, secondary=False, verbosity='none'):
     """configure ProDy to automatically handle secondary structure information and verbosity"""
 
     import prody
@@ -168,8 +168,8 @@ def fixVerbositySecondary(cls):
     cls.oldVerbosity = prody.confProDy("verbosity")
 
     from pyworkflow import Config
-    prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-    prody.confProDy(auto_secondary=False,
+    prodyVerbosity = verbosity if not Config.debugOn() else 'debug'
+    prody.confProDy(auto_secondary=secondary,
                     verbosity='{0}'.format(prodyVerbosity))
 
 def restoreVerbositySecondary(cls):

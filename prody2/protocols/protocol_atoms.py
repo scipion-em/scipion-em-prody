@@ -147,7 +147,7 @@ class ProDySelect(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
-        fixVerbositySecondary(self)
+        fixVerbositySecondary(self, secondary=True)
 
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
@@ -309,7 +309,7 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
-        fixVerbositySecondary(self)
+        fixVerbositySecondary(self, secondary=True)
 
         mobFn = self.mobStructure.get().getFileName()
         tarFn = self.tarStructure.get().getFileName()
@@ -555,7 +555,7 @@ class ProDyBiomol(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def extractionStep(self, inputFn):
-        fixVerbositySecondary(self)
+        fixVerbositySecondary(self, secondary=True)
 
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                              biomol=True, extend_biomol=True,

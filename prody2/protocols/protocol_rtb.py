@@ -172,7 +172,6 @@ class ProDyRTB(ProDyModesBase):
         numModes = self.numberOfModes.get()
         self.gnm = False
 
-        self.gnm = False
         self.nzeros = 6 if self.zeros.get() else 0
 
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
@@ -185,7 +184,7 @@ class ProDyRTB(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
-        fixVerbositySecondary(self)
+        fixVerbositySecondary(self, secondary=True)
         
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
