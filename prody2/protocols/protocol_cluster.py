@@ -143,74 +143,58 @@ class ProDyRmsd(EMProtocol):
         
         if not self.doCluster.get():
             repIdx = range(self.ens.numConfs())
-        else:
-            if self.clusteringMethod.get() == 0:
+        elif self.clusteringMethod.get() == 0:
+            matrix = self.ens.getRMSDs(pairwise=True)
+            labels = self.ens.getLabels()
 
-                matrix = self.ens.getRMSDs(pairwise=True)
-                labels = self.ens.getLabels()
-
-                if len(labels) > 50:
-                    allticks = False
-                else:
-                    allticks = True
-
-                plt.figure()
-                prody.showMatrix(matrix, allticks=allticks)
-                plt.tight_layout()
-                plt.savefig(self._getExtraPath('rmsd_matrix'))
-                plt.close()
-
-                tree = prody.calcTree(labels, matrix)
-
-                plt.figure()
-                prody.showTree(tree)
-                plt.tight_layout()
-                plt.axis('off')
-                plt.savefig(self._getExtraPath('rmsd_tree'))
-                plt.close()
-
-                reordRMSDs, reordIndices = prody.reorderMatrix(labels,
-                                                               matrix,
-                                                               tree)
-
-                plt.figure()
-                prody.showMatrix(reordRMSDs, allticks=allticks)
-                plt.tight_layout()
-                plt.savefig(self._getExtraPath('reordered_matrix'))
-                plt.close()
-
-                classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
-                subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
-                self.weights = np.zeros(len(subgroups), dtype=float)
-                repIdx = np.zeros(len(subgroups), dtype=int)
-                sgIdx = []
-                for i, sg in enumerate(subgroups):
-                    sgIdx.append([labels.index(label) for label in sg])
-                    submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
-                    repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
-
-                    weight = len(sg)/self.ens.numCoordsets()
-                    self.weights[i] = allWeights[repIdx[i]] * weight
-                    allWeights[sgIdx[i]] *= weight
-                    classLabels[sgIdx[i]] = i
-
-                if self.doReorder.get():
-                    self.ens = self.ens[reordIndices]
+            if len(labels) > 20:
+                allticks = False
             else:
-                args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
-                                                                               self._getExtraPath())
-                self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
+                allticks = True
 
-                classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
-                repIdx = np.loadtxt(self._getExtraPath("cluster_medoids.txt"), dtype=int)
-                weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
-                
-                sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
-                self.weights = np.zeros(len(weights), dtype=float)
-                for i, weight in enumerate(weights):
-                    weight /= weights.sum()
-                    allWeights[sgIdx[i]] *= weight
-                    self.weights[i] = allWeights[repIdx[i]]
+            tree = prody.calcTree(labels, matrix)
+            reordRMSDs, reordIndices = prody.reorderMatrix(labels,
+                                                            matrix,
+                                                            tree)
+
+            plt.figure()
+            prody.showMatrix(reordRMSDs, allticks=allticks)
+            plt.tight_layout()
+            plt.savefig(self._getExtraPath('reordered_matrix'))
+            plt.close()
+
+            classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
+            subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
+            self.weights = np.zeros(len(subgroups), dtype=float)
+            repIdx = np.zeros(len(subgroups), dtype=int)
+            sgIdx = []
+            for i, sg in enumerate(subgroups):
+                sgIdx.append([labels.index(label) for label in sg])
+                submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
+                repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
+
+                weight = len(sg)/self.ens.numCoordsets()
+                self.weights[i] = allWeights[repIdx[i]] * weight
+                allWeights[sgIdx[i]] *= weight
+                classLabels[sgIdx[i]] = i
+
+            if self.doReorder.get():
+                self.ens = self.ens[reordIndices]
+        else:
+            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
+                                                                            self._getExtraPath())
+            self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
+
+            classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
+            repIdx = np.loadtxt(self._getExtraPath("cluster_medoids.txt"), dtype=int)
+            weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
+            
+            sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
+            self.weights = np.zeros(len(weights), dtype=float)
+            for i, weight in enumerate(weights):
+                weight /= weights.sum()
+                allWeights[sgIdx[i]] *= weight
+                self.weights[i] = allWeights[repIdx[i]]
 
         prody.writePDB(self.ensBaseName, self.ens)
         self.ens.setData('size', allWeights)
