@@ -35,7 +35,6 @@ from os.path import basename, splitext
 from pwem.objects import AtomStruct
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import PointerParam, FloatParam, LEVEL_ADVANCED
 
 import prody

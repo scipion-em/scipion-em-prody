@@ -41,4 +41,5 @@ MEASURES = "_prodyMeasures"
 
 PRODY_FRACT_VARS = "_prodyFractVars"
 
-PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__), "protocols", "scripts")
+PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
+                             "protocols", "scripts")

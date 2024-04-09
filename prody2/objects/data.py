@@ -2,11 +2,13 @@ import numpy as np
 import os
 import prody
 from prody2.constants import ENSEMBLE_WEIGHTS
+
 from pwem.objects import (EMObject, EMSet, SetOfNormalModes, SetOfClasses3D,
-                          Pointer, Integer, Float, String,
                           AtomStruct, SetOfAtomStructs)
 from pwem.convert import AtomicStructHandler
+
 from pyworkflow.utils import logger
+from pyworkflow.object import Pointer, Integer, Float, String
 
 HAVE_CHEM = False
 try:
@@ -106,6 +108,8 @@ class SetOfTrajFrames(EMSet):
 
     def __init__(self, **kwargs):
         EMSet.__init__(self, **kwargs)
+        self._topoFile = String(kwargs.get('topoFile', None))
+        self._trjFile = String(kwargs.get('trjFile', None))
 
         self._ref = Pointer()
         self.setRef(kwargs.get('ref', None))
@@ -155,6 +159,30 @@ class SetOfTrajFrames(EMSet):
         for frame in framesSet:
             if frame.isEnabled():
                 self.append(frame)
+
+    def getTopologyFile(self):
+        return self._topoFile.get()
+
+    def setTopologyFile(self, value):
+        self._topoFile.set(value)
+
+    def hasTopology(self):
+        if self.getTopologyFile():
+            return True
+        else:
+            return False
+
+    def hasTrajectory(self):
+        if self.getTrajectoryFile():
+            return True
+        else:
+            return False
+
+    def getTrajectoryFile(self):
+        return self._trjFile.get()
+
+    def setTrajectoryFile(self, value):
+        self._trjFile.set(value)
 
 
 class ProDyNpzEnsemble(SetOfTrajFrames):

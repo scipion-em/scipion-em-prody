@@ -26,3 +26,4 @@ from .protocol_logistic import ProDyLRA
 
 from .protocol_pdbfixer import ProDyPDBFixer
 from .protocol_clustenm import ProDyClustENM
+from .protocol_bioexcel import ProDyBioExcelCV19
