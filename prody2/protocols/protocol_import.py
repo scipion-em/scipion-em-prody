@@ -185,16 +185,12 @@ class ProDyImportModes(ProtImportFiles):
         
         if self.importType != NMD:
             self.atoms = prody.parsePDB(pdbFilename)
-            if isinstance(self.outModes, prody.PCA):
-                self.nmdFileName = self._getPath('modes.pca.nmd')
-            elif isinstance(self.outModes, prody.GNM):
-                self.nmdFileName = self._getPath('modes.gnm.nmd')
-            else:
-                self.nmdFileName = self._getPath('modes.nmd')
+            typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+            self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
             prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
         else:
             self.nmdFileName = self.pattern1
-            
+
         restoreVerbositySecondary(self)
 
     def createOutputStep(self):

@@ -165,12 +165,8 @@ class ProDyEdit(ProDyModesBase):
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
 
-        if isinstance(self.outModes, prody.PCA):
-            self.nmdFileName = self._getPath('modes.pca.nmd')
-        elif isinstance(self.outModes, prody.GNM):
-            self.nmdFileName = self._getPath('modes.gnm.nmd')
-        else:
-            self.nmdFileName = self._getPath('modes.nmd')
+        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
         prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
 
         if isinstance(self.outModes, prody.GNM):

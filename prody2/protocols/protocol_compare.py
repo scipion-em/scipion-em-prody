@@ -153,12 +153,8 @@ class ProDyCompare(EMProtocol):
             else:
                 atoms = prody.parsePDB(pdb1)
 
-            if isinstance(modes2, prody.PCA):
-                self.nmdFileName = self._getExtraPath('matched_modes.pca.nmd')
-            elif isinstance(modes2, prody.GNM):
-                self.nmdFileName = self._getExtraPath('matched_modes.gnm.nmd')
-            else:
-                self.nmdFileName = self._getExtraPath('matched_modes.nmd')
+            typeStr = str(type(modes2)).lower().split('.')[-1].split("'")[0]
+            self.nmdFileName = self._getPath('matched_modes.{0}.nmd'.format(typeStr))
 
             prody.writeNMD(self.nmdFileName, modeEns[1], atoms)
             prody.writeScipionModes(self._getPath(), modeEns[1], write_star=True)
