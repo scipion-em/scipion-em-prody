@@ -85,6 +85,7 @@ class ProDyProject(EMProtocol):
         
         form.addParam('numModes', EnumParam, choices=['1', '2', '3'],
                       label='Number of modes', default=TWO,
+                      display=EnumParam.DISPLAY_HLIST,
                       help='1, 2 or 3 modes can be used for projection')
 
         form.addParam('norm', BooleanParam, label="Normalize?", default=False,
