@@ -194,7 +194,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
             else:
                 projection = prody.parseArray(self.protocol._getPath('projection_{0}.csv'.format(i+1)),
                                               delimiter=',')
+                
+            if projection.ndim == 0:
                 projection = projection.reshape(-1)
+
+            if projection.ndim == 1 and self.numModes != ONE:
+                projection = projection.reshape(1,-1)
 
             if len(ens) > 50:
                 labels = [str(i) for i in ens.getIdSet()]
