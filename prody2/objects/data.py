@@ -237,6 +237,10 @@ def replaceCoordsets(oldNpzEns, coordsets, suffix=''):
                             weights=oldEnsemble.getWeights(), 
                             label=oldEnsemble.getLabels())
     newEnsemble.setAtoms(oldEnsemble.getAtoms())
+    newEnsemble.setCoords(oldEnsemble.getCoords())
+    
+    sizes = oldEnsemble.getData('size')
+    newEnsemble.setData('size', sizes)
 
     newFilename = oldNpzEns[1].getFileName().replace('.ens.npz', f'{suffix}.ens.npz')
     prody.saveEnsemble(newEnsemble, newFilename)
@@ -246,6 +250,7 @@ def replaceCoordsets(oldNpzEns, coordsets, suffix=''):
     frames = [frame.clone() for frame in oldNpzEns.iterItems()]
     for i, frame in enumerate(frames):
         frame.setLocation((i+1, newFilename))
+        frame.setWeight(Float(sizes[i]))
         newNpzEns.append(frame)
 
     return newNpzEns
@@ -460,7 +465,7 @@ def loadAndWriteEnsemble(cls):
             ens.setAtoms(atoms)
 
         else:
-            ens = inputEnsemble[i].loadEnsemble()
+            ens = ensemble.loadEnsemble()
 
         if i == 0:
             cls.ens = ens

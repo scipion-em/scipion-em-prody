@@ -151,11 +151,13 @@ class ProDyPCA(ProDyModesBase):
 
         self.runJob(Plugin.getProgram('pca'), args)
         
-        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), type=prody.PCA)
+        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), 
+                                                   type=prody.PCA)
         if not self.keepAlignment.get():
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
             dcdEnsemble.iterpose()
-            self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), suffix='_aligned')
+            self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), 
+                                         suffix='_aligned')
         else:
             self.npz2 = self.npz
         
