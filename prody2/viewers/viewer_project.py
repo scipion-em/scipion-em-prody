@@ -195,7 +195,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 projection = prody.parseArray(self.protocol._getPath('projection_{0}.csv'.format(i+1)),
                                               delimiter=',')
 
-            if len(ens) < 500:
+            if len(ens) > 50:
                 labels = [str(i) for i in ens.getIdSet()]
             else:
                 if isinstance(ens, SetOfAtomStructs):
@@ -320,9 +320,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
 
         if labels[0].endswith('_ca'):
             labels = [label[:-3] for label in labels]
-
-        if labels[0][:6].isnumeric():
-            labels = [str(int(label[:6])) for label in labels]
 
         if labels[0].startswith('Unknown_m'):
             labels = [label.split('Unknown_m')[-1] for label in labels]
