@@ -447,6 +447,7 @@ class SetOfClassesTraj(SetOfClasses3D):
 def loadAndWriteEnsemble(cls):
     """Handle inputs to load ensemble into ProDy and write outputs"""
 
+    weights = []
     if isinstance(cls.inputEnsemble, Pointer):
         inputEnsemble = [cls.inputEnsemble.get()]
     else:
@@ -458,14 +459,17 @@ def loadAndWriteEnsemble(cls):
             ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0.,
                                         overlap=0., superpose=False, degeneracy=cls.degeneracy.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
+            weights.extend(list(np.ones(len(ens))))
 
         elif isinstance(ensemble, DcdMDSystem):
             atoms = prody.parsePDB(ensemble.getSystemFile())
             ens = prody.PDBEnsemble(prody.parseDCD(ensemble.getTrajectoryFile()))
             ens.setAtoms(atoms)
+            weights.extend(list(np.ones(len(ens))))
 
         else:
             ens = ensemble.loadEnsemble()
+            weights.extend([frame.getWeight() for frame in ensemble])
 
         if i == 0:
             cls.ens = ens
@@ -490,5 +494,7 @@ def loadAndWriteEnsemble(cls):
         prody.saveEnsemble(cls.ens, cls.npzFileName)
         cls.npz = ProDyNpzEnsemble().create(cls._getPath())
         for j in range(cls.ens.numConfs()):
-            frame = TrajFrame((j+1, cls.npzFileName), objLabel=cls.ens.getLabels()[j])
+            frame = TrajFrame((j+1, cls.npzFileName),
+                              objLabel=cls.ens.getLabels()[j],
+                              weight=weights[j])
             cls.npz.append(frame)
