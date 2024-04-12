@@ -111,12 +111,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
                         help='Enter values here and below to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
-                        condition=self.numModes==ONE)
+                        condition="numModes=={0} and density".format(ONE))
         groupX.addParam('xrange2', FloatParam, label="x-axis limit 2", default=-1,
                         help='Enter values here and above to specify x-axis limits.\n'
                              '-1 is the dummy value and needs changing to e.g. -1.1 '
                              'in both places to have an effect',
-                        condition=self.numModes==ONE)
+                        condition="numModes=={0} and density".format(ONE))
 
         groupX = form.addGroup('xlim')
         groupX.addParam('xlim1', FloatParam, label="x-axis limit 1", default=-1,
