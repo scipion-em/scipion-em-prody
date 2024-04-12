@@ -196,7 +196,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                            'than or equal to this value.')
         
         matchFuncCheck = 'matchFunc == %d'
-        group = form.addGroup('custom chain orders', condition=matchFuncCheck % CUSTOM)
+        group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
         
         group.addParam('chainOrders', TextParam, width=50,
                        condition=matchFuncCheck % CUSTOM, default="",
@@ -226,7 +226,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         group.addParam('recoverOrder', StringParam, default='1',
                        condition=matchFuncCheck % CUSTOM,
                        label='Recover custom match order number',
-                       help='Enter the desired chain order here.\n'
+                       help='Enter the desired chain order index here.\n'
                             'Recover the chain order with the specified index from the match list.')
 
         form.addParam('mapping', EnumParam, choices=['Nothing',
@@ -310,7 +310,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             rmsdCutoff = eval(str(self.rmsdCutoff.get()))
             if rmsdCutoff == -1:
                 rmsdCutoff = None
-                
+
             zCutoff = eval(str(self.zCutoff.get()))
             if zCutoff == -1:
                 zCutoff = None
