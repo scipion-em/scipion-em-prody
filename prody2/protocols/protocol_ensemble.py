@@ -414,44 +414,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         logger.info('\nUnmapped structures: {0}\n'.format(unmapped))
 
-        else:
-            idstr = self.id.get()
-            daliRec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
-            while daliRec.isSuccess != True:
-                daliRec.fetch(timeout=1000)
-                time.sleep(10)
-
-            lenCutoff = eval(str(self.lenCutoff.get()))
-            if lenCutoff == -1:
-                lenCutoff = None
-
-            rmsdCutoff = eval(str(self.rmsdCutoff.get()))
-            if rmsdCutoff == -1:
-                rmsdCutoff = None
-
-            zCutoff = eval(str(self.zCutoff.get()))
-            if zCutoff == -1:
-                zCutoff = None
-
-            idCutoff = eval(str(self.idCutoff.get()))
-            if idCutoff == -1:
-                idCutoff = None
-
-            self.pdbs = daliRec.filter(cutoff_len=lenCutoff, cutoff_rmsd=rmsdCutoff,
-                                       cutoff_Z=zCutoff, cutoff_identity=idCutoff,
-                                       stringency=True)
-            mappings = daliRec.getMappings()
-
-            if idstr not in self.pdbs:
-                self.pdbs.insert(0, idstr)
-
-            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          mapping=mappings,
-                                          atommaps=atommaps,
-                                          rmsd_reject=self.rmsdReject.get())
-
         self.labels = ens.getLabels()
         _, idx, inv, c = np.unique(self.labels, return_index=True,
                                    return_inverse=True, return_counts=True)
