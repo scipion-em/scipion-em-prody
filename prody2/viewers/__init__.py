@@ -18,8 +18,6 @@ from prody2.objects import (SetOfTrajFrames, SetOfAtoms,
 DataViewer._targets.extend([SetOfTrajFrames, SetOfAtoms,
                             SetOfClassesTraj])
 
-from pwem.viewers.views import Classes3DView
-
 RegistryViewerConfig.registerConfig(SetOfTrajFrames,
                                     {showj.ORDER: 'id enabled label _filename ',
                                      showj.VISIBLE: 'id enabled label _filename ',
