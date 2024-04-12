@@ -31,12 +31,14 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyGNM, ProDyEdit, ProDyCompare,
-                              ProDyDomainDecomp)
+                              ProDyDomainDecomp, ProDyImportModes)
+from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.objects import SetOfGnmModes
 
 import prody
+from os.path import split, join
 
 gnmModesTypeWarning = "GNM modes should be parsed as a SetOfGnmModes, not {0}"
 
@@ -184,3 +186,38 @@ class TestProDyGNM(TestWorkflow):
 
         cls.assertTrue(prody.confProDy("auto_secondary") == oldSecondary,
                         "prody auto_secondary changed")
+
+        # Import scipion GNM modes
+        protImportModes2 = cls.newProtocol(ProDyImportModes)
+        protImportModes2.importType.set(SCIPION)
+        protImportModes2.filesPath.set(protGNM2.outputModes.getFileName())
+        protImportModes2.inputStructure.set(protSel2.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_GNM_n_ca')
+        cls.launchProtocol(protImportModes2)
+
+        cls.assertTrue(isinstance(protImportModes2.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes2.outputModes))) 
+
+        # Import NMD GNM modes
+        protImportModes3 = cls.newProtocol(ProDyImportModes)
+        protImportModes3.importType.set(NMD)
+        protImportModes3.filesPath.set(join(split(protGNM2.outputModes.getFileName())[0], 
+                                            "modes.gnm.nmd"))
+        protImportModes3.inputStructure.set(protSel2.outputStructure)
+        protImportModes3.setObjLabel('import_GNM_NMD_n_ca')
+        cls.launchProtocol(protImportModes3)
+
+        cls.assertTrue(isinstance(protImportModes3.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes3.outputModes)))
+
+        # Import MODES_NPZ GNM modes
+        protImportModes4 = cls.newProtocol(ProDyImportModes)
+        protImportModes4.importType.set(MODES_NPZ)
+        protImportModes4.filesPath.set(join(split(protGNM2.outputModes.getFileName())[0], 
+                                            "modes.gnm.npz"))
+        protImportModes4.inputStructure.set(protSel2.outputStructure)
+        protImportModes4.setObjLabel('import_GNM_NPZ_n_ca')
+        cls.launchProtocol(protImportModes4)
+
+        cls.assertTrue(isinstance(protImportModes4.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes4.outputModes)))

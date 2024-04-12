@@ -40,6 +40,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
@@ -87,21 +88,28 @@ class ProDyEdit(ProDyModesBase):
                       label='Normalise sliced vectors',
                       help='Elect whether to normalise vectors.')
                       
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
@@ -115,13 +123,7 @@ class ProDyEdit(ProDyModesBase):
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
 
     def computeModesStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
         
         self.inputStructure = self.modes.get().getPdb()
         modes = prody.parseScipionModes(self.modes.get().getFileName(),
@@ -162,14 +164,22 @@ class ProDyEdit(ProDyModesBase):
 
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.atoms)
+
+        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
+        prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
+
+        if isinstance(self.outModes, prody.GNM):
+            self.gnm = True
+
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
         inputClass = type(self.modes.get())
         nmSet = inputClass(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self.nmdFileName)
         nmSet.setPdb(self.newNodes.get())
 
         self._defineOutputs(outputModes=nmSet)

@@ -1,3 +1,7 @@
+8 February 2024 - major release v3.4.0
+    1. Added linear discriminant analysis (LDA) for comparing ensemble subsets
+    2. Many fixes, especially to ensemble building
+
 20 October 2023
     1. Overhauled installation to install ProDy itself in scipion3 env 
     and also ProDy, OpenMM, PDBFixer and TEMPy in its own env with activation for apps

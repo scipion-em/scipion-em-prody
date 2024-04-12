@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = "3.3.0"
+__version__ = "3.4.0"
 _logo = "icon.png"
 _references = ['ProDy2']
 
@@ -77,10 +77,12 @@ class Plugin(pwem.Plugin):
             f'conda create -y -n {ENV_NAME} python=3.9 &&',
             f'conda activate {ENV_NAME} &&']
 
-        # Install TEMPy for ClustENM fitting and threadpoolctl for control of thread pools for apps generally
+        # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
+        # and threadpoolctl for control of thread pools for apps generally
         TEMPY_INSTALLED = 'tempy_installed'
         installTEMPy = installCmd.copy()
-        installTEMPy.append('pip install biotempy==2.0.0 threadpoolctl && touch %s' % TEMPY_INSTALLED)
+        installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
+                            'threadpoolctl requests mdtraj && touch %s' % TEMPY_INSTALLED)
         installCmd.pop(1) # remove conda create to only do it the first time
 
         # Install PDBFixer and OpenMM for ClustENM
@@ -102,7 +104,7 @@ class Plugin(pwem.Plugin):
                 installCmd.append('cd .. &&')
                 clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
                 if not os.path.exists(clonePath):
-                    installCmd.append('git clone -b clustenm_fit https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+                    installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
                 installCmd.append('cd ProDy &&')
                 installCmd.append('git pull &&')
 
@@ -157,3 +159,21 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getEnvActivation(cls):
         return "conda activate %s" % getProDyEnvName(DEVEL)
+
+def fixVerbositySecondary(cls, secondary=False, verbosity='none'):
+    """configure ProDy to automatically handle secondary structure information and verbosity"""
+
+    import prody
+    cls.oldSecondary = prody.confProDy("auto_secondary")
+    cls.oldVerbosity = prody.confProDy("verbosity")
+
+    from pyworkflow import Config
+    prodyVerbosity = verbosity if not Config.debugOn() else 'debug'
+    prody.confProDy(auto_secondary=secondary,
+                    verbosity='{0}'.format(prodyVerbosity))
+
+def restoreVerbositySecondary(cls):
+    """configure ProDy to restore secondary structure information and verbosity"""
+    import prody
+    prody.confProDy(auto_secondary=cls.oldSecondary,
+                    verbosity='{0}'.format(cls.oldVerbosity))

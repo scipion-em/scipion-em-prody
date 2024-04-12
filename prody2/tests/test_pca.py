@@ -26,7 +26,7 @@
 # **************************************************************************
 
 import numpy as np
-from os.path import split
+from os.path import split, join
 
 from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
 from pwem.protocols import ProtImportPdb, ProtImportSetOfAtomStructs, exists
@@ -40,7 +40,7 @@ from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
 
 from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
-from prody2.protocols.protocol_import import SCIPION
+from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 
 import prody
 
@@ -51,81 +51,18 @@ class TestProDyPCA(TestWorkflow):
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
+        importStructs(cls)
+        cls.oldVerbosity = prody.confProDy("verbosity")
+        cls.oldSecondary = prody.confProDy("auto_secondary")
 
-    def testProDyPCA(cls):
-        """ Run PCA simple workflow for two ways of building ensembles. """
-        
-        oldVerbosity = prody.confProDy("verbosity")
-        oldSecondary = prody.confProDy("auto_secondary")
-
-        # ---------------------------------------------------------------
-        # Step 1. Import some structures -> Select CA from all but one
-        # --------------------------------------------------------------
-        
-        # Import PDB 3o21
-        protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="3o21")
-        protImportPdb1.setObjLabel('pwem import 3o21')
-        cls.launchProtocol(protImportPdb1)
-
-        # Import PDB 6fpj
-        protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="6fpj")
-        protImportPdb2.setObjLabel('pwem import 6fpj')
-        cls.launchProtocol(protImportPdb2)
-
-        # Import PDB 6flr
-        protImportPdb3 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="6flr")
-        protImportPdb3.setObjLabel('pwem import 6flr')
-        cls.launchProtocol(protImportPdb3)
-
-        # Import PDB 3o21
-        protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="3p3w")
-        protImportPdb4.setObjLabel('pwem import 3p3w')
-        cls.launchProtocol(protImportPdb4)
-
-        # Select dimer and CA
-        protSel1 = cls.newProtocol(ProDySelect, selection="chain B D and name CA")
-        protSel1.inputStructure.set(protImportPdb4.outputPdb)
-        protSel1.setObjLabel('Sel 3p3w_BD_ca') # parallel
-        cls.launchProtocol(protSel1)
-
-        protSel2 = cls.newProtocol(ProDySelect, selection="chain A C and name CA")
-        protSel2.inputStructure.set(protImportPdb2.outputPdb)
-        protSel2.setObjLabel('Sel 6fpj_AC_ca') # displaced
-        cls.launchProtocol(protSel2)
-
-        protSel3 = cls.newProtocol(ProDySelect, selection="name CA")
-        protSel3.inputStructure.set(protImportPdb3.outputPdb)
-        protSel3.setObjLabel('Sel 6flr_ca') # open
-        cls.launchProtocol(protSel3)
-
-        # -----------------------------------------------------------
-        # Step 2. Import set of atom structs from existing selections
-        # -----------------------------------------------------------
-        protSetAS = cls.newProtocol(ProtImportSetOfAtomStructs, inputPdbData=1)
-        protSetAS.filesPath.set(split(protSel2._getPath())[0])
-        protSetAS.filesPattern.set('*Select/*atoms.pdb')
-        protSetAS.setObjLabel('pwem import SetOfAS')
-        cls.launchProtocol(protSetAS)
-
-        # -------------------------------------------------------------------------
-        # Step 3a. last CA selection (3o21_CD) -> buildPDBEns from SetOfAtomStructs
-        # with atom struct ref from last CA selection -> PCA 1
-        # -------------------------------------------------------------------------
-
-        protSel4 = cls.newProtocol(ProDySelect, selection="chain C D and name CA")
-        protSel4.inputStructure.set(protImportPdb1.outputPdb)
-        protSel4.setObjLabel('Sel 3o21_CD_ca') # intermediate
-        cls.launchProtocol(protSel4)
+    def testProDyPCA_1(cls):
+        """ Run PCA simple workflows for two ways of building ensembles with A3 NTDs."""
 
         protEns1 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=0,
                                     matchFunc=0)
-        protEns1.structures.set([protSetAS.outputAtomStructs])
-        protEns1.refStructure.set(protSel4.outputStructure)
-        protEns1.setObjLabel('buildPDBEns_ref_3o21_CD')
+        protEns1.structures.set([cls.protSetAS.outputAtomStructs])
+        protEns1.refStructure.set(cls.protSel4.outputStructure)
+        protEns1.setObjLabel('buildPDBEns_1_set_ref_3o21_CD')
         cls.launchProtocol(protEns1)
 
         numAS = len(protEns1.outputNpz)
@@ -134,7 +71,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs input and added atom struct ref".format(numAS))
 
         protPca1 = cls.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca1.inputEnsemble.set(protEns1.outputNpz)
+        protPca1.inputEnsemble.set([protEns1.outputNpz])
         protPca1.setObjLabel('PCA_from_set_ref_3o21_CD')
         cls.launchProtocol(protPca1)
 
@@ -148,9 +85,9 @@ class TestProDyPCA(TestWorkflow):
         
         protEns2 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
-        protEns2.structures.set([protSetAS.outputAtomStructs])
+        protEns2.structures.set([cls.protSetAS.outputAtomStructs])
         protEns2.refIndex.set(idx)
-        protEns2.setObjLabel('buildPDBEns_set_ref_idx_{0}'.format(idx))
+        protEns2.setObjLabel('buildPDBEns_2_set_ref_idx_{0}'.format(idx))
         cls.launchProtocol(protEns2)
 
         numAS = len(protEns2.outputNpz)
@@ -159,7 +96,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs input and index ref".format(numAS))
 
         protPca2 = cls.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca2.inputEnsemble.set(protEns2.outputNpz)
+        protPca2.inputEnsemble.set([protEns2.outputNpz])
         protPca2.setObjLabel('PCA_from_set_ref_idx')
         cls.launchProtocol(protPca2)
 
@@ -170,10 +107,10 @@ class TestProDyPCA(TestWorkflow):
 
         protEns3 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
-        protEns3.structures.set([protSel4.outputStructure,
-                                 protSetAS.outputAtomStructs])
+        protEns3.structures.set([cls.protSel4.outputStructure,
+                                 cls.protSetAS.outputAtomStructs])
         protEns3.refIndex.set(1)
-        protEns3.setObjLabel('buildPDBEns_set_plus_sel_ref_idx_{0}'.format(idx))
+        protEns3.setObjLabel('buildPDBEns_3_set_plus_sel_ref_idx_{0}'.format(1))
         cls.launchProtocol(protEns3)
 
         numAS = len(protEns3.outputNpz)
@@ -182,7 +119,7 @@ class TestProDyPCA(TestWorkflow):
                            "SetOfAtomStructs and AtomStruct input and index ref".format(numAS))
 
         protPca3 = cls.newProtocol(ProDyPCA, numberOfModes=3)
-        protPca3.inputEnsemble.set(protEns3.outputNpz)
+        protPca3.inputEnsemble.set([protEns3.outputNpz])
         protPca3.setObjLabel('PCA_3_from_set_plus_sel_ref_idx')
         cls.launchProtocol(protPca3)
 
@@ -191,7 +128,7 @@ class TestProDyPCA(TestWorkflow):
                                len(protPca3.outputModes)))
 
         protPca4 = cls.newProtocol(ProDyPCA, numberOfModes=2)
-        protPca4.inputEnsemble.set(protEns3.outputNpz)
+        protPca4.inputEnsemble.set([protEns3.outputNpz])
         protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
         cls.launchProtocol(protPca4)
 
@@ -206,9 +143,9 @@ class TestProDyPCA(TestWorkflow):
 
         protEns4 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
-        protEns4.structures.set([protSel4.outputStructure,
-                                 protSel2.outputStructure])
-        protEns4.setObjLabel('buildPDBEns_2_structs_ref_idx_{0}'.format(idx))
+        protEns4.structures.set([cls.protSel4.outputStructure,
+                                 cls.protSel2.outputStructure])
+        protEns4.setObjLabel('buildPDBEns_4_2-structs_ref_idx_{0}'.format(protEns4.refIndex.get()))
         cls.launchProtocol(protEns4)
 
         numAS = len(protEns4.outputNpz)
@@ -315,27 +252,29 @@ class TestProDyPCA(TestWorkflow):
                         "2D Project protocol didn't add 2 coefficient to first item")
 
 
+    def testProDyPCA_2(cls):
+        """ Test imports, PCA and NMA from 2k39. """
         # -------------------------------------------------------
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA
         # -------------------------------------------------------
-        protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+        cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
                                           pdbId="2k39")
-        protImportPdb4.setObjLabel('pwem import 2k39')
-        cls.launchProtocol(protImportPdb4)
+        cls.protImportPdb4.setObjLabel('pwem import 2k39')
+        cls.launchProtocol(cls.protImportPdb4)
 
-        protSel5 = cls.newProtocol(ProDySelect, selection="name N CA")
-        protSel5.inputStructure.set(protImportPdb4.outputPdb)
-        protSel5.setObjLabel('Sel 2k39_n_ca')
-        cls.launchProtocol(protSel5)
+        cls.protSel5 = cls.newProtocol(ProDySelect, selection="name N CA")
+        cls.protSel5.inputStructure.set(cls.protImportPdb4.outputPdb)
+        cls.protSel5.setObjLabel('Sel 2k39_n_ca')
+        cls.launchProtocol(cls.protSel5)
 
         protImportEns = cls.newProtocol(ProDyImportEnsemble, superpose=2) # iterpose
-        protImportEns.filesPath.set(protSel5._getPath("2k39_atoms.pdb"))
+        protImportEns.filesPath.set(cls.protSel5._getPath("2k39_atoms.pdb"))
         protImportEns.setObjLabel('prody import ens - 2k39_n_ca')
         cls.launchProtocol(protImportEns)
 
         protPca5 = cls.newProtocol(ProDyPCA)
-        protPca5.inputEnsemble.set(protImportEns.outputNpz)
-        protPca5.setObjLabel('PCA_2k39')
+        protPca5.inputEnsemble.set([protImportEns.outputNpz])
+        protPca5.setObjLabel('PCA_2k39_n_ca')
         cls.launchProtocol(protPca5)
 
         # ------------------------------------------------
@@ -345,36 +284,58 @@ class TestProDyPCA(TestWorkflow):
 
         # Launch ANM NMA for selected atoms (2k39 CA)
         protANM1 = cls.newProtocol(ProDyANM)
-        protANM1.inputStructure.set(protSel5.outputStructure)
-        protANM1.setObjLabel('ANM_2k39_CA')
+        protANM1.inputStructure.set(cls.protSel5.outputStructure)
+        protANM1.setObjLabel('ANM_2k39_n_ca')
         cls.launchProtocol(protANM1)
 
         # Import scipion ANM modes
         protImportModes1 = cls.newProtocol(ProDyImportModes)
         protImportModes1.importType.set(SCIPION)
         protImportModes1.filesPath.set(protANM1.outputModes.getFileName())
-        protImportModes1.inputStructure.set(protSel5.outputStructure)
-        protImportModes1.setObjLabel('import_scipion_ANM_CA')
+        protImportModes1.inputStructure.set(cls.protSel5.outputStructure)
+        protImportModes1.setObjLabel('import_scipion_ANM_n_ca')
         cls.launchProtocol(protImportModes1)
+
+        # Check types
+        cls.assertTrue(isinstance(protImportModes1.outputModes, SetOfNormalModes),
+                        "ANM modes should be parsed as a SetOfNormalModes, not {0}".format(
+                            type(protImportModes1.outputModes)))
 
         # Import scipion PCA modes
         protImportModes2 = cls.newProtocol(ProDyImportModes)
         protImportModes2.importType.set(SCIPION)
         protImportModes2.filesPath.set(protPca5.outputModes.getFileName())
-        protImportModes2.inputStructure.set(protSel5.outputStructure)
-        protImportModes2.setObjLabel('import_scipion_PCA_CA')
+        protImportModes2.inputStructure.set(cls.protSel5.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_PCA_n_ca')
         cls.launchProtocol(protImportModes2)
 
-        # Check types
-        cls.assertTrue(isinstance(protImportModes1.outputModes, SetOfNormalModes),
-                        "ANM modes should be parsed as a SetOfNormalModes, not {0}".format(
-                            type(protImportModes1.outputModes)
-                        )) 
-
+        pcaTypeCheck = "PCA modes should be parsed as a SetOfPrincipalComponents, not {0}"
         cls.assertTrue(isinstance(protImportModes2.outputModes, SetOfPrincipalComponents),
-                        "PCA modes should be parsed as a SetOfPrincipalComponents, not {0}".format(
-                            type(protImportModes2.outputModes)
-                        )) 
+                       pcaTypeCheck.format(type(protImportModes2.outputModes))) 
+
+        # Import NMD PCA modes
+        protImportModes3 = cls.newProtocol(ProDyImportModes)
+        protImportModes3.importType.set(NMD)
+        protImportModes3.filesPath.set(join(split(protPca5.outputModes.getFileName())[0], 
+                                            "modes.pca.nmd"))
+        protImportModes3.inputStructure.set(cls.protSel5.outputStructure)
+        protImportModes3.setObjLabel('import_PCA_NMD_n_ca')
+        cls.launchProtocol(protImportModes3)
+
+        cls.assertTrue(isinstance(protImportModes3.outputModes, SetOfPrincipalComponents),
+                        pcaTypeCheck.format(type(protImportModes3.outputModes)))
+
+        # Import MODES_NPZ PCA modes
+        protImportModes4 = cls.newProtocol(ProDyImportModes)
+        protImportModes4.importType.set(MODES_NPZ)
+        protImportModes4.filesPath.set(join(split(protPca5.outputModes.getFileName())[0], 
+                                            "modes.pca.npz"))
+        protImportModes4.inputStructure.set(cls.protSel5.outputStructure)
+        protImportModes4.setObjLabel('import_PCA_NPZ_n_ca')
+        cls.launchProtocol(protImportModes4)
+
+        cls.assertTrue(isinstance(protImportModes4.outputModes, SetOfPrincipalComponents),
+                       pcaTypeCheck.format(type(protImportModes4.outputModes)))
 
         # compare
         protComp3 = cls.newProtocol(ProDyCompare)
@@ -383,58 +344,100 @@ class TestProDyPCA(TestWorkflow):
         protComp3.setObjLabel('Compare_imported_2k39')
         cls.launchProtocol(protComp3)
 
-        cls.assertTrue(prody.confProDy("verbosity") == oldVerbosity,
-                        "prody verbosity changed")
+        cls.assertTrue(prody.confProDy("verbosity") == cls.oldVerbosity,
+                       "prody verbosity changed")
 
-        cls.assertTrue(prody.confProDy("auto_secondary") == oldSecondary,
-                        "prody auto_secondary changed")
+        cls.assertTrue(prody.confProDy("auto_secondary") == cls.oldSecondary,
+                       "prody auto_secondary changed")
+
+    def testProDyPCA_3(cls):
+        """ Test slicing PCAs."""
+
+        protEns6 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
+                                    matchFunc=0)
+        protEns6.structures.set([cls.protSel4.outputStructure,
+                                 cls.protSel2.outputStructure])
+        protEns6.setObjLabel('buildPDBEns_6_2-structs_ref_idx_{0}'.format(protEns6.refIndex.get()))
+        cls.launchProtocol(protEns6)
+
+        protPca4 = cls.newProtocol(ProDyPCA, numberOfModes=2)
+        protPca4.inputEnsemble.set([protEns6.outputNpz])
+        protPca4.setObjLabel('PCA_2_from_set_plus_sel_ref_idx')
+        cls.launchProtocol(protPca4)
+
+        cls.assertSetSize(protPca4.outputModes, 2,
+                           "wrong size SetOfPrincipalComponents ({0} not 2)".format(
+                               len(protPca4.outputModes)))
 
         # ------------------------------------------------
         # Step 8. Select chain B from PCA -> slice
         # ------------------------------------------------
-        protSel6 = cls.newProtocol(ProDySelect, selection="chain C")
-        protSel6.inputStructure.set(protPca4.refPdb)
-        protSel6.setObjLabel('Sel ref_C')
-        cls.launchProtocol(protSel6)
+        cls.protSel6 = cls.newProtocol(ProDySelect, selection="chain C")
+        cls.protSel6.inputStructure.set(protPca4.refPdb)
+        cls.protSel6.setObjLabel('Sel ref_C')
+        cls.launchProtocol(cls.protSel6)
 
-        cls.assertTrue(exists(protSel6._getPath("atoms_atoms.pdb")))
+        cls.assertTrue(exists(cls.protSel6._getPath("atoms_atoms.pdb")))
 
         protEdit1 = cls.newProtocol(ProDyEdit, edit=NMA_SLICE)
         protEdit1.modes.set(protPca4.outputModes)
-        protEdit1.newNodes.set(protSel6.outputStructure)
-        protEdit1.setObjLabel('Slice_to_C')
+        protEdit1.newNodes.set(cls.protSel6.outputStructure)
+        protEdit1.setObjLabel('Slice_to_C_1')
         cls.launchProtocol(protEdit1)
 
-        cls.assertTrue(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")),
-                        'slicing a SetOfPrincipalComponents should create animations')
+        cls.assertFalse(exists(protEdit1._getExtraPath("animations/animated_mode_001.pdb")),
+                       'slicing a SetOfPrincipalComponents should not create animations by default')
         cls.assertTrue(exists(protEdit1._getExtraPath("distanceProfiles/vec1.xmd")),
-                        'slicing a SetOfPrincipalComponents should create distance profiles')
-        
+                       'slicing a SetOfPrincipalComponents should create distance profiles')
+
+        protEdit2 = cls.newProtocol(ProDyEdit, edit=NMA_SLICE)
+        protEdit2.modes.set(protPca4.outputModes)
+        protEdit2.newNodes.set(cls.protSel6.outputStructure)
+        protEdit2.doAnimation.set(True)
+        protEdit2.setObjLabel('Slice_to_C_2_anim')
+        cls.launchProtocol(protEdit2)
+
+        cls.assertTrue(exists(protEdit2._getExtraPath("animations/animated_mode_001.pdb")),
+                       'slicing a SetOfPrincipalComponents should create animations when requested')
+        cls.assertTrue(exists(protEdit2._getExtraPath("distanceProfiles/vec1.xmd")),
+                       'slicing a SetOfPrincipalComponents should create distance profiles')
+
+    def testProDyPCA_4(cls):
+        """ Test measures."""        
         # ------------------------------------------------
         # Step 9. Test measures
         # ------------------------------------------------
         measuresFilename = "measures_1.csv"
+        selstr1 = 'chain C and resnum 1 to 114 249 to 350'
+        selstr2 = 'chain C and resnum 117 to 243 355 to 400'
+        selstr3 = 'chain D and resnum 117 to 243 355 to 400'
+
+        protEns5 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=0,
+                                    matchFunc=0)
+        protEns5.structures.set([cls.protSetAS.outputAtomStructs])
+        protEns5.refStructure.set(cls.protSel4.outputStructure)
+        protEns5.setObjLabel('buildPDBEns_5_set_ref_3o21_CD')
+        cls.launchProtocol(protEns5)
 
         protMeasure1 = cls.newProtocol(ProDyMeasure)
-        protMeasure1.inputEnsemble.set([protEns1.outputNpz]) # default: distance
-        protMeasure1.selection1.set('chain C and resnum 1 to 114 249 to 350')
-        protMeasure1.selection2.set('chain C and resnum 117 to 243 355 to 400')
+        protMeasure1.inputEnsemble.set([protEns5.outputNpz]) # default: distance
+        protMeasure1.selection1.set(selstr1)
+        protMeasure1.selection2.set(selstr2)
         protMeasure1.setObjLabel('measure cleft dist')
         cls.launchProtocol(protMeasure1)
 
         cls.assertTrue(exists(protMeasure1._getPath(measuresFilename)),
-                        'measuring distances should create measures_1.csv')
+                       'measuring distances should create measures_1.csv')
 
         dists = prody.parseArray(protMeasure1._getPath(measuresFilename), delimiter=',')
         cls.assertEqual(np.round(dists[0], 1), 30.5,
-                        'cleft distances should measure 30.5 A')
-        
+                        '1st cleft distance should measure around 30.5 A')
         
         protMeasure2 = cls.newProtocol(ProDyMeasure, measureType=1) # angle
-        protMeasure2.inputEnsemble.set([protEns1.outputNpz])
-        protMeasure2.selection1.set('chain C and resnum 117 to 243 355 to 400')
+        protMeasure2.inputEnsemble.set([protEns5.outputNpz])
+        protMeasure2.selection1.set(selstr2)
         protMeasure2.selection2.set('resnum 1 to 114 249 to 350')
-        protMeasure2.selection3.set('chain D and resnum 117 to 243 355 to 400')
+        protMeasure2.selection3.set(selstr3)
         protMeasure2.setObjLabel('measure LL angle')
         cls.launchProtocol(protMeasure2)
 
@@ -444,14 +447,78 @@ class TestProDyPCA(TestWorkflow):
 
 
         protMeasure3 = cls.newProtocol(ProDyMeasure, measureType=2) # dihedral
-        protMeasure3.inputEnsemble.set([protEns1.outputNpz])
-        protMeasure3.selection1.set('chain C and resnum 117 to 243 355 to 400')
-        protMeasure3.selection2.set('chain C and resnum 1 to 114 249 to 350')
+        protMeasure3.inputEnsemble.set([protEns5.outputNpz])
+        protMeasure3.selection1.set(selstr2)
+        protMeasure3.selection2.set(selstr1)
         protMeasure3.selection3.set('chain D and resnum 1 to 114 249 to 350')
-        protMeasure3.selection4.set('chain D and resnum 117 to 243 355 to 400')
+        protMeasure3.selection4.set(selstr3)
         protMeasure3.setObjLabel('measure displacement dihedral')
         cls.launchProtocol(protMeasure3)
 
         dihedrals = prody.parseArray(protMeasure3._getPath(measuresFilename), delimiter=',')
         cls.assertEqual(np.round(dihedrals[0], 0), -18,
                         '1st displacement dihedral should measure -18 degrees')
+
+def importStructs(cls):
+    # ---------------------------------------------------------------
+    # Step 1. Import some structures -> Select CA from all but one
+    # --------------------------------------------------------------
+    
+    # Import PDB 3o21
+    cls.protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                        pdbId="3o21")
+    cls.protImportPdb1.setObjLabel('pwem import 3o21')
+    cls.launchProtocol(cls.protImportPdb1)
+
+    # Import PDB 6fpj
+    cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                        pdbId="6fpj")
+    cls.protImportPdb2.setObjLabel('pwem import 6fpj')
+    cls.launchProtocol(cls.protImportPdb2)
+
+    # Import PDB 6flr
+    cls.protImportPdb3 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                        pdbId="6flr")
+    cls.protImportPdb3.setObjLabel('pwem import 6flr')
+    cls.launchProtocol(cls.protImportPdb3)
+
+    # Import PDB 3o21
+    cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                        pdbId="3p3w")
+    cls.protImportPdb4.setObjLabel('pwem import 3p3w')
+    cls.launchProtocol(cls.protImportPdb4)
+
+    # Select dimer and CA
+    cls.protSel1 = cls.newProtocol(ProDySelect, selection="chain B D and name CA")
+    cls.protSel1.inputStructure.set(cls.protImportPdb4.outputPdb)
+    cls.protSel1.setObjLabel('Sel 3p3w_BD_ca') # parallel
+    cls.launchProtocol(cls.protSel1)
+
+    cls.protSel2 = cls.newProtocol(ProDySelect, selection="chain A C and name CA")
+    cls.protSel2.inputStructure.set(cls.protImportPdb2.outputPdb)
+    cls.protSel2.setObjLabel('Sel 6fpj_AC_ca') # displaced
+    cls.launchProtocol(cls.protSel2)
+
+    cls.protSel3 = cls.newProtocol(ProDySelect, selection="name CA")
+    cls.protSel3.inputStructure.set(cls.protImportPdb3.outputPdb)
+    cls.protSel3.setObjLabel('Sel 6flr_ca') # open
+    cls.launchProtocol(cls.protSel3)
+
+    # -----------------------------------------------------------
+    # Step 2. Import set of atom structs from existing selections
+    # -----------------------------------------------------------
+    cls.protSetAS = cls.newProtocol(ProtImportSetOfAtomStructs, inputPdbData=1)
+    cls.protSetAS.filesPath.set("Runs")
+    cls.protSetAS.filesPattern.set('*Select/*atoms.pdb')
+    cls.protSetAS.setObjLabel('pwem import SetOfAS')
+    cls.launchProtocol(cls.protSetAS)
+
+    # -------------------------------------------------------------------------
+    # Step 3a. last CA selection (3o21_CD) -> buildPDBEns from SetOfAtomStructs
+    # with atom struct ref from last CA selection -> PCA 1
+    # -------------------------------------------------------------------------
+
+    cls.protSel4 = cls.newProtocol(ProDySelect, selection="chain C D and name CA")
+    cls.protSel4.inputStructure.set(cls.protImportPdb1.outputPdb)
+    cls.protSel4.setObjLabel('Sel 3o21_CD_ca') # intermediate
+    cls.launchProtocol(cls.protSel4)

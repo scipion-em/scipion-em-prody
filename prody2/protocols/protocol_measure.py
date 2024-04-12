@@ -39,7 +39,7 @@ from pyworkflow.protocol import params
 
 import prody
 from prody2.constants import MEASURES
-from prody2.objects import ProDyNpzEnsemble
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 DISTANCE = 0
 ANGLE = 1
@@ -99,12 +99,7 @@ class ProDyMeasure(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        oldSecondary = prody.confProDy("auto_secondary")
-        oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         selstr1 = self.selection1.get()
         selstr2 = self.selection2.get()
@@ -170,8 +165,7 @@ class ProDyMeasure(EMProtocol):
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
                              format='%8.5f', delimiter=',')
 
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=oldSecondary, verbosity='{0}'.format(oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
 

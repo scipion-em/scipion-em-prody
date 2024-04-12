@@ -296,7 +296,7 @@ class ProDyClustENM(EMProtocol):
             if self.replaceFiltered.get():
                 args += ' --replace_filtered'
 
-        self.runJob(Plugin.getProgram('clustenm'), args)
+        self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
         for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
@@ -313,15 +313,15 @@ class ProDyClustENM(EMProtocol):
         self.ensBaseName = os.path.join(direc, 'pdbs')
         npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
         for j in range(ens.numCoordsets()):
-            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'), objLabel=ens.getLabels()[j])
+            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
+                              objLabel=ens.getLabels()[j],
+                              weight=self.weights[j])
             npz.append(frame)
 
-        outNpz = ProDyNpzEnsemble().create(self._getPath(), suffix=suffix)
-        outNpz.copyItems(npz, updateItemCallback=self._setWeights)
-        self.args["outputNpz" + suffix] = outNpz
+        self.args["outputNpz" + suffix] = npz
 
     def _setWeights(self, item, row=None):
-            weight = pwobj.Integer(self.weights[item.getObjId()-1])
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
             setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def createOutputStep(self):
