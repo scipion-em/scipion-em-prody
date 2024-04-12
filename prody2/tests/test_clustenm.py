@@ -28,54 +28,87 @@
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
+from pwem.protocols import ProtImportPdb, ProtImportVolumes
 from prody2.protocols import (ProDySelect, ProDyClustENM)
 
-class TestProDyClustENM(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
+from prody.tests.datafiles import pathDatafile
 
+class TestProDyClustENMsingle(TestWorkflow):
     @classmethod
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
+        importSelect4akeA(cls)
 
-    def testProDyClustENM(self):
-        """ Run ClustENM for one and both chains of 4ake, test single and multi input options """
-
-        # --------------------------------------------------------------
-        # Step 1. Import 4ake and 1ake and select chain A from each
-        # --------------------------------------------------------------
-
-        # Select Chain A
-        protSelA = self.newProtocol(ProDySelect, selection="protein and chain A", 
-                                    inputPdbData=0)
-        protSelA.pdbId.set("4ake")
-        protSelA.setObjLabel('Sel_4akeA')
-        self.launchProtocol(protSelA)
-
-        # Select Chain A
-        protSelB = self.newProtocol(ProDySelect, selection="protein and chain A", 
-                                    inputPdbData=0)
-        protSelB.pdbId.set("1ake")
-        protSelB.setObjLabel('Sel_1akeA')
-        self.launchProtocol(protSelB)
-
-        # --------------------------------------------------------------
-        # Step 2. ClustENM with 4ake A and maxclust
-        # --------------------------------------------------------------
-        protClustenm1 = self.newProtocol(ProDyClustENM, n_gens=2, 
-                                         clusterMode=0, maxclust='(2, 3)',
-                                         n_confs=5, sim=False, outlier=True)
-        protClustenm1.inputStructure.set([protSelA.outputStructure])
+    def testProDyClustENMsingle(cls):
+        """Run ClustENM for chain A from 4ake to test single structure option"""
+        protClustenm1 = cls.newProtocol(ProDyClustENM, n_gens=2,
+                                        clusterMode=0, maxclust='(2, 3)',
+                                        n_confs=5, sim=False, outlier=True)
+        protClustenm1.inputStructures.set([cls.protSelA.outputStructure])
         protClustenm1.setObjLabel('ClustENM_4akeA')
-        self.launchProtocol(protClustenm1)
+        cls.launchProtocol(protClustenm1)
 
-        # --------------------------------------------------------------
-        # Step 3. ClustENM with both structures and rmsd threshold
-        # --------------------------------------------------------------
-        protClustenm2 = self.newProtocol(ProDyClustENM, n_gens=1, 
-                                         clusterMode=1, threshold='1.',
-                                         n_confs=2, sim=False, outlier=True)
-        protClustenm2.inputStructure.set([protSelA.outputStructure,
-                                          protSelB.outputStructure])
+
+class TestProDyClustENMmulti(TestWorkflow):
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4akeA(cls)
+        importSelect1akeA(cls)
+
+    def testProDyClustENMmulti(cls):
+        """Run ClustENM for chain A from 4ake and 1ake to test multi input option"""
+        protClustenm2 = cls.newProtocol(ProDyClustENM, n_gens=1,
+                                        clusterMode=1, threshold='1.',
+                                        n_confs=2, sim=False, outlier=True)
+        protClustenm2.inputStructures.set([cls.protSelA.outputStructure,
+                                           cls.protSelB.outputStructure])
         protClustenm2.setObjLabel('ClustENM_2_structs')
-        self.launchProtocol(protClustenm2)
+        cls.launchProtocol(protClustenm2)
+
+
+class TestProDyClustenmFit(TestWorkflow):
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importPdbVol(cls)
+
+    def testProDyClustENMFitting(cls):
+        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
+                                        clusterMode=1, threshold='1.5',
+                                        n_confs=20, sim=False, doFitting=True)
+        protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
+        protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
+        protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
+        cls.launchProtocol(protClustenm3)
+
+
+def importSelect4akeA(cls):
+    cls.protSelA = cls.newProtocol(ProDySelect, selection="protein and chain A",
+                               inputPdbData=0)
+    cls.protSelA.pdbId.set("4ake")
+    cls.protSelA.setObjLabel('Sel_4akeA')
+    cls.launchProtocol(cls.protSelA)
+
+def importSelect1akeA(cls):
+    cls.protSelB = cls.newProtocol(ProDySelect, selection="protein and chain A",
+                               inputPdbData=0)
+    cls.protSelB.pdbId.set("1ake")
+    cls.protSelB.setObjLabel('Sel_1akeA')
+    cls.launchProtocol(cls.protSelB)
+
+def importPdbVol(cls):
+    # Import starting structure
+    cls.protPdb4ake = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                      pdbFile=pathDatafile('pdb4ake_fixed'))
+    cls.protPdb4ake.setObjLabel('Input PDB')
+    cls.launchProtocol(cls.protPdb4ake)
+
+    # Import target EM map
+    cls.protImportVol = cls.newProtocol(ProtImportVolumes, importFrom=ProtImportVolumes.IMPORT_FROM_FILES,
+                                        filesPath=pathDatafile('mrc1ake'),  samplingRate=2.0)
+    cls.protImportVol.setObjLabel('EM map')
+    cls.launchProtocol(cls.protImportVol)

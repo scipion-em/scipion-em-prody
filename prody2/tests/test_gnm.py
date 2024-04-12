@@ -31,12 +31,14 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyGNM, ProDyEdit, ProDyCompare,
-                              ProDyDomainDecomp)
+                              ProDyDomainDecomp, ProDyImportModes)
+from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.objects import SetOfGnmModes
 
 import prody
+from os.path import split, join
 
 gnmModesTypeWarning = "GNM modes should be parsed as a SetOfGnmModes, not {0}"
 
@@ -48,7 +50,7 @@ class TestProDyGNM(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
 
-    def testProDyGNM(self):
+    def testProDyGNM(cls):
         """ Run GNM simple workflow for two Atomic structures. """
         
         oldVerbosity = prody.confProDy("verbosity")
@@ -58,129 +60,164 @@ class TestProDyGNM(TestWorkflow):
         # Step 1. Import a Pdb -> Select chain A -> GNM
         # ------------------------------------------------
         # Import a PDB
-        protImportPdb1 = self.newProtocol(ProtImportPdb, inputPdbData=0,
+        protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
                                           pdbId="4ake")
         protImportPdb1.setObjLabel('pwem import 4ake')
-        self.launchProtocol(protImportPdb1)
+        cls.launchProtocol(protImportPdb1)
 
         # Select Chain A
-        protSel1 = self.newProtocol(ProDySelect, selection="protein and chain A")
+        protSel1 = cls.newProtocol(ProDySelect, selection="protein and chain A")
         protSel1.inputStructure.set(protImportPdb1.outputPdb)
         protSel1.setObjLabel('Sel_4akeA_all')
-        self.launchProtocol(protSel1)
+        cls.launchProtocol(protSel1)
 
         # Launch GNM NMA for chain A (all atoms)
-        protGNM1 = self.newProtocol(ProDyGNM, cutoff=4)
+        protGNM1 = cls.newProtocol(ProDyGNM, cutoff=4)
         protGNM1.inputStructure.set(protSel1.outputStructure)
         protGNM1.setObjLabel('GNM_all')
-        self.launchProtocol(protGNM1)
+        cls.launchProtocol(protGNM1)
 
-        self.assertTrue(isinstance(protGNM1.outputModes, SetOfGnmModes),
+        cls.assertTrue(isinstance(protGNM1.outputModes, SetOfGnmModes),
                         gnmModesTypeWarning.format(type(protGNM1.outputModes)))
 
         # ------------------------------------------------
         # Step 2. Select CA -> GNM NMA
         # ------------------------------------------------
         # Select Calpha atoms
-        protSel2 = self.newProtocol(ProDySelect, selection="name CA")
+        protSel2 = cls.newProtocol(ProDySelect, selection="name CA")
         protSel2.inputStructure.set(protSel1.outputStructure)
         protSel2.setObjLabel('Sel_4akeA_CA')
-        self.launchProtocol(protSel2)
+        cls.launchProtocol(protSel2)
 
         # Launch GNM NMA for selected atoms (CA) with zero mode (default)
-        protGNM2 = self.newProtocol(ProDyGNM, cutoff=10)
+        protGNM2 = cls.newProtocol(ProDyGNM, cutoff=10)
         protGNM2.inputStructure.set(protSel2.outputStructure)
         protGNM2.setObjLabel('GNM_CA_z')
-        self.launchProtocol(protGNM2)
+        cls.launchProtocol(protGNM2)
 
-        self.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_001.pdb")))
-        self.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_002.pdb")))
+        cls.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_001.pdb")))
+        cls.assertFalse(exists(protGNM2._getExtraPath("animations/animated_mode_002.pdb")))
         # (no animations from GNM)
 
-        self.assertFalse(exists(protGNM2._getExtraPath("distanceProfiles/vec1.xmd")))
-        self.assertTrue(exists(protGNM2._getExtraPath("distanceProfiles/vec2.xmd")))
+        cls.assertFalse(exists(protGNM2._getExtraPath("distanceProfiles/vec1.xmd")))
+        cls.assertTrue(exists(protGNM2._getExtraPath("distanceProfiles/vec2.xmd")))
 
         # Launch ANM NMA for selected atoms (CA) without zeros
-        protGNM2b = self.newProtocol(ProDyGNM)
+        protGNM2b = cls.newProtocol(ProDyGNM)
         protGNM2b.inputStructure.set(protSel2.outputStructure)
         protGNM2b.zeros.set(False)
         protGNM2b.setObjLabel('GNM_CA_n-z')
-        self.launchProtocol(protGNM2b)
+        cls.launchProtocol(protGNM2b)
 
-        self.assertFalse(exists(protGNM2b._getExtraPath("animations/animated_mode_001.pdb")))
+        cls.assertFalse(exists(protGNM2b._getExtraPath("animations/animated_mode_001.pdb")))
         # (no animations from GNM)
 
-        self.assertTrue(exists(protGNM2b._getExtraPath("distanceProfiles/vec1.xmd")))
+        cls.assertTrue(exists(protGNM2b._getExtraPath("distanceProfiles/vec1.xmd")))
 
         # ------------------------------------------------
         # Step 3. Slice -> Compare
         # ------------------------------------------------
         # Slice all-atom GNM NMA to CA
-        protEdit1 = self.newProtocol(ProDyEdit, edit=NMA_SLICE)
+        protEdit1 = cls.newProtocol(ProDyEdit, edit=NMA_SLICE)
         protEdit1.modes.set(protGNM1.outputModes)
         protEdit1.newNodes.set(protSel2.outputStructure)
         protEdit1.setObjLabel('Slice_to_CA')
-        self.launchProtocol(protEdit1)
+        cls.launchProtocol(protEdit1)
 
-        self.assertTrue(isinstance(protEdit1.outputModes, SetOfGnmModes),
+        cls.assertTrue(isinstance(protEdit1.outputModes, SetOfGnmModes),
                         gnmModesTypeWarning.format(type(protEdit1.outputModes)))
 
         # Compare sliced and original CA NMA
-        protComp1 = self.newProtocol(ProDyCompare)
+        protComp1 = cls.newProtocol(ProDyCompare)
         protComp1.modes1.set(protGNM2.outputModes)
         protComp1.modes2.set(protEdit1.outputModes)
         protComp1.setObjLabel('Compare_slcAA_to_CA')
-        self.launchProtocol(protComp1)
+        cls.launchProtocol(protComp1)
 
         # ------------------------------------------------
         # Step 4. Reduce -> Compare
         # ------------------------------------------------
         # Reduce all-atom GNM NMA to CA
-        protEdit2 = self.newProtocol(ProDyEdit, edit=NMA_REDUCE)
+        protEdit2 = cls.newProtocol(ProDyEdit, edit=NMA_REDUCE)
         protEdit2.modes.set(protGNM1.outputModes)
         protEdit2.newNodes.set(protSel2.outputStructure)
         protEdit2.setObjLabel('Reduce_to_CA')
-        self.launchProtocol(protEdit2)
+        cls.launchProtocol(protEdit2)
 
         # Compare reduced and original CA NMA
-        protComp2 = self.newProtocol(ProDyCompare)
+        protComp2 = cls.newProtocol(ProDyCompare)
         protComp2.modes1.set(protGNM2.outputModes)
         protComp2.modes2.set(protEdit2.outputModes)
         protComp2.setObjLabel('Compare_redAA_to_CA')
-        self.launchProtocol(protComp2)
+        cls.launchProtocol(protComp2)
 
         # ------------------------------------------------
         # Step 5. Extend -> Compare
         # ------------------------------------------------
         # Extend CA NMA to all-atoms
-        protEdit3 = self.newProtocol(ProDyEdit, edit=NMA_EXTEND)
+        protEdit3 = cls.newProtocol(ProDyEdit, edit=NMA_EXTEND)
         protEdit3.modes.set(protGNM2.outputModes)
         protEdit3.newNodes.set(protSel1.outputStructure)
         protEdit3.setObjLabel('Extend_to_AA')
-        self.launchProtocol(protEdit3)
+        cls.launchProtocol(protEdit3)
 
         # Compare original AA GNM NMA and extended CA GNM NMA
         # Test matching too
-        protComp3 = self.newProtocol(ProDyCompare, match=True)
+        protComp3 = cls.newProtocol(ProDyCompare, match=True)
         protComp3.modes1.set(protGNM1.outputModes)
         protComp3.modes2.set(protEdit3.outputModes)
         protComp3.setObjLabel('Compare_AA_to_extCA')
-        self.launchProtocol(protComp3)
+        cls.launchProtocol(protComp3)
 
-        self.assertTrue(isinstance(protComp3.outputModes, SetOfGnmModes),
+        cls.assertTrue(isinstance(protComp3.outputModes, SetOfGnmModes),
                         gnmModesTypeWarning.format(type(protComp3.outputModes)))
 
         # ------------------------------------------------
         # Step 6. CA -> Domain Decomposition
         # ------------------------------------------------
         # Domain Decomposition on CA GNM
-        protDomDec1 =  self.newProtocol(ProDyDomainDecomp)
+        protDomDec1 =  cls.newProtocol(ProDyDomainDecomp)
         protDomDec1.modesGNM.set(protGNM2.outputModes)
         protDomDec1.setObjLabel('DomainDecomp_CA')
-        self.launchProtocol(protDomDec1)
+        cls.launchProtocol(protDomDec1)
 
-        self.assertTrue(prody.confProDy("verbosity") == oldVerbosity, 
+        cls.assertTrue(prody.confProDy("verbosity") == oldVerbosity,
                         "prody verbosity changed")
 
-        self.assertTrue(prody.confProDy("auto_secondary") == oldSecondary, 
+        cls.assertTrue(prody.confProDy("auto_secondary") == oldSecondary,
                         "prody auto_secondary changed")
+
+        # Import scipion GNM modes
+        protImportModes2 = cls.newProtocol(ProDyImportModes)
+        protImportModes2.importType.set(SCIPION)
+        protImportModes2.filesPath.set(protGNM2.outputModes.getFileName())
+        protImportModes2.inputStructure.set(protSel2.outputStructure)
+        protImportModes2.setObjLabel('import_scipion_GNM_n_ca')
+        cls.launchProtocol(protImportModes2)
+
+        cls.assertTrue(isinstance(protImportModes2.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes2.outputModes))) 
+
+        # Import NMD GNM modes
+        protImportModes3 = cls.newProtocol(ProDyImportModes)
+        protImportModes3.importType.set(NMD)
+        protImportModes3.filesPath.set(join(split(protGNM2.outputModes.getFileName())[0], 
+                                            "modes.gnm.nmd"))
+        protImportModes3.inputStructure.set(protSel2.outputStructure)
+        protImportModes3.setObjLabel('import_GNM_NMD_n_ca')
+        cls.launchProtocol(protImportModes3)
+
+        cls.assertTrue(isinstance(protImportModes3.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes3.outputModes)))
+
+        # Import MODES_NPZ GNM modes
+        protImportModes4 = cls.newProtocol(ProDyImportModes)
+        protImportModes4.importType.set(MODES_NPZ)
+        protImportModes4.filesPath.set(join(split(protGNM2.outputModes.getFileName())[0], 
+                                            "modes.gnm.npz"))
+        protImportModes4.inputStructure.set(protSel2.outputStructure)
+        protImportModes4.setObjLabel('import_GNM_NPZ_n_ca')
+        cls.launchProtocol(protImportModes4)
+
+        cls.assertTrue(isinstance(protImportModes4.outputModes, SetOfGnmModes),
+                       gnmModesTypeWarning.format(type(protImportModes4.outputModes)))

@@ -16,7 +16,7 @@
     {
         "object.className": "ProDySelect",
         "object.id": "39",
-        "object.label": "Sel_4akeA_all",
+        "object.label": "Sel_chainA_all",
         "object.comment": "",
         "_useQueue": false,
         "_prerequisites": "2",
@@ -51,7 +51,7 @@
     {
         "object.className": "ProDySelect",
         "object.id": "120",
-        "object.label": "Sel_4akeA_CA",
+        "object.label": "Sel_CA",
         "object.comment": "",
         "_useQueue": false,
         "_prerequisites": "39",

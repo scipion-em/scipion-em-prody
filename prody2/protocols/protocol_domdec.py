@@ -39,6 +39,7 @@ from pyworkflow.utils import glob
 from pyworkflow.protocol.params import PointerParam, IntParam
 
 import prody
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 
 class  ProDyDomainDecomp(EMProtocol):
@@ -72,13 +73,7 @@ class  ProDyDomainDecomp(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeDecompStep(self):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
+        fixVerbositySecondary(self)
 
         modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
 
@@ -101,9 +96,7 @@ class  ProDyDomainDecomp(EMProtocol):
         self.pdbFilename = self._getPath("atoms.pdb")
         prody.writePDB(self.pdbFilename, atoms, beta=domains)
     
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
+        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fhCmd=open(self._getPath("domains.vmd"),'w')
