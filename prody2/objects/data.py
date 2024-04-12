@@ -229,15 +229,22 @@ class ProDyNpzEnsemble(SetOfTrajFrames):
 
         return newEnsemble
 
-def replaceCoordsets(oldNpzEns, coordsets, suffix=''):
+def replaceCoordsets(oldNpzEns, coordsets, suffix='', 
+                     iterpose=False, coords=None):
+    """"""
+    
     oldEnsemble = oldNpzEns.loadEnsemble()
+    if coords is None:
+        coords = oldEnsemble.getCoords()
 
     newEnsemble = prody.PDBEnsemble()
     newEnsemble.addCoordset(coordsets, 
                             weights=oldEnsemble.getWeights(), 
                             label=oldEnsemble.getLabels())
     newEnsemble.setAtoms(oldEnsemble.getAtoms())
-    newEnsemble.setCoords(oldEnsemble.getCoords())
+    newEnsemble.setCoords(coords)
+    if iterpose:
+        newEnsemble.iterpose()
     
     sizes = oldEnsemble.getData('size')
     newEnsemble.setData('size', sizes)

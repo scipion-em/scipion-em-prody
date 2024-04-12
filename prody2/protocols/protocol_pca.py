@@ -157,7 +157,8 @@ class ProDyPCA(ProDyModesBase):
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
             dcdEnsemble.iterpose()
             self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), 
-                                         suffix='_aligned')
+                                         suffix='_aligned', iterpose=False,
+                                         coords=dcdEnsemble.getCoords())
         else:
             self.npz2 = self.npz
         
