@@ -213,11 +213,13 @@ class ProDyAlign(EMProtocol):
                            '(an EM volume converted into pseudoatoms).')
 
         form.addParam('tarStructure', PointerParam, label="Target structure",
-                      important=True,
+                      important=True, allowsNull=True,
                       pointerClass='AtomStruct',
                       help='The target structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms).')
+                           '(an EM volume converted into pseudoatoms). '
+                           'If no target is provided but a transformation is, '
+                           'then the whole mobile structure is moved.')
 
         form.addParam('uniteChains', BooleanParam, default=False,
                       label=UNITE_CHAINS_LABEL,
@@ -302,6 +304,10 @@ class ProDyAlign(EMProtocol):
                       label="Existing transformation",
                       help='Previously-calculated transformations can be applied instead.')
 
+        form.addParam('keepMismatching', BooleanParam, default=False,
+                      label="Keep mismatching atoms?",
+                      help="If this is set to True then only the ")
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         self._insertFunctionStep('alignStep')
@@ -312,99 +318,111 @@ class ProDyAlign(EMProtocol):
         fixVerbositySecondary(self, secondary=True)
 
         mobFn = self.mobStructure.get().getFileName()
-        tarFn = self.tarStructure.get().getFileName()
-
         mob = prody.parsePDB(mobFn, alt='all',
                              unite_chains=self.uniteChains.get())
-        tar = prody.parsePDB(tarFn, alt='all',
-                             unite_chains=self.uniteChains.get())
+        
+        if self.tarStructure.hasValue():
+            tarFn = self.tarStructure.get().getFileName()
+            tar = prody.parsePDB(tarFn, alt='all',
+                                unite_chains=self.uniteChains.get())
 
-        if self.matchFunc.get() == BEST_MATCH:
-            matchFunc = prody.bestMatch
-            logger.info('\nUsing bestMatch\n')
-        elif self.matchFunc.get() == SAME_CHID:
-            matchFunc = prody.sameChid
-            logger.info('\nUsing sameChid\n')
-        elif self.matchFunc.get() == SAME_POS:
-            matchFunc = prody.sameChainPos
-            logger.info('\nUsing sameChainPos\n')
+            if self.matchFunc.get() == BEST_MATCH:
+                matchFunc = prody.bestMatch
+                logger.info('\nUsing bestMatch\n')
+            elif self.matchFunc.get() == SAME_CHID:
+                matchFunc = prody.sameChid
+                logger.info('\nUsing sameChid\n')
+            elif self.matchFunc.get() == SAME_POS:
+                matchFunc = prody.sameChainPos
+                logger.info('\nUsing sameChainPos\n')
+            else:
+                chmap = eval(self.chainOrders.get())
+                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
+                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+
+            if self.mapping.get() == DEFAULT:
+                mapping = 'auto'
+            elif self.mapping.get() == PWALIGN:
+                mapping = 'pwalign'
+            elif self.mapping.get() == CEALIGN:
+                mapping = 'ce'
+            else:
+                mapping = False
+
+            mobAmapList = prody.alignChains(mob.protein, tar.protein,
+                                            seqid=self.seqid.get(),
+                                            overlap=self.overlap.get(),
+                                            match_func=matchFunc,
+                                            mapping=mapping,
+                                            rmsd_reject=self.rmsd_reject.get())
+            if len(mobAmapList):
+                mobAmap = mobAmapList[0]
+                mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
+                mobSel.setTitle(mob.getTitle())
+
+                tarAmapList = prody.alignChains(tar.protein, mobSel,
+                                                seqid=self.seqid.get(),
+                                                overlap=self.overlap.get(),
+                                                match_func=matchFunc,
+                                                mapping=mapping,
+                                                rmsd_reject=self.rmsd_reject.get())
+                if len(tarAmapList):
+                    tarAmap = tarAmapList[0]
+                    tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
+                    tarSel.setTitle(tar.getTitle())
+
+                    if mobSel.numAtoms != tarSel.numAtoms():
+                        mobAmapList = prody.alignChains(mobSel, tarSel,
+                                                        seqid=self.seqid.get(),
+                                                        overlap=self.overlap.get(),
+                                                        match_func=matchFunc,
+                                                        mapping=mapping,
+                                                        rmsd_reject=self.rmsd_reject.get())
+                        if len(mobAmapList):
+                            mobAmap = mobAmapList[0]
+                            mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
+                            mobSel.setTitle(mob.getTitle())
+
+                        tarAmapList = prody.alignChains(tarSel, mobSel,
+                                                        seqid=self.seqid.get(),
+                                                        overlap=self.overlap.get(),
+                                                        match_func=matchFunc,
+                                                        mapping=mapping,
+                                                        rmsd_reject=self.rmsd_reject.get())
+                        if len(tarAmapList):
+                            tarAmap = tarAmapList[0]
+                            tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
+                            tarSel.setTitle(tar.getTitle())
+
+                    if self.transformation.get() is None:
+                        self.T = prody.calcTransformation(mobSel, tarSel)
+                    else:
+                        self.T = prody.Transformation(self.transformation.get().getMatrix())
+
+                    alg = prody.applyTransformation(self.T, mobSel)
+
+                    self.rmsd = prody.calcRMSD(mobSel, tarSel)
+                    logger.info("\nRMSD = {:6.2f}\n".format(self.rmsd))
+
+                    if self.keepMismatching.get():
+                        alg = prody.applyTransformation(self.T, mob)
+                        tarSel = tar
+
+                    self.pdbFileNameMob = self._getPath('mobile.pdb')
+                    prody.writePDB(self.pdbFileNameMob, alg)
+
+                    self.pdbFileNameTar = self._getPath('target.pdb')
+                    prody.writePDB(self.pdbFileNameTar, tarSel)
+
+                    self.matrixFileName = self._getPath('transformation.txt')
+                    prody.writeArray(self.matrixFileName, self.T.getMatrix())
         else:
-            chmap = eval(self.chainOrders.get())
-            logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-            matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
-
-        if self.mapping.get() == DEFAULT:
-            mapping = 'auto'
-        elif self.mapping.get() == PWALIGN:
-            mapping = 'pwalign'
-        elif self.mapping.get() == CEALIGN:
-            mapping = 'ce'
-        else:
-            mapping = False
-
-        mobAmapList = prody.alignChains(mob.protein, tar.protein,
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          match_func=matchFunc,
-                                          mapping=mapping,
-                                          rmsd_reject=self.rmsd_reject.get())
-        if len(mobAmapList):
-            mobAmap = mobAmapList[0]
-            mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-            mobSel.setTitle(mob.getTitle())
-
-            tarAmapList = prody.alignChains(tar.protein, mobSel,
-                                              seqid=self.seqid.get(),
-                                              overlap=self.overlap.get(),
-                                              match_func=matchFunc,
-                                              mapping=mapping,
-                                              rmsd_reject=self.rmsd_reject.get())
-            if len(tarAmapList):
-                tarAmap = tarAmapList[0]
-                tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                tarSel.setTitle(tar.getTitle())
-
-                if mobSel.numAtoms != tarSel.numAtoms():
-                    mobAmapList = prody.alignChains(mobSel, tarSel,
-                                                      seqid=self.seqid.get(),
-                                                      overlap=self.overlap.get(),
-                                                      match_func=matchFunc,
-                                                      mapping=mapping,
-                                                      rmsd_reject=self.rmsd_reject.get())
-                    if len(mobAmapList):
-                        mobAmap = mobAmapList[0]
-                        mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-                        mobSel.setTitle(mob.getTitle())
-
-                    tarAmapList = prody.alignChains(tarSel, mobSel,
-                                                      seqid=self.seqid.get(),
-                                                      overlap=self.overlap.get(),
-                                                      match_func=matchFunc,
-                                                      mapping=mapping,
-                                                      rmsd_reject=self.rmsd_reject.get())
-                    if len(tarAmapList):
-                        tarAmap = tarAmapList[0]
-                        tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                        tarSel.setTitle(tar.getTitle())
-
-                if self.transformation.get() is None:
-                    self.T = prody.calcTransformation(mobSel, tarSel)
-                else:
-                    self.T = prody.Transformation(self.transformation.get().getMatrix())
-
-                alg = prody.applyTransformation(self.T, mobSel)
-
-                self.rmsd = prody.calcRMSD(mobSel, tarSel)
-                logger.info("\nRMSD = {:6.2f}\n".format(self.rmsd))
+            if self.transformation.get() is not None:
+                self.T = prody.Transformation(self.transformation.get().getMatrix())
+                alg = prody.applyTransformation(self.T, mob)
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
-
-                self.pdbFileNameTar = self._getPath('target.pdb')
-                prody.writePDB(self.pdbFileNameTar, tarSel)
-
-                self.matrixFileName = self._getPath('transformation.txt')
-                prody.writeArray(self.matrixFileName, self.T.getMatrix())
 
         restoreVerbositySecondary(self)
 
@@ -413,6 +431,9 @@ class ProDyAlign(EMProtocol):
             outputPdbMob = AtomStruct()
             outputPdbMob.setFileName(self.pdbFileNameMob)
 
+            self._defineOutputs(outputStructureMob=outputPdbMob)
+            
+        if hasattr(self, "pdbFileNameTar"):
             outputPdbTar = AtomStruct()
             outputPdbTar.setFileName(self.pdbFileNameTar)
 
