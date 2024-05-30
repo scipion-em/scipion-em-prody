@@ -776,7 +776,7 @@ class ProDyRenumber(EMProtocol):
                            '(true PDB) or a pseudoatomic model\n'
                            '(an EM volume converted into pseudoatoms)')
 
-        form.addParam('selection', StringParam, 
+        form.addParam('selstr', StringParam,
                       default="protein and name CA or nucleic and name P C4' C2",
                       label="selection string",
                       help='This determines which atoms are renumbered. '
