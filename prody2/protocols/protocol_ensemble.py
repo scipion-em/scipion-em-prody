@@ -44,12 +44,11 @@ from pyworkflow.protocol.params import (PointerParam, MultiPointerParam,
 from pyworkflow.object import Float
 
 import prody
-from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
-from prody2.protocols.protocol_atoms import (NOTHING, PWALIGN, CEALIGN,
-                                             DEFAULT)  # residue mapping methods
-from prody2.protocols.protocol_lda import parseMatchDict
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
+from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
+                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM, # chain matching
+                              ENSEMBLE_WEIGHTS)
+from prody2 import parseMatchDict, fixVerbositySecondary, restoreVerbositySecondary
 
 import time
 
@@ -58,11 +57,6 @@ INDEX = 1
 
 BLAST = 0
 DALI = 1
-
-BEST_MATCH = 0
-SAME_CHID = 1
-SAME_POS = 2
-CUSTOM = 3
 
 ENS_FILENAME = 'ensemble.dcd'
 
@@ -452,7 +446,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 oldAmaps = atommaps
                 atommaps = []
                 n = 0
-                for tar in self.tars:
+                for tar in tars:
                     title = tar.getTitle()
                     if title in amapTitles:
                         for i in range(tar.numCoordsets()):
@@ -465,7 +459,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                             atommaps.append(oldAmaps[n])
                             n += 1
             else:
-                tars = [tar for tar in self.tars if tar.getTitle() in amapTitles]
+                tars = [tar for tar in tars if tar.getTitle() in amapTitles]
 
             aligned = prody.alignByEnsemble(tars, ens)
             self.pdbs = SetOfAtomStructs().create(self._getExtraPath())

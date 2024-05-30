@@ -23,7 +23,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
+from collections import OrderedDict
 import os
 import pwem
 import pyworkflow.utils as pwutils
@@ -177,3 +177,15 @@ def restoreVerbositySecondary(cls):
     import prody
     prody.confProDy(auto_secondary=cls.oldSecondary,
                     verbosity='{0}'.format(cls.oldVerbosity))
+
+
+def parseMatchDict(cls):
+    if cls.chainOrders.get() != "":
+        cls.matchDic = eval(cls.chainOrders.get())
+    else:
+        cls.matchDic = OrderedDict()
+
+    if not isinstance(cls.matchDic, OrderedDict):
+        cls.matchDic = OrderedDict()
+
+    cls.labels = list(cls.matchDic.keys())
