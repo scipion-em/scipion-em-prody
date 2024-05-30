@@ -41,8 +41,8 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 from pwem.viewers.plotter import EmPlotter
 
-from prody2.protocols.protocol_logistic import ProDyLRA
-from prody2.objects import SetOfLogisticModes
+# from prody2.protocols.protocol_lda import ProDyLDA
+# from prody2.objects import SetOfLdaModes
 
 import prody
 
@@ -50,7 +50,7 @@ class ProDyRmsfViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
     """
     _label = 'Fluctuations viewer'
-    _targets = [ProDyLRA, 
+    _targets = [#ProDyLDA, 
                 SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
@@ -85,12 +85,12 @@ class ProDyRmsfViewer(ProtocolViewer):
 
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
-            isLRA = False
-            if isinstance(self.protocol, SetOfLogisticModes):
-                isLRA = True
+            isLDA = False
+            if isinstance(self.protocol, SetOfLdaModes):
+                isLDA = True
         else:
             modes = self.protocol.outputModes
-            isLRA = True
+            isLDA = True
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
@@ -105,7 +105,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                                         "the availables ones." % (modeNumber+1),
                                         title="Invalid input")]
 
-        if isLRA:
+        if isLDA:
             cutoff = modes.getShuffledPercentile(self.percentile.get())
             inds = prody.calcMostMobileNodes(mode, cutoff=cutoff)
         else:

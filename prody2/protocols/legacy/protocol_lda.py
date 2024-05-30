@@ -42,7 +42,7 @@ from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import (ProDyNpzEnsemble, TrajFrame, SetOfLdaModes,
                             loadAndWriteEnsemble)
 from prody2.constants import PRODY_FRACT_VARS
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary, parseMatchDict
 
 import prody
 import matplotlib.pyplot as plt
@@ -228,14 +228,3 @@ class ProDyLDA(ProDyModesBase):
 
         self.matchDic.update(zip(self.labels, self.classes))
         return self.matchDic
-
-def parseMatchDict(cls):
-    if cls.chainOrders.get() != "":
-        cls.matchDic = eval(cls.chainOrders.get())
-    else:
-        cls.matchDic = OrderedDict()
-
-    if not isinstance(cls.matchDic, OrderedDict):
-        cls.matchDic = OrderedDict()
-
-    cls.labels = list(cls.matchDic.keys())

@@ -38,7 +38,7 @@ import re
 
 from ..protocols.protocol_atoms import ProDyAlign
 from ..protocols.protocol_ensemble import ProDyBuildPDBEnsemble
-from ..protocols.protocol_lda import ProDyLDA
+from ..protocols.legacy.protocol_lda import ProDyLDA
 from ..protocols.protocol_logistic import ProDyLRA
 
 from pwem.wizards import VariableWizard
