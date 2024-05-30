@@ -103,11 +103,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       condition=inputTypeCheck % INDEX,
                       help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
 
-        form.addParam('degeneracy', BooleanParam, default=False,
+        form.addParam('degeneracy', BooleanParam, default=True,
                       expertLevel=LEVEL_ADVANCED,
                       label="Take only first conformation from each structure/set",
-                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
-                           '(**False**) of each structure should be added to the ensemble. Default is **False**.')
+                      help='Elect whether only the active coordinate set (degeneracy=**True**) or all the coordinate sets '
+                           '(degeneracy=**False**) of each structure should be added to the ensemble. Default is **False**.')
 
         form.addParam('lenCutoff', StringParam, label="length cutoff for filtering DALI results",
                       condition=inputTypeCheck % INDEX, default='-1',
@@ -241,7 +241,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         
         form.addParam('writePDBFiles', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
-                      condition=HAVE_CHEM==True,
+                      condition=(HAVE_CHEM==True and 'degeneracy'),
                       label="Whether to write many PDB files",
                       help='These will be registered as output too')
         
@@ -261,25 +261,33 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         fixVerbositySecondary(self)
 
+        degeneracy = self.degeneracy.get()
+
         # handle reference
         self.weights = []
         if self.refType.get() == STRUCTURE:
             ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
                                  unite_chains=self.uniteChains.get())
-            self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
+            if ref.numCoordsets() > 1 and not degeneracy:
+                self.weights.extend([self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS,
+                                                                               defaultValue=1)] * ref.numCoordsets())
+            else:
+                self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS,
+                                                                              defaultValue=1))
         else:
             ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
 
         # handle other inputs
         if self.inputType.get() == STRUCTURE:
             self.pdbs = []
+            structureObjects = []
             for i, obj in enumerate(self.structures):
                 if isinstance(obj.get(), AtomStruct):
+                    structureObjects.append(obj.get())
                     self.pdbs.append(obj.get().getFileName())
-                    self.weights.append(obj.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1))
                 else:
+                    structureObjects.extend([tarStructure for tarStructure in obj.get()])
                     self.pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-                    self.weights.extend([tarStructure.getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1) for tarStructure in obj.get()])
 
             if self.mapping.get() == DEFAULT:
                 mappings = 'auto'
@@ -323,14 +331,13 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         if not hasattr(self, "tars"):
             self.tars = prody.parsePDB(self.pdbs, alt='all',
-                                        unite_chains=self.uniteChains.get())
+                                       unite_chains=self.uniteChains.get())
             if isinstance(self.tars, prody.Atomic):
-                nModels = self.tars.numCoordsets()
-                self.tars = []
-                for i in range(nModels):
-                    self.tars.append(prody.parsePDB(self.pdbs, alt='all',
-                                                    model=i+1,
-                                                    unite_chains=self.uniteChains.get()))
+                self.tars = [self.tars]
+
+            for i, tar in enumerate(self.tars):
+                self.weights.extend([structureObjects[i].getAttributeValue(ENSEMBLE_WEIGHTS,
+                                                                           defaultValue=1)] * tar.numCoordsets())
 
         atommaps = [] # output argument for collecting atommaps
         unmapped = []
@@ -441,25 +448,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             indices = ens.getIndices()
             amapTitles = [amap.getAtomGroup().getTitle() for amap in atommaps]
 
-            if not self.degeneracy.get():
-                tars = []
-                oldAmaps = atommaps
-                atommaps = []
-                n = 0
-                for tar in tars:
-                    title = tar.getTitle()
-                    if title in amapTitles:
-                        for i in range(tar.numCoordsets()):
-                            tarCopy = tar.copy()
-                            for j in range(tarCopy.numCoordsets()-1, 0, -1):
-                                tarCopy.delCoordset(j)
-                            tarCopy.setCoords(tar.getCoordsets()[i])
-                            tarCopy.setTitle(title + "_{0}".format(i))
-                            tars.append(tarCopy)
-                            atommaps.append(oldAmaps[n])
-                            n += 1
-            else:
-                tars = [tar for tar in tars if tar.getTitle() in amapTitles]
+            tars = [tar for tar in tars if tar.getTitle() in amapTitles]
 
             aligned = prody.alignByEnsemble(tars, ens)
             self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
@@ -537,14 +526,25 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                     structures = self.structures
 
                 pdbs = []
+                structureObjects = []
                 for _, obj in enumerate(structures):
                     if isinstance(obj.get(), AtomStruct):
                         pdbs.append(obj.get().getFileName())
+                        structureObjects.append(obj.get())
                     else:
                         pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
+                        structureObjects.extend([tarStructure for tarStructure in obj.get()])
 
                 self.tars = prody.parsePDB(pdbs, alt='all',
-                                        unite_chains=self.uniteChains.get())
+                                           unite_chains=self.uniteChains.get())
+
+                if isinstance(self.tars, prody.Atomic):
+                    self.tars = [self.tars]
+
+                for i, tar in enumerate(self.tars):
+                    self.weights.extend([structureObjects[i].getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1)] * tar.numCoordsets())
+                    if tar.numCoordsets() > 1:
+                        self.haveMultipleCoordsets = True
             
             titles = [ag.getTitle() for ag in self.tars]
             _, counts = np.unique(np.array(titles), return_counts=True)
