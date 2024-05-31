@@ -59,7 +59,8 @@ IMPORT_FROM_ID_CONDITION = 'inputPdbData == IMPORT_FROM_ID'
 SUMMARY_NO_OUTPUT = 'Output structure not ready yet'
 NOT_DUMMY_SELSTR = "not dummy"
 
-class ProDySelect(EMProtocol):
+
+class ProDyAtomicBase(EMProtocol):
     """
     This protocol will perform atom selection
     """
@@ -71,7 +72,7 @@ class ProDySelect(EMProtocol):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
@@ -100,7 +101,7 @@ class ProDySelect(EMProtocol):
                            '(an EM volume converted into pseudoatoms)')
 
         form.addParam('selection', StringParam, default="protein and name CA or nucleic and name P C4' C2",
-                      label="selection string",
+                      label="selection string", condition=includeSelection,
                       help='This determines which atoms are selected. '
                            'There is a rich selection engine with similarities to VMD. '
                            'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
@@ -108,6 +109,11 @@ class ProDySelect(EMProtocol):
         form.addParam('uniteChains', BooleanParam, default=False,
                       label=UNITE_CHAINS_LABEL,
                       help=UNITE_CHAINS_HELP)
+
+class ProDySelect(ProDyAtomicBase):
+    """
+    This protocol will perform atom selection
+    """     
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -483,7 +489,7 @@ class ProDyAlign(EMProtocol):
 
 
 
-class ProDyBiomol(EMProtocol):
+class ProDyBiomol(ProDyAtomicBase):
     """
     This protocol will extract biologically relevant molecular assemblies,
     including orientations of proteins in membranes from OPM.
@@ -496,43 +502,19 @@ class ProDyBiomol(EMProtocol):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy Biomol')
+        ProDyAtomicBase._defineParams(self, form, includeSelection)
 
-        form.addParam('inputPdbData', EnumParam, choices=['id', 'file', 'pointer'],
-                      label="Import atomic structure from",
-                      default=self.USE_POINTER,
-                      display=EnumParam.DISPLAY_HLIST,
-                      help='Import PDB or mmCIF data from online server or local file')
-        form.addParam('pdbId', StringParam,
-                      condition=IMPORT_FROM_ID_CONDITION,
-                      label="Atomic structure ID ", allowsNull=True,
-                      help='Type a PDB ID (four alphanumeric characters).')
-        form.addParam('pdbFile', PathParam, label="File path",
-                      condition='inputPdbData == IMPORT_FROM_FILES',
-                      allowsNull=True,
-                      help='Specify a path to desired atomic structure.')
-        form.addParam('inputStructure', PointerParam, label="Input structure",
-                      condition='inputPdbData == USE_POINTER',
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
-        
         form.addParam('membrane', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       condition=IMPORT_FROM_ID_CONDITION,
                       label="Download membrane placement model?",
                       help='Use the OPM database to to model placement in the membrane.')
-
-        form.addParam('uniteChains', BooleanParam, default=False,
-                      label=UNITE_CHAINS_LABEL,
-                      help=UNITE_CHAINS_HELP)
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -726,7 +708,7 @@ class ProDyToBiopythonMetadata(EMProtocol):
         return summ
 
 
-class ProDyRenumber(EMProtocol):
+class ProDyRenumber(ProDyAtomicBase):
     """
     This protocol will perform atom renumbering
     """
@@ -738,48 +720,16 @@ class ProDyRenumber(EMProtocol):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
         """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy Renumber')
-
-        form.addParam('inputPdbData', EnumParam, choices=['id', 'file', 'pointer'],
-                      label="Import atomic structure from",
-                      default=self.USE_POINTER,
-                      display=EnumParam.DISPLAY_HLIST,
-                      help='Import PDB or mmCIF data from online server or local file')
-        form.addParam('pdbId', StringParam,
-                      condition=IMPORT_FROM_ID_CONDITION,
-                      label="Atomic structure ID ", allowsNull=True,
-                      help='Type a PDB ID (four alphanumeric characters).')
-        form.addParam('pdbFile', PathParam, label="File path",
-                      condition='inputPdbData == IMPORT_FROM_FILES',
-                      allowsNull=True,
-                      help='Specify a path to desired atomic structure.')
-        form.addParam('inputStructure', PointerParam, label="Input structure",
-                      condition='inputPdbData == USE_POINTER',
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
-
-        form.addParam('selstr', StringParam,
-                      default="protein and name CA or nucleic and name P C4' C2",
-                      label="selection string",
-                      help='This determines which atoms are renumbered. '
-                           'There is a rich selection engine with similarities to VMD. '
-                           'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
+        ProDyAtomicBase._defineParams(self, form, includeSelection)
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
                       help='This number is added to the residue number of the selection')
-
-        form.addParam('uniteChains', BooleanParam, default=False,
-                      label=UNITE_CHAINS_LABEL,
-                      help=UNITE_CHAINS_HELP)
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -814,7 +764,7 @@ class ProDyRenumber(EMProtocol):
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         ag = prody.parsePDB(inputFn)
 
-        sel = ag.select(self.selstr.get())
+        sel = ag.select(self.selection.get())
         sel.setResnums(sel.getResnums() + self.offset.get())
         prody.writePDB(self.pdbFileName, ag)
 
