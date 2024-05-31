@@ -460,6 +460,56 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(ag.numChains() == 3,
                        "1ake biomol 1 should have 1 chains, not {0}".format(ag.numChains()))
 
+    def testProDyRenumberAll(cls):
+        """ Run different selection options and confirm if it works """
+
+        # ----------------------------------------------------------------------
+        # Step 1a. Renumber imported selected 4akeA_ca to add 100
+        # ----------------------------------------------------------------------
+        protRenum = cls.newProtocol(ProDySelect, selection='all', offset=100)
+        protRenum.inputStructure.set(cls.protSel.outputStructure)
+        protRenum.setObjLabel('Rename_4akeA_ca_100')
+        cls.launchProtocol(protRenum)
+
+        outputFilename = "4ake_atoms_atoms.pdb"
+        cls.assertTrue(exists(protRenum._getPath(outputFilename)))
+        cls.assertTrue(hasattr(protRenum, "outputStructure"))
+
+        ag = prody.parsePDB(protRenum._getPath(outputFilename))
+        cls.assertTrue(ag.getResnums()[0] == 101,
+                        "renumbered 4ake should have first resnum 101, not {0}".format(ag.getResnums()[0]))
+        cls.assertTrue(ag.getResnums()[-1] == 314,
+                        "renumbered 4ake should have last resnum 314, not {0}".format(ag.getResnums()[0]))
+        
+    def testProDyRenumberSome(cls):
+        """ Run different selection options and confirm if it works """
+
+        # ----------------------------------------------------------------------
+        # Step 1a. Renumber imported selected 4akeA_ca to add 100
+        # ----------------------------------------------------------------------
+        protRenum = cls.newProtocol(ProDySelect, selection='resnum 100 to 150', offset=100)
+        protRenum.inputStructure.set(cls.protSel.outputStructure)
+        protRenum.setObjLabel('Rename_4akeA_ca_100')
+        cls.launchProtocol(protRenum)
+
+        outputFilename = "4ake_atoms_atoms.pdb"
+        cls.assertTrue(exists(protRenum._getPath(outputFilename)))
+        cls.assertTrue(hasattr(protRenum, "outputStructure"))
+
+        ag = prody.parsePDB(protRenum._getPath(outputFilename))
+
+        # check that most of the structure stays the same
+        cls.assertTrue(ag.getResnums()[0] == 1,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[0]))
+        cls.assertTrue(ag.getResnums()[-1] == 214,
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(ag.getResnums()[0]))
+        
+        # check that the part got renumbered
+        cls.assertTrue(ag.getResnums()[99] == 201,
+                        "Partially renumbered 4ake should have 100th resnum 201, not {0}".format(ag.getResnums()[0]))
+        cls.assertTrue(ag.getResnums()[149] == 250,
+                        "Partially renumbered 4ake should have 150th resnum 250, not {0}".format(ag.getResnums()[0]))
+
 def importSelect4ake(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 
                                   selection="name CA and chain A",
