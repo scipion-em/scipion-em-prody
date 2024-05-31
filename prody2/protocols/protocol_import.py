@@ -37,7 +37,7 @@ from pwem.objects import (String, AtomStruct, SetOfAtomStructs, EMFile,
 from pwem.protocols import ProtImportFiles
 
 from prody2.objects import (ProDyNpzEnsemble, TrajFrame,
-                            SetOfGnmModes, SetOfLdaModes)
+                            SetOfGnmModes, SetOfLogisticModes)
 from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
@@ -154,8 +154,8 @@ class ProDyImportModes(ProtImportFiles):
 
             if self.pattern1.find('pca') != -1:
                 prodyType = prody.PCA
-            elif self.pattern1.find('lda') != -1:
-                prodyType = prody.LDA
+            elif self.pattern1.find('logreg') != -1:
+                prodyType = prody.LRA
             elif self.pattern1.find('gnm') != -1:
                 prodyType = prody.GNM
             else:
@@ -201,8 +201,8 @@ class ProDyImportModes(ProtImportFiles):
         elif (self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1]
             or self.outModes.getEigvals()[0] < ZERO):
             nmSet = SetOfNormalModes(filename=fnSqlite)
-        elif isinstance(self.outModes, prody.LDA):
-            nmSet = SetOfLdaModes(filename=fnSqlite)
+        elif isinstance(self.outModes, prody.LRA):
+            nmSet = SetOfLogisticModes(filename=fnSqlite)
         else:
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
 

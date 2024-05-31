@@ -61,7 +61,7 @@ class ProDyLRA(ProDyModesBase):
         """
         # You need a params to belong to a section:
 
-        form.addSection(label='ProDy LDA')
+        form.addSection(label='ProDy LRA')
         form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
@@ -74,7 +74,7 @@ class ProDyLRA(ProDyModesBase):
                            '(**False**) of each structure should be added to the ensemble. Default is **True**.')
         form.addParam('numberOfShuffles', IntParam, default=10,
                       label='Number of random shuffles',
-                      help='The class labels will be shuffled this many times for LDA to '
+                      help='The class labels will be shuffled this many times for LRA to '
                            'assess random variation.')
         form.addParam('selstr', StringParam, default="name CA",
                       label="Selection string",
