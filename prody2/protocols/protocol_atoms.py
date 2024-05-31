@@ -725,7 +725,7 @@ class ProDyRenumber(ProDyAtomicBase):
         Params:
             form: this is the form to be populated with sections and params
         """
-        ProDyAtomicBase._defineParams(self, form)
+        ProDyAtomicBase._defineParams(self, form, includeSelection=True)
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
