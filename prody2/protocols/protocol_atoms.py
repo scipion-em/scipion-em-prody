@@ -72,7 +72,7 @@ class ProDyAtomicBase(EMProtocol):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
@@ -101,7 +101,7 @@ class ProDyAtomicBase(EMProtocol):
                            '(an EM volume converted into pseudoatoms)')
 
         form.addParam('selection', StringParam, default="protein and name CA or nucleic and name P C4' C2",
-                      label="selection string",
+                      label="selection string", condition=includeSelection,
                       help='This determines which atoms are selected. '
                            'There is a rich selection engine with similarities to VMD. '
                            'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
@@ -508,7 +508,7 @@ class ProDyBiomol(ProDyAtomicBase):
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        ProDyAtomicBase._defineParams()
+        ProDyAtomicBase._defineParams(includeSelection=False)
 
         form.addParam('membrane', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
