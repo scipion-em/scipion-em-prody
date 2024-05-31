@@ -45,21 +45,11 @@ from pyworkflow.utils import logger
 
 from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 from prody2.objects import Atom, SetOfAtoms
+from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
+                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM) # chain matching
 
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
-
-# chain matching methods
-BEST_MATCH = 0
-SAME_CHID = 1
-SAME_POS = 2
-CUSTOM = 3
-
-# residue mapping methods
-NOTHING = 0 # stop trivial mapping if trivial mapping fails
-PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
-CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
-DEFAULT = 3 # try pwalign then CE
 
 UNITE_CHAINS_LABEL = "Unite chains in mmCIF segments"
 UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '

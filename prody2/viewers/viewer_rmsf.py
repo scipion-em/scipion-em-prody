@@ -25,8 +25,7 @@
 # *
 # **************************************************************************
 """
-This module implements viewers for fluctuations with percentiles and was 
-originally designed for LDA.
+This module implements viewers for fluctuations with percentiles.
 """
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,8 +40,8 @@ from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
 from pwem.viewers.plotter import EmPlotter
 
-from prody2.protocols.protocol_lda import ProDyLDA
-from prody2.objects import SetOfLdaModes
+from prody2.protocols.protocol_logistic import ProDyLRA
+from prody2.objects import SetOfLogisticModes
 
 import prody
 
@@ -50,7 +49,7 @@ class ProDyRmsfViewer(ProtocolViewer):
     """Visualization of results from the ProDy mode projection protocol.    
     """
     _label = 'Fluctuations viewer'
-    _targets = [ProDyLDA, SetOfNormalModes]
+    _targets = [ProDyLRA, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
@@ -64,7 +63,7 @@ class ProDyRmsfViewer(ProtocolViewer):
         group.addParam('percentile', params.FloatParam, default=99.9,
                       label='Percentile cutoff for best residues',
                       help='Values above this percentile (float from 0 to 100) of the shuffled '
-                           'LDAs or LRAs will be used to select most mobile residues if the input is LDA or LRA. '
+                           'LRAs will be used to select most mobile residues if the input is LRA. '
                            'Otherwise, this percentile will be applied to the RMSF directly.')
 
         form.addParam('displayVmd', params.LabelParam,
@@ -84,12 +83,12 @@ class ProDyRmsfViewer(ProtocolViewer):
 
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
-            isLDA = False
-            if isinstance(self.protocol, SetOfLdaModes):
-                isLDA = True
+            isLRA = False
+            if isinstance(self.protocol, SetOfLogisticModes):
+                isLRA = True
         else:
             modes = self.protocol.outputModes
-            isLDA = True
+            isLRA = True
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
@@ -104,7 +103,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                                         "the availables ones." % (modeNumber+1),
                                         title="Invalid input")]
 
-        if isLDA:
+        if isLRA:
             cutoff = modes.getShuffledPercentile(self.percentile.get())
             inds = prody.calcMostMobileNodes(mode, cutoff=cutoff)
         else:

@@ -1,7 +1,7 @@
 12 April 2024 - major release v3.4.0
-    1. Added logistic regression analysis (LRA) as a much better way for comparing ensemble subsets
+    1. Added logistic regression analysis (LRA) instead of LDA as a much better way for comparing ensemble subsets
     2. Added protocols for fetching data from the BioExcel-CV19 simulation database
-    3. Many fixes, especially to PCA and viewers
+    3. Many fixes, especially to ensembles, PCA and viewers
 
 8 February 2024
     1. Added linear discriminant analysis (LDA) for comparing ensemble subsets

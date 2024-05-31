@@ -43,3 +43,16 @@ PRODY_FRACT_VARS = "_prodyFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
                              "protocols", "scripts")
+
+
+# chain matching methods
+BEST_MATCH = 0
+SAME_CHID = 1
+SAME_POS = 2
+CUSTOM = 3
+
+# residue mapping methods
+NOTHING = 0 # stop trivial mapping if trivial mapping fails
+PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
+CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
+DEFAULT = 3 # try pwalign then CE
