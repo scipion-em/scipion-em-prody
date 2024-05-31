@@ -502,13 +502,13 @@ class ProDyBiomol(ProDyAtomicBase):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        ProDyAtomicBase._defineParams(self, form, includeSelection=False)
+        ProDyAtomicBase._defineParams(self, form, includeSelection)
 
         form.addParam('membrane', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
@@ -720,12 +720,12 @@ class ProDyRenumber(ProDyAtomicBase):
     _possibleOutputs = {'outputStructure': AtomStruct}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, includeSelection=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params
         """
-        ProDyAtomicBase._defineParams(self, form, includeSelection=True)
+        ProDyAtomicBase._defineParams(self, form, includeSelection)
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
