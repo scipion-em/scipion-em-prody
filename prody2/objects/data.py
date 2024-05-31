@@ -266,10 +266,7 @@ def replaceCoordsets(oldNpzEns, coordsets, suffix='',
 class SetOfGnmModes(SetOfNormalModes):
     pass
 
-class SetOfLdaModes(SetOfNormalModes):
-    pass
-
-class SetOfLogisticModes(SetOfLdaModes):
+class SetOfLogisticModes(SetOfNormalModes):
     pass
 
 class Atom(EMObject):

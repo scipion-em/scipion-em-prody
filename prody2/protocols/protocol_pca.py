@@ -35,13 +35,13 @@ from multiprocessing import cpu_count
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfPrincipalComponents, String
+from pwem.objects import SetOfPrincipalComponents, String, AtomStruct
 
 from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
                                         LEVEL_ADVANCED)
-from pyworkflow.object import Float
+from pyworkflow.object import Float, Pointer
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import replaceCoordsets, loadAndWriteEnsemble
@@ -51,6 +51,9 @@ from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 import prody
 import matplotlib.pyplot as plt
 
+from prody2.objects import HAVE_CHEM
+if HAVE_CHEM:
+    from prody2.objects import DcdMDSystem
 
 class ProDyPCA(ProDyModesBase):
     """
@@ -137,15 +140,26 @@ class ProDyPCA(ProDyModesBase):
 
     def computeModesStep(self, n=5):
         fixVerbositySecondary(self)
-        loadAndWriteEnsemble(self) # creates self.npz and others
+
+        if (len(self.inputEnsemble)==1 and
+            isinstance(self.inputEnsemble[0].get(), DcdMDSystem)):
+                self.npz = None
+                system = self.inputEnsemble[0].get()
+                self.dcdFileName = system.getTrajectoryFile()
+
+                self.pdbFileName = system.getSystemFile()
+                self.averageStructure = AtomStruct()
+                self.averageStructure.setFileName(self.pdbFileName)
+        else:
+            loadAndWriteEnsemble(self) # creates self.npz, self.dcdFileName and others
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
                ' -o {3} -p modes.pca -n {4} -P {5}'.format(self.dcdFileName,
-                                                       self.pdbFileName,
-                                                       self.selstr.get(),
-                                                       self._getPath(), n,
-                                                       self.numberOfThreads.get())
+                                                           self.pdbFileName,
+                                                           self.selstr.get(),
+                                                           self._getPath(), n,
+                                                           self.numberOfThreads.get())
         if self.keepAlignment.get():
             args += " --aligned"
 
@@ -156,9 +170,13 @@ class ProDyPCA(ProDyModesBase):
         if not self.keepAlignment.get():
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
             dcdEnsemble.iterpose()
-            self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(), 
-                                         suffix='_aligned', iterpose=False,
-                                         coords=dcdEnsemble.getCoords())
+
+            if self.npz is not None:
+                self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(),
+                                            suffix='_aligned', iterpose=False,
+                                            coords=dcdEnsemble.getCoords())
+            else:
+                self.npz2 = None
         else:
             self.npz2 = self.npz
         
@@ -246,8 +264,11 @@ class ProDyPCA(ProDyModesBase):
         self._defineOutputs(refPdb=inputPdb)
         outSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=outSet, outputEnsemble=self.npz2)
+        self._defineOutputs(outputModes=outSet)
         self._defineSourceRelation(inputPdb, outSet)
+
+        if self.npz2 is not None:
+            self._defineOutputs(outputEnsemble=self.npz2)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):
