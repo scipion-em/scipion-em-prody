@@ -508,7 +508,7 @@ class ProDyBiomol(ProDyAtomicBase):
             form: this is the form to be populated with sections and params
         """
         # You need a params to belong to a section:
-        ProDyAtomicBase._defineParams(includeSelection=False)
+        ProDyAtomicBase._defineParams(self, form, includeSelection=False)
 
         form.addParam('membrane', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
@@ -725,7 +725,7 @@ class ProDyRenumber(ProDyAtomicBase):
         Params:
             form: this is the form to be populated with sections and params
         """
-        ProDyAtomicBase._defineParams()
+        ProDyAtomicBase._defineParams(self, form)
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
