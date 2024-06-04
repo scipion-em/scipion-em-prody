@@ -42,6 +42,10 @@ class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-prody"
 
     @classmethod
+    def _defineVariables(cls):
+        cls._defineVar(PRODY_ENV_ACT, "conda activate prody-{0}".format(PRODY_DEFAULT_VER_NUM))
+
+    @classmethod
     def getEnviron(cls):
         """ Setup the environment variables needed to launch ProDy. """
         environ = pwutils.Environ(os.environ)
@@ -65,7 +69,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         for ver in VERSIONS:
             cls.addProDyPackage(env, ver,
-                                default=ver == PRODY_DEFAULT_VER_NUM)
+                                default=(ver==PRODY_DEFAULT_VER_NUM))
 
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
@@ -96,28 +100,24 @@ class Plugin(pwem.Plugin):
         PRODY_INSTALLED_OWN = 'prody_%s_installed_own_env' % version
         PRODY_INSTALLED_SCIPION = 'prody_%s_installed_scipion_env' % version
         for i, PRODY_INSTALLED in enumerate([PRODY_INSTALLED_OWN, PRODY_INSTALLED_SCIPION]):
-            if i == 1:
-                installCmd = []
-
-            if version == DEVEL:
-                # Use latest prody on github
-                installCmd.append('cd .. &&')
-                clonePath = os.path.join(pwem.Config.EM_ROOT, "ProDy")
-                if not os.path.exists(clonePath):
-                    installCmd.append('git clone -b scipion https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+            if i == 0:
+                
+                installCmd.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
                 installCmd.append('cd ProDy &&')
-                installCmd.append('git pull &&')
 
-            # Install downloaded code
-            installCmd.append('pip install -U -e . && python setup.py build_ext --inplace --force &&')
+                if version == DEVEL:
+                    installCmd.append('git checkout scipion &&')
+                    installCmd.append('git pull &&')
+                else:
+                    installCmd.append('git checkout v{0} &&'.format(version))
 
-            if version == DEVEL:
-                installCmd.append('cd .. && cd prody-github &&')
-
-            installCmd.append('python -c "import os; os.environ.setdefault(\'HOME\', \'{0}\')" &&'.format(Config.SCIPION_HOME + os.path.sep))
-
-            # Flag installation finished
-            installCmd.append('touch %s' % PRODY_INSTALLED)
+                installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
+            else:
+                installCmd = []
+                installCmd.append('cd ProDy &&')
+                installCmd.append('pip install -Ue . &&')
+            
+            installCmd.append('cd .. && touch %s' % PRODY_INSTALLED)
 
             prodyCommands.append((" ".join(installCmd.copy()), PRODY_INSTALLED))
 
@@ -126,21 +126,22 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there, and home since prody needs it to configure
         installEnvVars = {'PATH': envPath, 'HOME': envHome} if envPath else {'HOME': envHome}
 
-        if version == DEVEL:
-            env.addPackage('prody', version=version,
-                            tar='void.tgz',
-                            commands=prodyCommands,
-                            neededProgs=cls.getDependencies(),
-                            default=default,
-                            vars=installEnvVars)
-        else:
-            env.addPackage('prody', version=version,
-                           url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
-                           buildDir='ProDy-{0}'.format(version),
-                           commands=prodyCommands,
-                           neededProgs=cls.getDependencies(),
-                           default=default,
-                           vars=installEnvVars)            
+        # if version == DEVEL:
+        env.addPackage('prody', version=version,
+                        tar='void.tgz',
+                        buildDir='ProDy',
+                        commands=prodyCommands,
+                        neededProgs=cls.getDependencies(),
+                        default=default,
+                        vars=installEnvVars)
+        # else:
+        #     env.addPackage('prody', version=version,
+        #                    url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
+        #                    buildDir='ProDy-{0}'.format(version),
+        #                    commands=prodyCommands,
+        #                    neededProgs=cls.getDependencies(),
+        #                    default=default,
+        #                    vars=installEnvVars)
 
     @classmethod
     def getProgram(cls, program, script=False):
@@ -158,7 +159,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getEnvActivation(cls):
-        return "conda activate %s" % getProDyEnvName(DEVEL)
+        return cls.getVar(PRODY_ENV_ACT)
 
 def fixVerbositySecondary(cls, secondary=False, verbosity='none'):
     """configure ProDy to automatically handle secondary structure information and verbosity"""

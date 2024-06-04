@@ -35,6 +35,8 @@ LATEST = '2.4.1'
 VERSIONS = [DEVEL, LATEST]
 PRODY_DEFAULT_VER_NUM = DEVEL
 
+PRODY_ENV_ACT = "PRODY_ENV_ACT"
+
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
 MEASURES = "_prodyMeasures"
