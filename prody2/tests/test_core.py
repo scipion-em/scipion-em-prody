@@ -32,8 +32,9 @@ from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyANM, ProDyRTB,
-                              ProDyDefvec, ProDyEdit, ProDyCompare, ProDyImportModes)
+from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyRenumber,
+                              ProDyANM, ProDyRTB, ProDyDefvec, ProDyEdit, ProDyCompare, 
+                              ProDyImportModes)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
@@ -88,7 +89,7 @@ class TestProDyCore(TestWorkflow):
         # Select chain C CA to show it doesn't work
         protSel1a = cls.newProtocol(ProDySelect, selection="chain C and name CA")
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        protSel1a.setObjLabel('Sel 4ake_C_pointer unite_False')
         cls.launchProtocol(protSel1a)
 
         cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
@@ -107,7 +108,7 @@ class TestProDyCore(TestWorkflow):
         protSel1a = cls.newProtocol(ProDySelect, selection=chainCselstr,
                                     uniteChains=True)
         protSel1a.inputStructure.set(protImportPdb1.outputPdb)
-        protSel1a.setObjLabel('Sel 4ake_C_pointer')
+        protSel1a.setObjLabel('Sel 4ake_C_pointer unite_True')
         cls.launchProtocol(protSel1a)
 
         cls.assertFalse(exists(protSel1a._getPath(outputFilename)))
@@ -466,9 +467,9 @@ class TestProDyCore(TestWorkflow):
         # ----------------------------------------------------------------------
         # Step 1a. Renumber imported selected 4akeA_ca to add 100
         # ----------------------------------------------------------------------
-        protRenum = cls.newProtocol(ProDySelect, selection='all', offset=100)
+        protRenum = cls.newProtocol(ProDyRenumber, selection='all', offset=100)
         protRenum.inputStructure.set(cls.protSel.outputStructure)
-        protRenum.setObjLabel('Rename_4akeA_ca_100')
+        protRenum.setObjLabel('Renum_all_4akeA_ca_100')
         cls.launchProtocol(protRenum)
 
         outputFilename = "4ake_atoms_atoms.pdb"
@@ -479,7 +480,7 @@ class TestProDyCore(TestWorkflow):
         cls.assertTrue(ag.getResnums()[0] == 101,
                         "renumbered 4ake should have first resnum 101, not {0}".format(ag.getResnums()[0]))
         cls.assertTrue(ag.getResnums()[-1] == 314,
-                        "renumbered 4ake should have last resnum 314, not {0}".format(ag.getResnums()[0]))
+                        "renumbered 4ake should have last resnum 314, not {0}".format(ag.getResnums()[-1]))
         
     def testProDyRenumberSome(cls):
         """ Run different selection options and confirm if it works """
@@ -487,9 +488,9 @@ class TestProDyCore(TestWorkflow):
         # ----------------------------------------------------------------------
         # Step 1a. Renumber imported selected 4akeA_ca to add 100
         # ----------------------------------------------------------------------
-        protRenum = cls.newProtocol(ProDySelect, selection='resnum 100 to 150', offset=100)
+        protRenum = cls.newProtocol(ProDyRenumber, selection='resnum 100 to 150', offset=1000)
         protRenum.inputStructure.set(cls.protSel.outputStructure)
-        protRenum.setObjLabel('Rename_4akeA_ca_100')
+        protRenum.setObjLabel('Renum_some_4akeA_ca_1000')
         cls.launchProtocol(protRenum)
 
         outputFilename = "4ake_atoms_atoms.pdb"
@@ -501,14 +502,17 @@ class TestProDyCore(TestWorkflow):
         # check that most of the structure stays the same
         cls.assertTrue(ag.getResnums()[0] == 1,
                         "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[0]))
+        cls.assertTrue(ag.getResnums()[98] == 99,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[98]))
+                
         cls.assertTrue(ag.getResnums()[-1] == 214,
-                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(ag.getResnums()[0]))
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(ag.getResnums()[-1]))
         
         # check that the part got renumbered
-        cls.assertTrue(ag.getResnums()[99] == 201,
-                        "Partially renumbered 4ake should have 100th resnum 201, not {0}".format(ag.getResnums()[0]))
-        cls.assertTrue(ag.getResnums()[149] == 250,
-                        "Partially renumbered 4ake should have 150th resnum 250, not {0}".format(ag.getResnums()[0]))
+        cls.assertTrue(ag.getResnums()[99] == 1100,
+                        "Partially renumbered 4ake should have 100th resnum 1100, not {0}".format(ag.getResnums()[99]))
+        cls.assertTrue(ag.getResnums()[149] == 1150,
+                        "Partially renumbered 4ake should have 150th resnum 1150, not {0}".format(ag.getResnums()[149]))
 
 def importSelect4ake(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 
