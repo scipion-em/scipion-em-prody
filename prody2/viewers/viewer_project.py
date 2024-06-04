@@ -244,10 +244,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                              show_density=True, c=c, alpha=self.alpha.get(),
                                              use_weights=self.useWeights.get(), weights=weights,
                                              bins=bins, range=xrange)
+                        plt.xlabel('Mode coordinate')
                     else:
                         prody.showProjection(projection=projection,
                                              show_density=False, c=c, alpha=self.alpha.get(),
                                              use_weights=self.useWeights.get(), weights=weights)
+                        plt.ylabel('Mode coordinate')
                 else:
                     if not self.useWeights.get():
                         weights = None
