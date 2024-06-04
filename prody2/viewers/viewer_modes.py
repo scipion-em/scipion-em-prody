@@ -61,7 +61,7 @@ class ProDyModeViewer(Viewer):
         else:
             modes = obj.outputModes
 
-        if hasattr(self, '_nmdFileName'):
+        if hasattr(modes, '_nmdFileName'):
             self.nmdFileName = modes._nmdFileName
         else:
             if glob(self.protocol._getPath("modes*.nmd")):
