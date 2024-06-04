@@ -86,7 +86,7 @@ class Plugin(pwem.Plugin):
         TEMPY_INSTALLED = 'tempy_installed'
         installTEMPy = installCmd.copy()
         installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
-                            'threadpoolctl requests mdtraj && touch %s' % TEMPY_INSTALLED)
+                            'threadpoolctl requests mdtraj pyparsing==3.1.1 && touch %s' % TEMPY_INSTALLED)
         installCmd.pop(1) # remove conda create to only do it the first time
 
         # Install PDBFixer and OpenMM for ClustENM
