@@ -206,7 +206,7 @@ class TestProDyPCA(TestWorkflow):
                         "2D Project protocol didn't add coefficients to SetOfAtomStructs")
 
         cls.assertEqual(len(protProj2.outputEns1.getFirstItem()._prodyProjCoefficients), 2,
-                        "2D Project protocol didn't add 2 coefficient to first item")
+                        "2D Project protocol didn't add 2 coefficients to first item")
 
         protProj3 = cls.newProtocol(ProDyProject,
                                      byFrame=True)
