@@ -61,6 +61,7 @@ class ProDyPCA(ProDyModesBase):
     """
     _label = 'PCA'
     _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
+    _nmdFileName = 'modes.pca.nmd'
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -165,7 +166,7 @@ class ProDyPCA(ProDyModesBase):
 
         self.runJob(Plugin.getProgram('pca'), args)
         
-        self.outModes, self.atoms = prody.parseNMD(self._getPath('modes.pca.nmd'), 
+        self.outModes, self.atoms = prody.parseNMD(self._getPath(self._nmdFileName),
                                                    type=prody.PCA)
         if not self.keepAlignment.get():
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
@@ -251,7 +252,7 @@ class ProDyPCA(ProDyModesBase):
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfPrincipalComponents(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.pca.nmd'))
+        nmSet._nmdFileName = String(self._getPath(self._nmdFileName))
 
         self.fractVarsDict = {}
         for i, item in enumerate(nmSet):
@@ -259,7 +260,7 @@ class ProDyPCA(ProDyModesBase):
 
         outSet = SetOfPrincipalComponents().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
-        outSet._nmdFileName = String(self._getPath('modes.pca.nmd'))
+        outSet._nmdFileName = String(self._getPath(self._nmdFileName))
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
