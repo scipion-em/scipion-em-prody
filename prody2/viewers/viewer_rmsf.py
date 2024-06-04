@@ -91,8 +91,7 @@ class ProDyRmsfViewer(ProtocolViewer):
             isLRA = True
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-        atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
-        modes = prody.loadModel(glob(modesPath+"/modes*npz")[0])
+        modes, atoms = prody.parseNMD(glob(modesPath+"/modes*nmd")[0])
 
         modeNumber = self.modeNumber.get()-1 # Scipion to ProDy
         try:
