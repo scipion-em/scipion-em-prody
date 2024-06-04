@@ -30,6 +30,7 @@
 This module will provide ProDy projection of structural ensembles on principal component or normal modes
 """
 import numpy as np
+import os
 
 from pwem.objects import SetOfAtomStructs
 from pwem.protocols import EMProtocol
@@ -37,7 +38,7 @@ from pwem.protocols import EMProtocol
 import pyworkflow.object as pwobj
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         MultiPointerParam, NumericRangeParam)
-from pyworkflow.utils import getListFromRangeString
+from pyworkflow.utils import getListFromRangeString, glob
 
 import prody
 from prody2.constants import PROJ_COEFFS
@@ -119,6 +120,13 @@ class ProDyProject(EMProtocol):
         inputClass = type(inputModes)
         self.outputModes = inputClass(filename=fnSqlite)
 
+        atoms = prody.parsePDB(glob(os.path.dirname(modesPath)+"/*atoms.pdb")[0],
+                               altloc="all")
+        self.nmdFileName = self._getPath('modes.nmd')
+        prody.writeNMD(self.nmdFileName, modes, atoms)
+
+        self.outputModes._nmdFileName = pwobj.String(self.nmdFileName)
+
         self.proj = []
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
@@ -160,9 +168,7 @@ class ProDyProject(EMProtocol):
             inputClass = type(ensGot)
             outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
             outSet.copyItems(ensGot, updateItemCallback=self._setCoeffs)
-
             name = "outputEns" + suffix
-            
             args[name] = outSet
 
         args["outputModes"] = self.outputModes
