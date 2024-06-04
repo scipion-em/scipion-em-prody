@@ -91,7 +91,11 @@ class ProDyRmsfViewer(ProtocolViewer):
             isLRA = True
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-        modes, atoms = prody.parseNMD(glob(modesPath+"/modes*nmd")[0])
+        try:
+            atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb")[0])
+            modes = prody.loadModel(glob(modesPath+"/modes*npz")[0]) # needed for shuffles
+        except IndexError:
+            modes, atoms = prody.parseNMD(glob(modesPath+"/modes*nmd")[0])
 
         modeNumber = self.modeNumber.get()-1 # Scipion to ProDy
         try:
