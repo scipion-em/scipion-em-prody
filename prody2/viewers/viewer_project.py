@@ -56,11 +56,13 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 
         fixVerbositySecondary(self)
 
-
         self.isProjection = isinstance(self.protocol, ProDyProject)
         if self.isProjection:
             self.numModes = self.protocol.numModes.get()
+            if len(self.protocol.outputModes)-1 < self.numModes:
+                self.numModes = len(self.protocol.outputModes)-1
         else:
+            # measurement
             self.numModes = ONE
 
         form.addSection(label='Visualization')
@@ -104,7 +106,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         
         form.addParam('alpha', FloatParam, label="transparency alpha", default=0.5,
                       help='A lower number makes the plot more transparent and a higher number makes it more opaque',
-                      condition="numModes==%d" % ONE)
+                      condition=self.numModes==ONE)
         
         groupX = form.addGroup('xrange')
         groupX.addParam('xrange1', FloatParam, label="x-axis limit 1", default=-1,
