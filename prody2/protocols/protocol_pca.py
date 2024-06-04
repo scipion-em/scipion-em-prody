@@ -259,6 +259,7 @@ class ProDyPCA(ProDyModesBase):
 
         outSet = SetOfPrincipalComponents().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
+        outSet._nmdFileName = String(self._getPath('modes.pca.nmd'))
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
