@@ -277,10 +277,14 @@ class ProDyPCA(ProDyModesBase):
             summ = ['Output modes not ready yet']
         else:
             modes = prody.parseScipionModes(self.outputModes.getFileName())
-            ens = self.outputEnsemble.loadEnsemble()
 
-            summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
-                    modes.numModes(), ens.numConfs(), ens.numAtoms())]
+            if hasattr(self, 'outputEnsemble'):
+                ens = self.outputEnsemble.loadEnsemble()
+
+                summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
+                        modes.numModes(), ens.numConfs(), ens.numAtoms())]
+            else:
+                summ = ['*{0}* principal components calculated'.format(modes.numModes())]
         return summ
 
     def _setFractVars(self, item, row=None):
