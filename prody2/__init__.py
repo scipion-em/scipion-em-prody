@@ -126,7 +126,6 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there, and home since prody needs it to configure
         installEnvVars = {'PATH': envPath, 'HOME': envHome} if envPath else {'HOME': envHome}
 
-        # if version == DEVEL:
         env.addPackage('prody', version=version,
                         tar='void.tgz',
                         buildDir='ProDy',
@@ -134,14 +133,6 @@ class Plugin(pwem.Plugin):
                         neededProgs=cls.getDependencies(),
                         default=default,
                         vars=installEnvVars)
-        # else:
-        #     env.addPackage('prody', version=version,
-        #                    url='https://github.com/prody/ProDy/archive/refs/tags/v{0}.tar.gz'.format(version),
-        #                    buildDir='ProDy-{0}'.format(version),
-        #                    commands=prodyCommands,
-        #                    neededProgs=cls.getDependencies(),
-        #                    default=default,
-        #                    vars=installEnvVars)
 
     @classmethod
     def getProgram(cls, program, script=False):
