@@ -108,8 +108,9 @@ class Plugin(pwem.Plugin):
                 if version == DEVEL:
                     installCmd.append('git checkout scipion &&')
                     installCmd.append('git pull &&')
-                else:
-                    installCmd.append('git checkout v{0} &&'.format(version))
+                elif version == LATEST:
+                    installCmd.append('git checkout prody-master &&')
+                    installCmd.append('git pull &&')
 
                 installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
             else:
