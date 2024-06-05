@@ -37,7 +37,7 @@ from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfPrincipalComponents, String, AtomStruct
 
-from pyworkflow.utils import glob, redStr
+from pyworkflow.utils import glob, redStr, copyFile
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
                                         LEVEL_ADVANCED)
@@ -148,11 +148,12 @@ class ProDyPCA(ProDyModesBase):
                 system = self.inputEnsemble[0].get()
                 self.dcdFileName = system.getTrajectoryFile()
 
-                self.pdbFileName = system.getSystemFile()
+                self.pdbFileName = self._getPath('atoms.pdb')
+                copyFile(system.getSystemFile(), self.pdbFileName)
                 self.averageStructure = AtomStruct()
                 self.averageStructure.setFileName(self.pdbFileName)
         else:
-            loadAndWriteEnsemble(self) # creates self.npz, self.dcdFileName and others
+            loadAndWriteEnsemble(self) # creates self.npz, self.dcdFileName, self.pdbFileName and others
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
