@@ -115,6 +115,8 @@ class ProDyProject(EMProtocol):
             else:
                 modes = modes[modeSelection]
 
+        modes = modes[:self.numModes.get()+1]
+
         prody.writeScipionModes(self._getPath(), modes, write_star=True)
         fnSqlite = self._getPath('modes.sqlite')
         inputClass = type(inputModes)
