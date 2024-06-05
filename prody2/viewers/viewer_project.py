@@ -187,8 +187,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
             prevClassStrs.append(inputClassStr)
             uniqueStrs, counts = np.unique(prevClassStrs, return_counts=True)
             j = counts[list(uniqueStrs).index(inputClassStr)]-1
-
-            ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
             
             if not self.isProjection:
                 measures = prody.parseArray(self.protocol._getPath('measures_{0}.csv'.format(i+1)),
@@ -212,6 +210,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 else:
                     labels = [frame.getObjLabel() for frame in ens]
                     labels = self._cleanLabels(labels)
+
+            ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
 
             if i == 0 or self.separatePlots.get():
                 plotter = EmPlotter()
