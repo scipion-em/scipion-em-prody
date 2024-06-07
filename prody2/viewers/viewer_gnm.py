@@ -31,15 +31,16 @@ visualization programs.
 
 from pyworkflow.utils import glob
 from pyworkflow.gui.project import ProjectWindow
-from pyworkflow.protocol.params import LabelParam, IntParam, BooleanParam
+from pyworkflow.protocol.params import (LabelParam, IntParam, BooleanParam,
+                                        FloatParam)
 from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
 from pwem.viewers import VmdView, DataView
-from pwem.objects import SetOfNormalModes
+from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
-from prody2.protocols import ProDyGNM
+from prody2.protocols import ProDyGNM, ProDyPCA
 from prody2.objects import SetOfGnmModes
 
 import os
@@ -57,7 +58,7 @@ class ProDyGNMViewer(ProtocolViewer):
         score are preferred.
     """
     _label = 'GNM viewer'
-    _targets = [ProDyGNM, SetOfGnmModes]
+    _targets = [ProDyGNM, SetOfGnmModes, ProDyPCA, SetOfPrincipalComponents]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
 
@@ -70,16 +71,20 @@ class ProDyGNMViewer(ProtocolViewer):
         prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
 
         if isinstance(self.protocol, SetOfNormalModes):
-            modes = self.protocol
+            self.modesObj = self.protocol
         else:
-            modes = self.protocol.outputModes
+            self.modesObj = self.protocol.outputModes
 
-        nmdFile = modes._nmdFileName.get()
+        nmdFile = self.modesObj._nmdFileName.get()
 
-        modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-        self.atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
+        self.modesPath = os.path.dirname(os.path.dirname(
+            self.modesObj._getMapper().selectFirst().getModeFile()))
+        
+        pdbFileName = glob(self._getProtocolPath("*atoms.pdb"))[0]
+        self.atoms = prody.parsePDB(pdbFileName)
 
-        self.modes = prody.parseScipionModes(modes.getFileName(), pdb=glob(modesPath+"/*atoms.pdb"))
+        self.modes = prody.parseScipionModes(self.modesObj.getFileName(), 
+                                             pdb=pdbFileName)
 
         if self.modes.getEigvals()[0] < prody.utilities.ZERO:
             self.startMode = 1
@@ -108,6 +113,9 @@ class ProDyGNMViewer(ProtocolViewer):
                       label='Display Cross Correlation matrix?',
                       help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
                         'Normalized Covariance matrix')
+        group.addParam('allModesPercentile', FloatParam, default=-1,
+                      label='Percentile for clipping matrices',
+                      help='Maximum and minimum values will be set at this percentile')
         
         group = form.addGroup('Single mode')  
         group.addParam('modeNumber', IntParam, default=self.startMode+1,
@@ -134,11 +142,14 @@ class ProDyGNMViewer(ProtocolViewer):
                       help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected.")
         group.addParam('displayCov', LabelParam, default=False,
                 label="Plot covariance?",
-                help="Covariance matrices are shown as heatmaps.")
+                help="Covariance matrices (3Nx3N or NxN) are shown as heatmaps.")
         group.addParam('displayCC', LabelParam, default=False,
                 label="Plot cross-correlation?",
                 help="Orientational cross-correlation matrices are shown as heatmaps. "
-                     "Cross correlation is equal to Normalized Covariance matrix")   
+                     "Cross correlation is equal to NxN normalized Covariance matrix")
+        group.addParam('selectedModesPercentile', FloatParam, default=-1,
+                      label='Percentile for clipping matrices',
+                      help='Maximum and minimum values will be set at this percentile')
 
         form.addParam('displayVmd', LabelParam,
                       condition=os.path.isfile(nmdFile),
@@ -167,25 +178,32 @@ class ProDyGNMViewer(ProtocolViewer):
             return [createVmdNmwizView(self.protocol)]
         
         elif paramName=='displayCovMatrix':
-            matrix = prody.parseArray(self.protocol.matrixFileCV.getFileName())
+            matrixFile = glob(self._getProtocolPath("*covariance.txt"))[0]
+            matrix = prody.parseArray(matrixFile)
             title = 'Covariance matrix'
 
         else:
-            matrix = prody.parseArray(self.protocol.matrixFileCC.getFileName())
+            matrixFile = glob(self._getProtocolPath("*crossCorr.txt"))[0]
+            matrix = prody.parseArray(matrixFile)
             title = 'Cross-Correlation matrix'
 
+        p = self.allModesPercentile.get()
+        if p == -1:
+            p = None
+
         plotter = EmPlotter(mainTitle=title)
-        prody.showAtomicMatrix(matrix, origin='lower', atoms=self.atoms)
+        prody.showAtomicMatrix(matrix, origin='lower', 
+                               atoms=self.atoms,
+                               percentile=p)
         
         return [plotter] 
 
     def _viewParam(self, paramName):
         if paramName == 'displayModes':
-            modes =  self.protocol._getPath("modes.xmd")
-            return [DataView(modes)]
+            return [DataView(self._getProtocolPath("modes.xmd"))]
 
         elif paramName == 'displayMaxDistanceProfile':
-            fn = self.protocol._getExtraPath("maxAtomShifts.xmd")
+            fn = self._getProtocolExtraPath("maxAtomShifts.xmd")
             return [createShiftPlot(fn, "Maximum atom shifts", "maximum shift")]
 
     def _viewSQF(self, paramName):
@@ -241,12 +259,23 @@ class ProDyGNMViewer(ProtocolViewer):
                 
                 if paramName == 'displayRangeSqFluct':
                     prody.showSqFlucts(mode, atoms=self.atoms)
+
                 elif paramName == 'displayRangeRMSFluct':
                     prody.showRMSFlucts(mode, atoms=self.atoms)
+
                 elif paramName == 'displayCov':
-                    prody.showCovarianceMatrix(mode, atoms=self.atoms)
-                elif paramName == 'displayCC':   
-                    prody.showCrossCorr(mode, atoms=self.atoms) 
+                    p = self.selectedModesPercentile.get()
+                    if p == -1:
+                        p = None
+                    prody.showCovarianceMatrix(mode, atoms=self.atoms,
+                                               percentile=p)
+                    
+                elif paramName == 'displayCC':
+                    p = self.selectedModesPercentile.get()
+                    if p == -1:
+                        p = None
+                    prody.showCrossCorr(mode, atoms=self.atoms,
+                                        percentile=p) 
                     
             else:
                 modes = self.modes[modeNumber1:modeNumber2]
@@ -264,14 +293,9 @@ class ProDyGNMViewer(ProtocolViewer):
     
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
-        
-        if isinstance(self.protocol, SetOfNormalModes):
-            modes = self.protocol
-        else:
-            modes =  self.protocol.outputModes
 
         modeNumber = self.modeNumber.get()
-        mode = modes[modeNumber]
+        mode = self.modesObj[modeNumber]
         
         if mode is None:
             return [self.errorMessage("Invalid mode number *%d*\n"
@@ -287,7 +311,12 @@ class ProDyGNMViewer(ProtocolViewer):
             prody.showMode(mode, atoms=self.atoms, overlay_chains=self.overlaychains)
 
         return [plotter]
-        
+    
+    def _getProtocolPath(self, path):
+        return os.path.join(self.modesPath, path)
+    
+    def _getProtocolExtraPath(self, path):
+        return os.path.join(self.modesPath, "extra", path)        
 
 def createShiftPlot(mdFn, title, ylabel):
     plotter = EmPlotter()

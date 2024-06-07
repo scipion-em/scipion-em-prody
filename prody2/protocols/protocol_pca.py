@@ -35,7 +35,7 @@ from multiprocessing import cpu_count
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfPrincipalComponents, String, AtomStruct
+from pwem.objects import SetOfPrincipalComponents, String, AtomStruct, EMFile
 
 from pyworkflow.utils import glob, redStr, copyFile
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
@@ -169,6 +169,10 @@ class ProDyPCA(ProDyModesBase):
         
         self.outModes, self.atoms = prody.parseNMD(self._getPath(self._nmdFileName),
                                                    type=prody.PCA)
+        
+        crossCorr = prody.calcCrossCorr(self.outModes)
+        prody.writeArray(self._getPath('modes.pca_crossCorr.txt'), crossCorr)
+
         if not self.keepAlignment.get():
             dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
             dcdEnsemble.iterpose()
@@ -272,6 +276,11 @@ class ProDyPCA(ProDyModesBase):
 
         if self.npz2 is not None:
             self._defineOutputs(outputEnsemble=self.npz2)
+
+        outputMatrixCov = EMFile(filename=self._getExtraPath('modes.pca_covariance.txt'))
+        outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes.pca_crossCorr.txt'))
+        self._defineOutputs(matrixFileCC=outputMatrixCrosCor,
+                            matrixFileCV=outputMatrixCov)
 
     def _summary(self):
         if not hasattr(self, 'outputModes'):

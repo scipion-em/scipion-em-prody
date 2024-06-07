@@ -289,6 +289,8 @@ class ProDyGNM(EMProtocol):
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
 
-        self._defineOutputs(outputModes=nmSet, matrixFileCC=outputMatrixCrosCor, matrixFileCV=outputMatrixCov)
+        self._defineOutputs(outputModes=nmSet,
+                            matrixFileCC=outputMatrixCrosCor,
+                            matrixFileCV=outputMatrixCov)
         self._defineSourceRelation(self.inputStructure, nmSet)
 
