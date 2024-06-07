@@ -189,7 +189,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
             j = counts[list(uniqueStrs).index(inputClassStr)]-1
             
             if not self.isProjection:
-                measures = prody.parseArray(self.protocol._getPath('measures_{0}.csv'.format(i+1)),
+                projection = prody.parseArray(self.protocol._getPath('measures_{0}.csv'.format(i+1)),
                                             delimiter=',')
             else:
                 projection = prody.parseArray(self.protocol._getPath('projection_{0}.csv'.format(i+1)),
@@ -254,7 +254,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     if not self.useWeights.get():
                         weights = None
                         
-                    plt.hist(measures, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
+                    plt.hist(projection, weights=weights, bins=bins, range=xrange, alpha=self.alpha.get())
             else:
                 if self.label.get():
                     prody.showProjection(projection=projection,
