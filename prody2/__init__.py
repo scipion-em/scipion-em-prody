@@ -104,13 +104,9 @@ class Plugin(pwem.Plugin):
                 
                 installCmd.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
                 installCmd.append('cd ProDy &&')
-
-                if version == DEVEL:
-                    installCmd.append('git checkout scipion &&')
-                    installCmd.append('git pull &&')
-                elif version == LATEST:
-                    installCmd.append('git checkout prody-master &&')
-                    installCmd.append('git pull &&')
+                
+                installCmd.append('git checkout scipion &&')
+                installCmd.append('git pull &&')
 
                 installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
             else:

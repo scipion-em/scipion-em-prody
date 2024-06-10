@@ -33,7 +33,7 @@ def getProDyEnvName(version):
 DEVEL = 'github'
 LATEST = 'master'
 RELEASE = '2.4.1'
-VERSIONS = [DEVEL, LATEST]
+VERSIONS = [DEVEL]
 PRODY_DEFAULT_VER_NUM = DEVEL
 
 PRODY_ENV_ACT = "PRODY_ENV_ACT"
