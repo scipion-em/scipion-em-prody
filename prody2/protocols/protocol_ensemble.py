@@ -73,6 +73,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                         'outputNpz': ProDyNpzEnsemble,
                         'outAlignment': SetOfSequences}
 
+    weights = []
+
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
