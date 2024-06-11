@@ -19,7 +19,7 @@ try:
         pass
 
 except ImportError:
-    pass
+    DcdMDSystem = type(None)
 
 class TrajFrame(EMObject):
     """Represents an trajectory frame object"""

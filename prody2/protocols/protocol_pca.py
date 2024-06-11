@@ -51,9 +51,11 @@ from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
 import prody
 import matplotlib.pyplot as plt
 
-from prody2.objects import HAVE_CHEM
+from prody2.objects import HAVE_CHEM, DcdMDSystem
 if HAVE_CHEM:
-    from prody2.objects import DcdMDSystem
+    POINTER_CLASSES = 'SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem'
+else:
+    POINTER_CLASSES = 'SetOfAtomStructs, ProDyNpzEnsemble'
 
 class ProDyPCA(ProDyModesBase):
     """
@@ -76,7 +78,7 @@ class ProDyPCA(ProDyModesBase):
         form.addSection(label='ProDy PCA')
         form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
                       important=True,
-                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
+                      pointerClass=POINTER_CLASSES,
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms or a ProDy ensemble.')
         form.addParam('degeneracy', BooleanParam, default=False,

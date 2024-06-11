@@ -224,9 +224,7 @@ ITERPOSE = 2
 
 POINTER_TYPES = 'AtomStruct,SetOfAtomStructs,ProDyNpzEnsemble'
 
-from prody2.objects import HAVE_CHEM
-if HAVE_CHEM:
-    from prody2.objects import DcdMDSystem
+from prody2.objects import HAVE_CHEM, DcdMDSystem
 
 class ProDyImportEnsemble(ProtImportFiles):
     """
