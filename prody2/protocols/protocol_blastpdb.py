@@ -37,6 +37,7 @@ import prody
 
 from prody2.objects import SetOfBlastHits, createSetOfBlastResults
 from prody2.constants import UNITE_CHAINS_LABEL, UNITE_CHAINS_HELP
+from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 
 class ProDyBlastPDB(EMProtocol):
@@ -109,8 +110,12 @@ class ProDyBlastPDB(EMProtocol):
         """Run blastPDB and save the results to an xml file"""
 
         if self.inputSeqData.get() == self.IMPORT_FROM_STRUCT:
+            
+            fixVerbositySecondary(self)
             ag = prody.parsePDB(self.inputStructure.get().getFileName(),
                                 unite_chains=self.uniteChains.get())
+            restoreVerbositySecondary(self)
+
             sequence = ag.ca.getSequence()
         
         elif self.inputSeqData.get() == self.IMPORT_FROM_SEQ:
