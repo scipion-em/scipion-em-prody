@@ -247,8 +247,7 @@ class ProDyAlign(EMProtocol):
         group.addParam('chainOrders', TextParam, width=30, readOnly=True,
                        condition=matchFuncCheck % CUSTOM,
                        label='Custom chain match list',
-                       help='Defined order of chains from custom matching. \nManual modification will have no '
-                            'effect, use the wizards to add / delete the entries')
+                       help='Defined order of chains from custom matching')
         
         group.addParam('insertOrder', EnumParam, choices=['1. mobile', '2. target'], default=0,
                        condition=matchFuncCheck % CUSTOM,

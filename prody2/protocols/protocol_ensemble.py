@@ -197,8 +197,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         group.addParam('chainOrders', TextParam, width=50,
                        condition=matchFuncCheck % CUSTOM, default="",
                        label='Custom chain match dictionary',
-                       help='Defined order of chains from custom matching. \nManual modification will have no '
-                            'effect, use the wizards to add / delete the entries')
+                       help='Defined order of chains from custom matching.')
         
         group.addParam('insertOrder', NumericRangeParam, default='1',
                        condition=matchFuncCheck % CUSTOM,
