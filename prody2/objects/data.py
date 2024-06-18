@@ -502,3 +502,68 @@ def loadAndWriteEnsemble(cls):
                               objLabel=cls.ens.getLabels()[j],
                               weight=weights[j])
             cls.npz.append(frame)
+
+
+hitEntryTypes = {
+    'num': String,
+    'bit-score': Float,
+    'score': Float,
+    'evalue': Float,
+    'query-from': Integer,
+    'query-to': Integer,
+    'hit-from': Integer,
+    'hit-to': Integer,
+    'query-frame': Integer,
+    'hit-frame': Integer,
+    'identity': Integer,
+    'positive': Integer,
+    'gaps': Integer,
+    'align-len': Integer,
+    'qseq': String,
+    'hseq': String,
+    'midline': String,
+    'query-len': Integer,
+    'percent_identity': Float,
+    'percent_coverage': Float,
+    'pdb_id': String,
+    'chain_id': String,
+    'title': String
+}
+
+class BlastHit(EMObject):
+    """Represents each hit from blastPDB"""
+
+    def __init__(self, key=None, hit=None, **kwargs):
+        """
+        Params:
+        :param hit: a hit from the BlastRecord
+        """
+        EMObject.__init__(self, **kwargs)
+
+        self._key = String(key)
+        for key, value in hit.items():
+            persistType = hitEntryTypes[key]
+            setattr(self, key.replace('-', '_'), 
+                    persistType(value))
+
+class SetOfBlastHits(EMSet):
+    """ Represents a set of Blast hits"""
+    ITEM_TYPE = BlastHit
+
+def createSetOfBlastResults(blastRec, protocol, percentId=0.0, 
+                            percentOverlap=0.0, chain=False):
+    """Create Scipion SetOfBlastResults from ProDy BlastRecord *blastRec*
+    
+    The hits can be filtered by providing *percent_identity* and *percent_overlap* 
+    to getHits. The argument *chain* specifies whether to return individual chains 
+    as separate hits (default False).
+    """
+    hitsSet = SetOfBlastHits().create(protocol._getExtraPath())
+    for key, value in blastRec.getHits(percent_identity=percentId, 
+                                       percent_overlap=percentOverlap, 
+                                       chain=chain).items():
+        hit = BlastHit(key, value)
+        hitsSet.append(hit)
+    
+    return hitsSet
+

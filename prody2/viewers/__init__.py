@@ -14,9 +14,9 @@ from .viewer_rmsf import ProDyRmsfViewer
 from pwem.viewers import DataViewer, showj
 from pwem.viewers.viewers_data import RegistryViewerConfig
 from prody2.objects import (SetOfTrajFrames, SetOfAtoms,
-                            SetOfClassesTraj)
+                            SetOfClassesTraj, SetOfBlastHits)
 DataViewer._targets.extend([SetOfTrajFrames, SetOfAtoms,
-                            SetOfClassesTraj])
+                            SetOfClassesTraj, SetOfBlastHits])
 
 RegistryViewerConfig.registerConfig(SetOfTrajFrames,
                                     {showj.ORDER: 'id enabled label _filename ',

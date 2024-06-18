@@ -51,9 +51,7 @@ from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue map
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
 
-UNITE_CHAINS_LABEL = "Unite chains in mmCIF segments"
-UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                     'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+from prody2.constants import UNITE_CHAINS_LABEL, UNITE_CHAINS_HELP
 
 IMPORT_FROM_ID_CONDITION = 'inputPdbData == IMPORT_FROM_ID'
 SUMMARY_NO_OUTPUT = 'Output structure not ready yet'

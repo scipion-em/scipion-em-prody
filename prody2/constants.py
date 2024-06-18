@@ -59,3 +59,7 @@ NOTHING = 0 # stop trivial mapping if trivial mapping fails
 PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
 CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
 DEFAULT = 3 # try pwalign then CE
+
+UNITE_CHAINS_LABEL = "Unite chains in mmCIF segments"
+UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
+                     'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')

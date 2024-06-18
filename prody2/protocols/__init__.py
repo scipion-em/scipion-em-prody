@@ -32,3 +32,5 @@ from .protocol_measure import ProDyMeasure
 from .protocol_pdbfixer import ProDyPDBFixer
 from .protocol_clustenm import ProDyClustENM
 from .protocol_bioexcel import ProDyBioExcelCV19
+
+from .protocol_blastpdb import ProDyBlastPDB
