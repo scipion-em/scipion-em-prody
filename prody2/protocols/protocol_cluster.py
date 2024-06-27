@@ -120,7 +120,12 @@ class ProDyRmsd(EMProtocol):
     def _insertAllSteps(self):
         # Insert processing steps
 
-        # Link the input
+        self._insertFunctionStep('convertInputStep')
+        self._insertFunctionStep('ensembleModificationStep')
+        self._insertFunctionStep('createOutputStep')
+
+    def convertInputStep(self):
+
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
@@ -128,9 +133,6 @@ class ProDyRmsd(EMProtocol):
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
-
-        self._insertFunctionStep('ensembleModificationStep')
-        self._insertFunctionStep('createOutputStep')
 
     def ensembleModificationStep(self):
 
@@ -147,21 +149,8 @@ class ProDyRmsd(EMProtocol):
             matrix = self.ens.getRMSDs(pairwise=True)
             labels = self.ens.getLabels()
 
-            if len(labels) > 20:
-                allticks = False
-            else:
-                allticks = True
-
             tree = prody.calcTree(labels, matrix)
-            reordRMSDs, reordIndices = prody.reorderMatrix(labels,
-                                                            matrix,
-                                                            tree)
-
-            plt.figure()
-            prody.showMatrix(reordRMSDs, allticks=allticks)
-            plt.tight_layout()
-            plt.savefig(self._getExtraPath('reordered_matrix'))
-            plt.close()
+            _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
             classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
             subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
@@ -177,9 +166,6 @@ class ProDyRmsd(EMProtocol):
                 self.weights[i] = allWeights[repIdx[i]] * weight
                 allWeights[sgIdx[i]] *= weight
                 classLabels[sgIdx[i]] = i
-
-            if self.doReorder.get():
-                self.ens = self.ens[reordIndices]
         else:
             args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
                                                                             self._getExtraPath())
@@ -212,7 +198,7 @@ class ProDyRmsd(EMProtocol):
 
         for i, sg in enumerate(sgIdx):
             newClass = ClassTraj().create(self._getExtraPath(), suffix=i+1)
-            repId = int(repIdx[i]) # numpy.int64 doesn't work to index
+            repId = int(repIdx[i])
             newClass.setRef(frames[repId+1])
             self.npzClasses.append(newClass)
             for j in sg:
@@ -229,6 +215,15 @@ class ProDyRmsd(EMProtocol):
 
         self.npzClasses.write()
 
+        if self.doReorder.get():
+            self.ens = self.ens[reordIndices]
+            allWeights = allWeights[reordIndices]
+
+            self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix='_reordered')
+            for i, label in enumerate(self.ens.getLabels()):
+                self.npz.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
+                                objLabel=label, weight=allWeights[i]))
+
     def createOutputStep(self):
         args = {}
         args["outputClasses"] = self.npzClasses
@@ -237,6 +232,9 @@ class ProDyRmsd(EMProtocol):
             outSetAS = SetOfAtomStructs().create(self._getPath())
             outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
             args["outputStructures"] = outSetAS
+
+        if self.doReorder.get():
+            args['outputEnsemble'] = self.npz
 
         self._defineOutputs(**args)
         
