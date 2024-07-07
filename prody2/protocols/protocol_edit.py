@@ -79,7 +79,7 @@ class ProDyEdit(ProDyModesBase):
                     'from nodes of the same residue or by through-space thin plate splines interpolation')
 
         form.addParam('newNodes', PointerParam,
-                      label='new nodes',
+                      label='New nodes',
                       pointerClass='AtomStruct',
                       help='Atoms or pseudoatoms to use as new nodes.')   
 
