@@ -37,7 +37,7 @@ from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
 from pwem.viewers import VmdView, DataView
-from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
+from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
 from prody2.protocols import ProDyGNM, ProDyPCA
@@ -58,7 +58,7 @@ class ProDyGNMViewer(ProtocolViewer):
         score are preferred.
     """
     _label = 'GNM viewer'
-    _targets = [ProDyGNM, SetOfGnmModes, ProDyPCA, SetOfPrincipalComponents]
+    _targets = [ProDyGNM, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
 
@@ -107,12 +107,12 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot RMSF from all the computed modes?",
                       help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
-                      label='Display Covariance matrix?',
+                      label='Plot covariance matrix?',
                       help='Raw covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
-                      label='Display Cross Correlation matrix?',
+                      label='Plot cross-correlation matrix?',
                       help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
-                        'Normalized Covariance matrix')
+                        'Normalized covariance matrix')
         group.addParam('allModesPercentile', FloatParam, default=-1,
                       label='Percentile for clipping matrices',
                       help='Maximum and minimum values will be set at this percentile')
@@ -141,10 +141,10 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot root mean square fluctuation?",
                       help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected.")
         group.addParam('displayCov', LabelParam, default=False,
-                label="Plot covariance?",
+                label="Plot covariance matrix?",
                 help="Covariance matrices (3Nx3N or NxN) are shown as heatmaps.")
         group.addParam('displayCC', LabelParam, default=False,
-                label="Plot cross-correlation?",
+                label="Plot cross-correlation matrix?",
                 help="Orientational cross-correlation matrices are shown as heatmaps. "
                      "Cross correlation is equal to NxN normalized Covariance matrix")
         group.addParam('selectedModesPercentile', FloatParam, default=-1,
@@ -194,7 +194,7 @@ class ProDyGNMViewer(ProtocolViewer):
         plotter = EmPlotter(mainTitle=title)
         prody.showAtomicMatrix(matrix, origin='lower', 
                                atoms=self.atoms,
-                               percentile=p, title=title)
+                               percentile=p)
         
         return [plotter] 
 

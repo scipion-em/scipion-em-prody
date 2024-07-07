@@ -7,7 +7,7 @@ from .protocol_anm import ProDyANM
 from .protocol_rtb import ProDyRTB
 from .protocol_gnm import ProDyGNM
 from .protocol_defvec import ProDyDefvec
-
+from .protocol_algebra import ProDyAlgebra
 from .protocol_pca import ProDyPCA
 from .protocol_logistic import ProDyLRA
 
