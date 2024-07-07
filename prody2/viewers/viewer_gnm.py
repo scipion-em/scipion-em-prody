@@ -194,7 +194,7 @@ class ProDyGNMViewer(ProtocolViewer):
         plotter = EmPlotter(mainTitle=title)
         prody.showAtomicMatrix(matrix, origin='lower', 
                                atoms=self.atoms,
-                               percentile=p)
+                               percentile=p, title=title)
         
         return [plotter] 
 
@@ -250,9 +250,9 @@ class ProDyGNMViewer(ProtocolViewer):
             
 
         if paramName == 'displaySqFlucts':
-            prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms)
+            prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
         elif paramName == 'displayRMSFlucts':
-            prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms)
+            prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
         else:            
             if modeNumber1+1 == modeNumber2:
                 mode = self.modes[modeNumber1]
@@ -281,9 +281,9 @@ class ProDyGNMViewer(ProtocolViewer):
                 modes = self.modes[modeNumber1:modeNumber2]
                 
                 if paramName == 'displayRangeSqFluct':
-                    prody.showSqFlucts(modes, atoms=self.atoms)
+                    prody.showSqFlucts(modes, atoms=self.atoms, gap=True)
                 elif paramName == 'displayRangeRMSFluct':
-                    prody.showRMSFlucts(modes, atoms=self.atoms)                  
+                    prody.showRMSFlucts(modes, atoms=self.atoms, gap=True)                  
                 elif paramName == 'displayCov':
                     prody.showCovarianceMatrix(modes, atoms=self.atoms)
                 elif paramName == 'displayCC':   
