@@ -133,12 +133,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                                 str(atoms[ind].getResname()),
                                 '{:5d}'.format(atoms[ind].getResnum()),
                                 atoms[ind].getChid()]) + '\n')
-        fo.close()    
-
-        for i, ind in enumerate(inds):
-            plt.plot(inds, rmsf[inds], 'r*')
-            plt.text(ind - np.mod(i,2)*2, 
-                     rmsf[ind], resnums[ind])
+        fo.close()
 
         return [plotter]
 
