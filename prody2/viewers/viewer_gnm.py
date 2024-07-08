@@ -253,15 +253,15 @@ class ProDyGNMViewer(ProtocolViewer):
             prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
         elif paramName == 'displayRMSFlucts':
             prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
-        else:            
+        else:
             if modeNumber1+1 == modeNumber2:
                 mode = self.modes[modeNumber1]
                 
                 if paramName == 'displayRangeSqFluct':
-                    prody.showSqFlucts(mode, atoms=self.atoms)
+                    prody.showSqFlucts(mode, atoms=self.atoms, gap=True)
 
                 elif paramName == 'displayRangeRMSFluct':
-                    prody.showRMSFlucts(mode, atoms=self.atoms)
+                    prody.showRMSFlucts(mode, atoms=self.atoms, gap=True)
 
                 elif paramName == 'displayCov':
                     p = self.selectedModesPercentile.get()
