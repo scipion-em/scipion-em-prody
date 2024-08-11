@@ -53,7 +53,7 @@ class ProDyAlgebra(ProDyModesBase):
     _label = 'Vector alegebra'
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -90,7 +90,7 @@ class ProDyAlgebra(ProDyModesBase):
                       help='This number of modes will be added together with coefficients. '
                            'The remaining modes will be ignored.')
 
-        ProDyModesBase._defineParams(self, form, besidesAnimation=False)
+        ProDyModesBase._defineParams(self, form, besidesAnimation=besidesAnimation)
 
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
