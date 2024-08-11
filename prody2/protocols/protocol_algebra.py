@@ -32,16 +32,15 @@ This module will provide ProDy mode algebra tools (linear combinations).
 import os
 import numpy as np
 
-from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
+from pwem.objects import SetOfNormalModes, String, Integer, CsvList
 
 from pyworkflow.utils import glob, logger
-from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
-                                        FloatParam, IntParam, 
+from pyworkflow.protocol.params import (PointerParam, EnumParam, IntParam,
                                         StringParam, LEVEL_ADVANCED)
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2 import Plugin, fixVerbositySecondary
+from prody2 import fixVerbositySecondary
 
 COEFF_POINTER = 0
 COEFF_STRING = 1
@@ -71,7 +70,7 @@ class ProDyAlgebra(ProDyModesBase):
         form.addParam('coeffSource', EnumParam, choices=['Pointer', 'String'],
                     default=COEFF_STRING,
                     label='Type of edit',
-                    help='Modes will be added together these coefficients. If there are more modes '
+                    help='Modes will be added together with these coefficients. If there are more modes '
                          'than coefficients then the remaining modes will be ignored.')
 
         form.addParam('coeffPointer', PointerParam,
@@ -83,19 +82,24 @@ class ProDyAlgebra(ProDyModesBase):
         form.addParam('coeffString', StringParam, default='', 
                       condition='coeffSource==%d' % COEFF_STRING,
                       label='Coefficients',
-                      help='Modes will be added together these coefficients. If there are more modes '
+                      help='Modes will be added together with these coefficients. If there are more modes '
                            'than coefficients then the remaining modes will be ignored.')
+
+        form.addParam('numCoeffs', IntParam, default='-1',
+                      label='Number of components',
+                      help='This number of modes will be added together with coefficients. '
+                           'The remaining modes will be ignored.')
 
         ProDyModesBase._defineParams(self, form, besidesAnimation=False)
 
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=1, nzeros=0):
         self.prodyModes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.nzero = 0
         self.atoms = prody.parsePDB(self.modes.get().getPdb().getFileName())
+        self.nzero = nzeros
 
-        super(ProDyAlgebra, self)._insertAllSteps(1, 0)
+        super(ProDyAlgebra, self)._insertAllSteps(n=n, nzeros=nzeros)
 
     def computeModesStep(self):
         
@@ -109,15 +113,23 @@ class ProDyAlgebra(ProDyModesBase):
             if ' ' in coeffsString:
                 sep += ' '
 
-            self.coeffs = np.array(coeffsString.split(sep),
+            coeffs = np.array(coeffsString.split(sep),
                                    dtype=float)
 
         else:
-            self.coeffs = np.loadtxt(self.coeffPointer.get().getFileName())
+            coeffs = np.loadtxt(self.coeffPointer.get().getFileName())
 
-        vector = self.prodyModes[0] * self.coeffs[0]
-        for i in range(1, len(self.coeffs)):
-            vector += self.prodyModes[i] * self.coeffs[i]
+        numCoeffs = self.numCoeffs.get()
+        if numCoeffs == -1:
+            numCoeffs = len(coeffs)
+
+        vector = self.prodyModes[0] * coeffs[0]
+        numCoeffs = min(numCoeffs, len(coeffs))
+        for i in range(1, numCoeffs):
+            vector += self.prodyModes[i] * coeffs[i]
+
+        self.coeffs = CsvList()
+        self.coeffs._convertValue(["{:18.15f}".format(x) for x in coeffs[:numCoeffs]])
 
         self.outModes = prody.NMA()
         self.outModes.setEigens(vector.getArray().reshape(-1,1))
@@ -139,5 +151,15 @@ class ProDyAlgebra(ProDyModesBase):
         os.symlink(os.path.abspath(pdb.getFileName()), 
                    self._getPath('atoms.pdb'))
 
-        self._defineOutputs(outputModes=nmSet)
+        self._defineOutputs(outputModes=nmSet, coeffs=self.coeffs)
         self._defineSourceRelation(pdb, nmSet)
+
+    def _summary(self):
+        if not hasattr(self, 'outputModes'):
+            summ = ['Output modes not ready yet']
+        elif len(self.coeffs) == 1:
+            summ = ['*1* mode scaled with coefficient *{0}*'.format(self.coeffs)]
+        else:
+            summ = ['*{0}* modes added with coefficients *{1}*'.format(
+                    len(self.coeffs), self.coeffs)]
+        return summ
