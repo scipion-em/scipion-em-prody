@@ -728,7 +728,11 @@ class ProDyRenumber(ProDyAtomicBase):
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
-                      help='This number is added to the residue number of the selection')
+                      help='This number is added to all the residue numbers of the selection')
+
+        form.addParam('chain', StringParam, default='',
+                      label="New chain ID",
+                      help='This will replace the chain ID of all atoms in the selection')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -766,6 +770,10 @@ class ProDyRenumber(ProDyAtomicBase):
         sel = ag.select(self.selection.get())
         sel.setResnums(sel.getResnums() + self.offset.get())
         prody.writePDB(self.pdbFileName, ag)
+
+        chain = self.chain.get()
+        if chain != '':
+            sel.setChids(chain)
 
         restoreVerbositySecondary(self)
 
