@@ -30,6 +30,7 @@
 This module will provide ProDy atom tools including selection and superposition.
 """
 from collections import OrderedDict
+import numpy as np
 from os.path import basename, splitext, abspath
 
 from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList
@@ -57,8 +58,6 @@ UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each s
 
 IMPORT_FROM_ID_CONDITION = 'inputPdbData == IMPORT_FROM_ID'
 SUMMARY_NO_OUTPUT = 'Output structure not ready yet'
-NOT_DUMMY_SELSTR = "not dummy"
-
 
 class ProDyAtomicBase(EMProtocol):
     """
@@ -117,16 +116,17 @@ class ProDySelect(ProDyAtomicBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
+        self._insertFunctionStep(self.selectionStep)
+        self._insertFunctionStep(self.createOutputStep)
 
+    def selectionStep(self):
+        # First handle inputs
         if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
+            args = '--pdb {0} --folder {1}'.format(self.pdbId.get(), self._getPath())
+            self.runJob(Plugin.getProgram('parse.py', script=True), args)
             
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
-
-            prody.pathPDBFolder("")
+            with open(self._getPath('inputFn.txt'), 'r') as fi:
+                inputFn = fi.readlines()[0]
 
         elif self.inputPdbData == self.IMPORT_FROM_FILES:
             inputFn = self.pdbFile.get()
@@ -139,10 +139,7 @@ class ProDySelect(ProDyAtomicBase):
         self.inputStruct = AtomStruct()
         self.inputStruct.setFileName(inputFn)
 
-        self._insertFunctionStep('selectionStep', inputFn)
-        self._insertFunctionStep('createOutputStep')
-
-    def selectionStep(self, inputFn):
+        # Then actually perform the selection
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
                                          self.pdbFileName)
@@ -163,19 +160,7 @@ class ProDySelect(ProDyAtomicBase):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            inputAg = prody.parsePDB(self.inputStruct.getFileName(),
-                                     unite_chains=self.uniteChains.get())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(),
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                outputAg.numAtoms(), inputAg.numAtoms())]
-            if outputAg.ca is not None:
-                summ.append('The new structure has *{0}* protein residues '
-                            'from original *{1}* protein residues'.format(
-                            outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
-            else:
-                summ.append('The new structure has *0* protein residues')
+            summ = ['Atom selection successful']
         return summ
 
 
@@ -306,126 +291,60 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
+
         mobFn = self.mobStructure.get().getFileName()
-        mob = prody.parsePDB(mobFn, alt='all',
-                             unite_chains=self.uniteChains.get())
+        self.pdbFileNameMob = self.getPdbFileNameMob()
+        args = '--mobFn {0} --uniteChains {1} --folder {2}'.format(
+            mobFn, self.uniteChains.get(), self._getPath())
         
         if self.tarStructure.hasValue():
             tarFn = self.tarStructure.get().getFileName()
-            tar = prody.parsePDB(tarFn, alt='all',
-                                unite_chains=self.uniteChains.get())
+            self.pdbFileNameTar = self.getPdbFileNameTar()
 
-            if self.matchFunc.get() == BEST_MATCH:
-                matchFunc = prody.bestMatch
-                logger.info('\nUsing bestMatch\n')
-            elif self.matchFunc.get() == SAME_CHID:
-                matchFunc = prody.sameChid
-                logger.info('\nUsing sameChid\n')
-            elif self.matchFunc.get() == SAME_POS:
-                matchFunc = prody.sameChainPos
-                logger.info('\nUsing sameChainPos\n')
-            else:
-                chmap = eval(self.chainOrders.get())
-                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+            args += ' --tarFn {0} --keepMismatching {1} --seqid {2}' \
+                ' --overlap {3} --rmsdReject {4}'.format(
+                tarFn, self.keepMismatching.get(), self.seqid.get(),
+                self.overlap.get(), self.rmsd_reject.get())
 
-            if self.mapping.get() == DEFAULT:
-                mapping = 'auto'
-            elif self.mapping.get() == PWALIGN:
-                mapping = 'pwalign'
-            elif self.mapping.get() == CEALIGN:
-                mapping = 'ce'
-            else:
-                mapping = False
+            matchFuncId = self.matchFunc.get()
+            args += ' --matchFunc {0}'.format(matchFuncId)
 
-            mobAmapList = prody.alignChains(mob.protein, tar.protein,
-                                            seqid=self.seqid.get(),
-                                            overlap=self.overlap.get(),
-                                            match_func=matchFunc,
-                                            mapping=mapping,
-                                            rmsd_reject=self.rmsd_reject.get())
-            if len(mobAmapList):
-                mobAmap = mobAmapList[0]
-                mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-                mobSel.setTitle(mob.getTitle())
+            if matchFuncId == CUSTOM:
+                chmapFn = self._getPath('chmap.txt')
+                fo = open(chmapFn, 'w')
+                fo.write(eval(self.chainOrders.get()))
+                fo.close()
+                args += ' --chmapFn {0}'.format(chmapFn)
 
-                tarAmapList = prody.alignChains(tar.protein, mobSel,
-                                                seqid=self.seqid.get(),
-                                                overlap=self.overlap.get(),
-                                                match_func=matchFunc,
-                                                mapping=mapping,
-                                                rmsd_reject=self.rmsd_reject.get())
-                if len(tarAmapList):
-                    tarAmap = tarAmapList[0]
-                    tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                    tarSel.setTitle(tar.getTitle())
+            mappingId = self.mapping.get()
+            args += ' --mapping {0}'.format(mappingId)
 
-                    if mobSel.numAtoms != tarSel.numAtoms():
-                        mobAmapList = prody.alignChains(mobSel, tarSel,
-                                                        seqid=self.seqid.get(),
-                                                        overlap=self.overlap.get(),
-                                                        match_func=matchFunc,
-                                                        mapping=mapping,
-                                                        rmsd_reject=self.rmsd_reject.get())
-                        if len(mobAmapList):
-                            mobAmap = mobAmapList[0]
-                            mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-                            mobSel.setTitle(mob.getTitle())
-
-                        tarAmapList = prody.alignChains(tarSel, mobSel,
-                                                        seqid=self.seqid.get(),
-                                                        overlap=self.overlap.get(),
-                                                        match_func=matchFunc,
-                                                        mapping=mapping,
-                                                        rmsd_reject=self.rmsd_reject.get())
-                        if len(tarAmapList):
-                            tarAmap = tarAmapList[0]
-                            tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                            tarSel.setTitle(tar.getTitle())
-
-                    if self.transformation.get() is None:
-                        self.T = prody.calcTransformation(mobSel, tarSel)
-                    else:
-                        self.T = prody.Transformation(self.transformation.get().getMatrix())
-
-                    alg = prody.applyTransformation(self.T, mobSel)
-
-                    self.rmsd = prody.calcRMSD(mobSel, tarSel)
-                    logger.info("\nRMSD = {:6.2f}\n".format(self.rmsd))
-
-                    if self.keepMismatching.get():
-                        alg = prody.applyTransformation(self.T, mob)
-                        tarSel = tar
-
-                    self.pdbFileNameMob = self._getPath('mobile.pdb')
-                    prody.writePDB(self.pdbFileNameMob, alg)
-
-                    self.pdbFileNameTar = self._getPath('target.pdb')
-                    prody.writePDB(self.pdbFileNameTar, tarSel)
-
-                    self.matrixFileName = self._getPath('transformation.txt')
-                    prody.writeArray(self.matrixFileName, self.T.getMatrix())
-        else:
             if self.transformation.get() is not None:
-                self.T = prody.Transformation(self.transformation.get().getMatrix())
-                alg = prody.applyTransformation(self.T, mob)
+                transformation = self.transformation.get().getMatrix()
+                transFn = self._getPath('transform.txt')
+                np.savetxt(transFn, transformation)
+                args += ' --transformationFn {0}'.format(transFn)                
+        else:
+            transformation = self.transformation.get().getMatrix()
+            transFn = self._getPath('transform.txt')
+            np.savetxt(transFn, transformation)
+            args += ' --transformationFn {0}'.format(transFn)
 
-                self.pdbFileNameMob = self._getPath('mobile.pdb')
-                prody.writePDB(self.pdbFileNameMob, alg)
+        self.runJob(Plugin.getProgram('align.py', script=True), args)
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
             outputPdbMob = AtomStruct()
-            outputPdbMob.setFileName(self.pdbFileNameMob)
-
+            outputPdbMob.setFileName(self.getPdbFileNameMob())
             self._defineOutputs(outputStructureMob=outputPdbMob)
             
         if hasattr(self, "pdbFileNameTar"):
             outputPdbTar = AtomStruct()
-            outputPdbTar.setFileName(self.pdbFileNameTar)
+            outputPdbTar.setFileName(self.getPdbFileNameTar())
 
             outputTrans = Transform()
-            outputTrans.setMatrix(self.T.getMatrix())
+            transMatrix = np.loadtxt(self.getTransFileName())
+            outputTrans.setMatrix(transMatrix)
 
             self._defineOutputs(outputStructureMob=outputPdbMob,
                                 outputStructureTar=outputPdbTar,
@@ -441,35 +360,17 @@ class ProDyAlign(EMProtocol):
     
     def createMatchDic(self, index):
 
-        index = int(index)
-
-        self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all',
-                                  unite_chains=self.uniteChains.get())
-        self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all',
-                                  unite_chains=self.uniteChains.get())
+        args += ' --mobFn {0} --tarFn {1} --uniteChains {2}' \
+                ' --chainOrders {3} --customOrder {4} --index {5} --folder {6}'.format(
+                self.mobStructure.get().getFileName(), 
+                self.tarStructure.get().getFileName(), self.uniteChains.get(),
+                self.chainOrders.get(), self.customOrder.get(), int(index), self._getPath())
         
-        try:
-            self.matchDic = eval(self.chainOrders.get())
-            _ = self.matchDic.keys()
-        except AttributeError:
-            self.matchDic = OrderedDict()
-            self.matchDic[self.mob.getTitle()] = self.getInitialMobileChainOrder()
-            self.matchDic[self.tar.getTitle()] = self.getInitialTargetChainOrder()
-            
-        if index == 0:
-            label = self.mob.getTitle()
-            if self.customOrder.get() == '':
-                self.matchDic[label] = self.getInitialMobileChainOrder()
-            else:
-                self.matchDic[label] = self.customOrder.get()
-                
-        else:
-            label = self.tar.getTitle()
-            if self.customOrder.get() == '':
-                self.matchDic[label] = self.getInitialTargetChainOrder()
-            else:
-                self.matchDic[label] = self.customOrder.get()
-                            
+        self.runJob(Plugin.getProgram('alignMatchDic.py', script=True), args)
+
+        with open(self._getPath('matchDic.txt')) as fo:
+            self.matchDic = fo.readlines()
+
         return self.matchDic
     
     def getInitialMobileChainOrder(self):
@@ -478,6 +379,22 @@ class ProDyAlign(EMProtocol):
     def getInitialTargetChainOrder(self):
         return ''.join([ch.getChid() for ch in self.tar.iterChains()])
 
+    def getPdbFileNameMob(self):
+        return self._getPath('mobile.pdb')
+
+    def getPdbFileNameTar(self):
+        return self._getPath('target.pdb')
+
+    def getTransFileName(self):
+        return self._getPath('transformation.txt')
+
+    def _validate(self):
+        errors = []
+        if not (self.tarStructure.hasValue() or (self.use_trans.get() 
+                                                 and self.transformation.hasValue())):
+            errors.append('A target structure or transformation matrix must be provided')
+
+        return errors
 
 
 class ProDyBiomol(ProDyAtomicBase):
