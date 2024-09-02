@@ -164,8 +164,7 @@ class ProDyANM(ProDyModesBase):
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
         self._insertFunctionStep('qualifyModesStep', numModes,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('animateModesStep', numModes,
-                                 self.rmsd.get(), self.numSteps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.numSteps.get(),
                                  self.neg.get(), self.pos.get(), self.nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')

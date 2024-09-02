@@ -170,8 +170,7 @@ class ProDyRTB(ProDyModesBase):
         self.nzeros = 6 if self.zeros.get() else 0
 
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
-        self._insertFunctionStep('animateModesStep', numModes,
-                                 self.rmsd.get(), self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), self.nzeros)
         self._insertFunctionStep('qualifyModesStep', numModes,
                                  self.collectivityThreshold.get())

@@ -153,8 +153,7 @@ class ProDyModesBase(EMProtocol):
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
         if self.doAnimation:
-            self._insertFunctionStep('animateModesStep', n,
-                                     self.rmsd.get(), self.n_steps.get(),
+            self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                      self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
@@ -163,7 +162,7 @@ class ProDyModesBase(EMProtocol):
         # This gets defined in each child protocol
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, nSteps, pos, neg, nzero=6):
+    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
 
         if isinstance(self.outModes, prody.GNM):
