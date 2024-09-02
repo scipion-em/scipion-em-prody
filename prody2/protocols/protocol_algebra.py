@@ -117,15 +117,14 @@ class ProDyAlgebra(ProDyModesBase):
         self.modesFn = self.modes.get().getFileName()
         self.atomsFn = self.modes.get().getPdb().getFileName()
 
-        self.nmdFileName = self._getPath('modes.nmd')
         numCoeffs = min(self.numCoeffs.get(), len(coeffs))
         if numCoeffs == -1:
             numCoeffs = len(coeffs)
 
         args = '--modesFn {0} --atomsFn {1} --coeffsFn {2} --numCoeffs {3} ' \
-            '--folder {4} --nmdFileName {5}'.format(self.modesFn, self.atomsFn, 
-                                                    coeffsFn, numCoeffs,
-                                                    self._getPath(), self.nmdFileName)
+            '--folder {4} --nmdFileName {5} --npzFileName {6}'.format(
+                self.modesFn, self.atomsFn, coeffsFn, numCoeffs,
+                self._getPath(), self.getNmdFileName(), self.getNpzFileName())
 
         self.runJob(Plugin.getProgram('algebra.py', script=True), args)
 
@@ -137,7 +136,7 @@ class ProDyAlgebra(ProDyModesBase):
         fnSqlite = self._getPath('modes.sqlite')
 
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self.nmdFileName)
+        nmSet._nmdFileName = String(self.getNmdFileName())
 
         pdb = self.modes.get().getPdb()
         nmSet.setPdb(pdb)
@@ -156,3 +155,9 @@ class ProDyAlgebra(ProDyModesBase):
             summ = ['*{0}* modes added with coefficients *{1}*'.format(
                     len(self.coeffs), self.coeffs)]
         return summ
+
+    def getNmdFileName(self):
+        return self._getPath('modes.nmd')
+    
+    def getNpzFileName(self):
+        return self._getPath('modes.nma.npz')

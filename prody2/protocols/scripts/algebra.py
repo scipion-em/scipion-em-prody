@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser.add_argument('--numCoeffs', type=str, required=True)
     parser.add_argument('--folder', type=str, required=True)
     parser.add_argument('--nmdFileName', type=str, required=True)
+    parser.add_argument('--npzFileName', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -29,3 +30,4 @@ if __name__ == '__main__':
     prody.writeScipionModes(args.folder, outModes, write_star=True)
 
     prody.writeNMD(args.nmdFileName, outModes, atoms)
+    prody.saveModel(outModes, args.npzFileName)
