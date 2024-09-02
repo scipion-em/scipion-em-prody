@@ -451,7 +451,7 @@ class ProDyAlign(EMProtocol):
         try:
             self.matchDic = eval(self.chainOrders.get())
             _ = self.matchDic.keys()
-        except AttributeError:
+        except (AttributeError, TypeError):
             self.matchDic = OrderedDict()
             self.matchDic[self.mob.getTitle()] = self.getInitialMobileChainOrder()
             self.matchDic[self.tar.getTitle()] = self.getInitialTargetChainOrder()
