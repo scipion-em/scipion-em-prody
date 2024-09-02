@@ -44,7 +44,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
-from prody2 import restoreVerbositySecondary
+
 
 class ProDyModesBase(EMProtocol):
     """
@@ -316,8 +316,6 @@ class ProDyModesBase(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

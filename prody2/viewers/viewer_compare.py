@@ -36,7 +36,6 @@ from pwem.viewers.plotter import EmPlotter
 
 from prody2.protocols import ProDyCompare
 from prody2.protocols.protocol_compare import NMA_METRIC_OVERLAP
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 from matplotlib import ticker
 import numpy as np
@@ -140,9 +139,6 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
     def _viewMatrix(self, paramName):
         """ visualisation for 2D mode comparisons""" 
-
-        fixVerbositySecondary(self)
-
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
         if matrix.ndim == 0:
             matrix = matrix.reshape(1,1)
@@ -183,16 +179,11 @@ class ProDyComparisonsViewer(ProtocolViewer):
             
             ax.yaxis.set_major_locator(locator)
             ax.yaxis.set_minor_locator(minor_locator)
-
-        restoreVerbositySecondary(self)
         
         return [plotter]
 
     def _viewSingleMode(self, paramName):
         """ visualization for a selected mode. """
-
-        fixVerbositySecondary(self)
-
         matrix = prody.parseArray(self.protocol.matrixFile.getFileName())
         if matrix.ndim == 0:
             matrix = matrix.reshape(1,1)
@@ -284,8 +275,6 @@ class ProDyComparisonsViewer(ProtocolViewer):
 
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_minor_locator(minor_locator)
-
-        restoreVerbositySecondary(self)
 
         return [plotter]
 

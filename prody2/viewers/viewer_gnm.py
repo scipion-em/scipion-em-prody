@@ -40,8 +40,7 @@ from pwem.viewers import VmdView, DataView
 from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
-from prody2.protocols import ProDyGNM, ProDyPCA
-from prody2.objects import SetOfGnmModes
+from prody2.protocols import ProDyGNM
 
 import os
 
@@ -60,16 +59,8 @@ class ProDyGNMViewer(ProtocolViewer):
     _label = 'GNM viewer'
     _targets = [ProDyGNM, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
-
-
     
     def _defineParams(self, form):
-
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
         if isinstance(self.protocol, SetOfNormalModes):
             self.modesObj = self.protocol
         else:

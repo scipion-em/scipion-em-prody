@@ -38,7 +38,6 @@ from pwem.viewers import VmdView
 from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
                               ProDyImportModes, ProDyRTB,
                               ProDyPCA)
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import os
 import prody
@@ -54,8 +53,6 @@ class ProDyModeViewer(Viewer):
 
     def _visualize(self, obj, **kwargs):
         """visualisation for mode sets"""
-        fixVerbositySecondary(self)
-
         if isinstance(obj, SetOfNormalModes):
             modes = obj
         else:
@@ -72,8 +69,6 @@ class ProDyModeViewer(Viewer):
                 atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb")[0], altloc="all")
                 self.nmdFileName = modesPath+"/modes.nmd"
                 prody.writeNMD(self.nmdFileName, prodyModes, atoms)
-
-        restoreVerbositySecondary(self)
         
         return [VmdView('-e "%s"' % self.nmdFileName)]
 

@@ -29,12 +29,10 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-import math
 from multiprocessing import cpu_count
-from os.path import exists, join
 
 import prody
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -173,7 +171,7 @@ class ProDyANM(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
-        fixVerbositySecondary(self)
+        """Compute ANM normal modes"""
 
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all')
@@ -212,9 +210,6 @@ class ProDyANM(ProDyModesBase):
             args += ' --membrane'
 
         self.runJob(Plugin.getProgram('anm'), args)
-
-        restoreVerbositySecondary(self)
-        
         self.outModes = prody.loadModel(self._getPath(filename))
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):

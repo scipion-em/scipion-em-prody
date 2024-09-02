@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
 import prody
 from pyworkflow.utils import logger
 
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 from prody2.objects import Atom, SetOfAtoms
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
                               BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM) # chain matching
@@ -143,16 +143,12 @@ class ProDySelect(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
                                          self.pdbFileName)
         if self.uniteChains.get():
             args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):
@@ -310,8 +306,6 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
-        fixVerbositySecondary(self, secondary=True)
-
         mobFn = self.mobStructure.get().getFileName()
         mob = prody.parsePDB(mobFn, alt='all',
                              unite_chains=self.uniteChains.get())
@@ -418,8 +412,6 @@ class ProDyAlign(EMProtocol):
 
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
@@ -547,8 +539,6 @@ class ProDyBiomol(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def extractionStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                              biomol=True, extend_biomol=True,
                              unite_chains=self.uniteChains.get())
@@ -561,8 +551,6 @@ class ProDyBiomol(ProDyAtomicBase):
             prody.writePDB(filename, ag)
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         self._defineOutputs(outputStructures=self.pdbs)
@@ -762,8 +750,6 @@ class ProDyRenumber(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def renumStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         ag = prody.parsePDB(inputFn)
 
@@ -774,8 +760,6 @@ class ProDyRenumber(ProDyAtomicBase):
         chain = self.chain.get()
         if chain != '':
             sel.setChids(chain)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):

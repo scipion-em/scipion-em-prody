@@ -42,7 +42,7 @@ from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import SetOfLogisticModes, loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary, parseMatchDict
+from prody2 import parseMatchDict
 
 import prody
 
@@ -138,13 +138,8 @@ class ProDyLRA(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=1):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        fixVerbositySecondary(self)
-
         loadAndWriteEnsemble(self)
         self.atoms = self.ens.getAtoms()
-
-        restoreVerbositySecondary(self)
 
         self.outModes = prody.LRA()
         self.outModes.calcModes(self.ens, self.classes,
@@ -201,9 +196,6 @@ class ProDyLRA(ProDyModesBase):
         setattr(item, PRODY_FRACT_VARS, fractVar)
 
     def createMatchDic(self, index, label=None):
-
-        fixVerbositySecondary(self)
-
         parseMatchDict(self)
         self.classes = list(self.matchDic.values())
 
@@ -222,8 +214,6 @@ class ProDyLRA(ProDyModesBase):
         inds = [item-1 for item in getListFromRangeString(index)]
         for idx in inds:
             self.classes[idx] = self.customOrder.get()
-        
-        restoreVerbositySecondary(self)
 
         self.matchDic.update(zip(self.labels, self.classes))
         return self.matchDic

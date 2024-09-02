@@ -32,15 +32,13 @@ This module will provide ProDy Dynamical Domain Decomposition using the Gaussian
 
 import os
 
-from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
+from pwem.objects import AtomStruct, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob
 from pyworkflow.protocol.params import PointerParam, IntParam
 
 import prody
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
-
 
 class  ProDyDomainDecomp(EMProtocol):
     """
@@ -73,10 +71,7 @@ class  ProDyDomainDecomp(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeDecompStep(self):
-        fixVerbositySecondary(self)
-
         modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
-
         modes = prody.parseScipionModes(self.modesGNM.get().getFileName(),
                                             pdb=glob(modesPath+"/*atoms.pdb"))
 
@@ -95,8 +90,6 @@ class  ProDyDomainDecomp(EMProtocol):
 
         self.pdbFilename = self._getPath("atoms.pdb")
         prody.writePDB(self.pdbFilename, atoms, beta=domains)
-    
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fhCmd=open(self._getPath("domains.vmd"),'w')

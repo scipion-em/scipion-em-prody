@@ -41,7 +41,6 @@ from pwem.objects import SetOfAtomStructs, Set
 
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 from prody2.protocols.protocol_measure import ProDyMeasure
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import prody
 
@@ -53,9 +52,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _defineParams(self, form):
-                
-        fixVerbositySecondary(self)
-
         self.isProjection = isinstance(self.protocol, ProDyProject)
         if self.isProjection:
             self.numModes = self.protocol.numModes.get()
@@ -309,8 +305,6 @@ class ProDyProjectionsViewer(ProtocolViewer):
                     ax.set_zlim([zlims[0], self.zlim2.get()])
                 else:
                     ax.set_zlim([self.zlim1.get(), self.zlim2.get()])
-                
-        restoreVerbositySecondary(self)
 
         return [plotter]
 

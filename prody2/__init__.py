@@ -149,25 +149,6 @@ class Plugin(pwem.Plugin):
     def getEnvActivation(cls):
         return cls.getVar(PRODY_ENV_ACT)
 
-def fixVerbositySecondary(cls, secondary=False, verbosity='none'):
-    """configure ProDy to automatically handle secondary structure information and verbosity"""
-
-    import prody
-    cls.oldSecondary = prody.confProDy("auto_secondary")
-    cls.oldVerbosity = prody.confProDy("verbosity")
-
-    from pyworkflow import Config
-    prodyVerbosity = verbosity if not Config.debugOn() else 'debug'
-    prody.confProDy(auto_secondary=secondary,
-                    verbosity='{0}'.format(prodyVerbosity))
-
-def restoreVerbositySecondary(cls):
-    """configure ProDy to restore secondary structure information and verbosity"""
-    import prody
-    prody.confProDy(auto_secondary=cls.oldSecondary,
-                    verbosity='{0}'.format(cls.oldVerbosity))
-
-
 def parseMatchDict(cls):
     if cls.chainOrders.get() != "":
         cls.matchDic = eval(cls.chainOrders.get())

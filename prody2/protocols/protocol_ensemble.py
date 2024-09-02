@@ -48,7 +48,7 @@ from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
                               BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM, # chain matching
                               ENSEMBLE_WEIGHTS)
-from prody2 import parseMatchDict, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import parseMatchDict
 
 import time
 
@@ -259,9 +259,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
-
-        fixVerbositySecondary(self)
-
         degeneracy = self.degeneracy.get()
 
         # handle reference
@@ -481,10 +478,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             prody.writeDCD(self._getPath(ENS_FILENAME), ens)
             prody.writePDB(self.pdbFilename, ens.getAtoms())
 
-        restoreVerbositySecondary(self)
-
     def createOutputStep(self):
-        
         outputSeqs = SetOfSequences().create(self._getExtraPath())
         outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
 
@@ -506,10 +500,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
 
         self._defineOutputs(**outputs)
 
-    def createMatchDic(self, index, label=""):
-
-        fixVerbositySecondary(self)
-        
+    def createMatchDic(self, index, label=""):     
         parseMatchDict(self)
         self.orders = list(self.matchDic.values())
 
@@ -569,8 +560,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         for idx in inds:
             if self.customOrder.get() != '':
                 self.orders[idx] = self.customOrder.get()
-        
-        restoreVerbositySecondary(self)
 
         self.matchDic.update(zip(list(self.labels), list(self.orders)))
         return self.matchDic

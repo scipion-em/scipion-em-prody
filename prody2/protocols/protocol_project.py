@@ -42,7 +42,6 @@ from pyworkflow.utils import getListFromRangeString, glob
 
 import prody
 from prody2.constants import PROJ_COEFFS
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 ONE = 0
 TWO = 1
@@ -102,8 +101,6 @@ class ProDyProject(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeStep(self):
-        fixVerbositySecondary(self)
-
         inputModes = self.inputModes.get()
         modesPath = inputModes.getFileName()
         modes = prody.parseScipionModes(modesPath)
@@ -157,10 +154,7 @@ class ProDyProject(EMProtocol):
             prody.writeArray(self._getPath('weights_{0}.csv'.format(i+1)), weights,
                              format='%8.5f', delimiter=',')
 
-        restoreVerbositySecondary(self)
-
     def createOutputStep(self):
-
         args = {}
         for self.ensId, inputEnsemble in enumerate(self.inputEnsemble): 
             ensGot = inputEnsemble.get()

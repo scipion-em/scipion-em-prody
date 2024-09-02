@@ -49,8 +49,6 @@ class TestProDyLRA(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
         importStructs(cls)
-        cls.oldVerbosity = prody.confProDy("verbosity")
-        cls.oldSecondary = prody.confProDy("auto_secondary")
 
     def testProDyLRA_1(cls):
         """ Run LRA simple workflows for two ways of building ensembles with A3 NTDs."""

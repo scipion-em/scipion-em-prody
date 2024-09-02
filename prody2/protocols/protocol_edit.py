@@ -40,7 +40,6 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
@@ -123,8 +122,6 @@ class ProDyEdit(ProDyModesBase):
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
 
     def computeModesStep(self):
-        fixVerbositySecondary(self)
-        
         self.inputStructure = self.modes.get().getPdb()
         modes = prody.parseScipionModes(self.modes.get().getFileName(),
                                         pdb=self.inputStructure.getFileName())
@@ -171,8 +168,6 @@ class ProDyEdit(ProDyModesBase):
 
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

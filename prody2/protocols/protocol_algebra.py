@@ -40,7 +40,6 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, IntParam,
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2 import fixVerbositySecondary
 
 COEFF_POINTER = 0
 COEFF_STRING = 1
@@ -102,8 +101,6 @@ class ProDyAlgebra(ProDyModesBase):
         super(ProDyAlgebra, self)._insertAllSteps(n=n, nzeros=nzeros)
 
     def computeModesStep(self):
-        
-        fixVerbositySecondary(self)
 
         if self.coeffSource == COEFF_STRING:
             sep = ''

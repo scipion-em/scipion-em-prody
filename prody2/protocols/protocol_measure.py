@@ -39,7 +39,6 @@ from pyworkflow.protocol import params
 
 import prody
 from prody2.constants import MEASURES
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 DISTANCE = 0
 ANGLE = 1
@@ -99,8 +98,6 @@ class ProDyMeasure(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def computeStep(self):
-        fixVerbositySecondary(self)
-
         selstr1 = self.selection1.get()
         selstr2 = self.selection2.get()
 
@@ -165,10 +162,7 @@ class ProDyMeasure(EMProtocol):
             prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
                              format='%8.5f', delimiter=',')
 
-        restoreVerbositySecondary(self)
-
     def createOutputStep(self):
-
         args = {}
         for self.ensId, inputEnsemble in enumerate(self.inputEnsemble): 
             ensGot = inputEnsemble.get()
