@@ -132,8 +132,7 @@ class ProDyLRA(ProDyModesBase):
         self._insertFunctionStep('computeModesStep', numModes)
         self._insertFunctionStep('qualifyModesStep', numModes, 0.)
         self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
-        self._insertFunctionStep('animateModesStep', numModes,
-                                 self.rmsd.get(), self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
