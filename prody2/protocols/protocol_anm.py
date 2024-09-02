@@ -96,7 +96,7 @@ class ProDyANM(ProDyModesBase):
                            'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
                            'more sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
         form.addParam('sparse', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       label="Use sparse matrices?",

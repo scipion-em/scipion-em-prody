@@ -146,7 +146,7 @@ class ProDyGNMViewer(ProtocolViewer):
                       condition=os.path.isfile(nmdFile),
                       label="Display mode color structures with VMD NMWiz?",
                       help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
-                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
+                           "See http://http://www.bahargroup.org/prody/tutorials/nmwiz_tutorial/nmwiz.html")
         
     def _getVisualizeDict(self):
         return {'displayModes': self._viewParam,

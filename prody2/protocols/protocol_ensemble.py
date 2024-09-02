@@ -153,7 +153,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos', 'custom'], 
                       default=SAME_CHID, condition=inputTypeCheck % STRUCTURE,
                       label="Chain matching function",
-                      help='See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.\n')
+                      help='See http://http://www.bahargroup.org/prody/manual/release/v1.11_series.html for more details.\n')
 
         form.addParam('seqid', FloatParam, default=0.,
                       expertLevel=LEVEL_ADVANCED,
@@ -232,7 +232,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Residue mapping function",
                       help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
-                           'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
+                           'See http://http://www.bahargroup.org/prody/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
                            'for more details.')
 
         form.addParam('writeDCDFile', BooleanParam, default=False,

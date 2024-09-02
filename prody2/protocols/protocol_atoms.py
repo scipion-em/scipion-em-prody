@@ -104,7 +104,7 @@ class ProDyAtomicBase(EMProtocol):
                       label="selection string", condition=includeSelection,
                       help='This determines which atoms are selected. '
                            'There is a rich selection engine with similarities to VMD. '
-                           'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/prody_tutorial/selection.html')
 
         form.addParam('uniteChains', BooleanParam, default=False,
                       label=UNITE_CHAINS_LABEL,
@@ -235,7 +235,7 @@ class ProDyAlign(EMProtocol):
                       help='Chains can be matched by either trying all combinations and taking the best one '
                            'based on a number of criteria including final RMSD or by taking chains with the same ID '
                            'or position in the list of chains.\n'
-                           'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')
+                           'See http://http://www.bahargroup.org/prody/manual/release/v1.11_series.html for more details.')
         
         matchFuncCheck = 'matchFunc == %d'
         group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
@@ -276,7 +276,7 @@ class ProDyAlign(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Residue mapping function",
                       help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
-                           'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
+                           'See http://http://www.bahargroup.org/prody/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
                            'for more details.')
 
         form.addParam('rmsd_reject', FloatParam, default=15.,

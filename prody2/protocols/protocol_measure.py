@@ -46,7 +46,7 @@ DIHEDRAL = 2
 
 selstrHelp = '''The distance, angle or dihedral will be calculated between the centers of 2, 3 or 4 selections.
 There is a rich selection engine with similarities to VMD. 
-See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html'''
+See http://http://www.bahargroup.org/prody/tutorials/prody_tutorial/selection.html'''
 
 defaultSelstr = "protein and name CA or nucleic and name P C4' C2"
 
