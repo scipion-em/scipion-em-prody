@@ -26,7 +26,7 @@ if __name__ == '__main__':
         try:
             matchDic = eval(chainOrders)
             _ = matchDic.keys()
-        except AttributeError:
+        except (AttributeError, TypeError):
             matchDic = OrderedDict()
             matchDic[mob.getTitle()] = getInitialChainOrder(mob)
             matchDic[tar.getTitle()] = getInitialChainOrder(tar)
