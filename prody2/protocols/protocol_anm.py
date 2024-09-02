@@ -30,19 +30,10 @@
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
 from multiprocessing import cpu_count
-import numpy as np
-from os.path import abspath
-
-import prody
 from prody2 import Plugin, copyConvertPDB
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
-from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfNormalModes, String
-
-from pyworkflow.utils import glob, redStr
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
@@ -213,10 +204,7 @@ class ProDyANM(ProDyModesBase):
         if not hasattr(self, 'outputModes'):
             summ = ['Output modes not ready yet']
         else:
-            modes = prody.parseScipionModes(self.outputModes.getFileName())
-
-            summ = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
-                    modes.numModes(), modes.numAtoms())]
+            summ = ['Calculated *{0}* ANM modes'.format(len(self.outputModes))]
         return summ
 
     def getPrefix(self):

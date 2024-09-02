@@ -44,7 +44,6 @@ from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
-import prody
 from prody2 import Plugin
 
 
@@ -147,9 +146,6 @@ class ProDyModesBase(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
-
-        self.gnm = False
-
         self._insertFunctionStep('computeModesStep')
         self._insertFunctionStep('qualifyModesStep', n,
                                  collectivityThreshold=0.15,
@@ -197,8 +193,6 @@ class ProDyModesBase(EMProtocol):
         eigvals = np.loadtxt(eigvalsFn).tolist()
         if isinstance(eigvals, float):
             eigvals = [eigvals]
-
-        self.gnm = bool(np.loadtxt(gnmCheckFn))
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -271,7 +265,7 @@ class ProDyModesBase(EMProtocol):
                 md = MetaData()
                 atomCounter = 0
                 for line in fhIn:
-                    if self.gnm:
+                    if self.checkGNM():
                         d = abs(float(line))
                     else:
                         x, y, z = map(float, line.split())
@@ -316,3 +310,10 @@ class ProDyModesBase(EMProtocol):
             return 6
         else:
             return 0
+        
+    def checkGNM(self):
+        gnmCheckFn = self._getExtraPath('gnmCheck.txt')
+        if exists(gnmCheckFn):
+            return bool(np.loadtxt(gnmCheckFn))
+        else:
+            return False
