@@ -9,10 +9,12 @@ if __name__ == '__main__':
     parser.add_argument('--collecFn', type=str, required=True)
     parser.add_argument('--eigvalsFn', type=str, required=True)
     parser.add_argument('--gnmCheckFn', type=str, required=True)
+    parser.add_argument('--folder', type=str, required=True)
+    parser.add_argument('--collecThreshold', type=str, required=True)
 
     args = parser.parse_args()
 
-    modes = prody.parseScipionModes(args.modesFn)
+    modes = prody.loadModel(args.modesFn)
 
     collectivity = prody.calcCollectivity(modes)
     if isinstance(collectivity, float):
@@ -24,5 +26,23 @@ if __name__ == '__main__':
 
     eigvals = modes.getEigvals()
     np.savetxt(args.eigvalsFn, eigvals)
-
     np.savetxt(args.gnmCheckFn, [not modes.is3d()])
+
+    idxSorted = [i[0] for i in sorted(enumerate(collectivityList), 
+                                        key=lambda x: x[1], reverse=True)]
+    numModes = modes.numModes()
+    modeNum = modes.getIndices()
+
+    score = []
+    for _ in range(numModes):
+        score.append(0)
+
+    for i in range(numModes):
+        score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
+    
+    for i in range(numModes):
+        score[i] = float(score[i]) / (2.0 * numModes)
+
+    collectivityThreshold = float(args.collecThreshold)
+    prody.writeScipionModes(args.folder, modes, scores=score, only_sqlite=True,
+                            collectivityThreshold=collectivityThreshold)

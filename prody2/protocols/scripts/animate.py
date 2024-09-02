@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    modes = prody.parseScipionModes(args.modesFn)
+    modes = prody.loadModel(args.modesFn)
     atoms = prody.parsePDB(args.atomsFn)
 
     nzero = int(args.nzero)

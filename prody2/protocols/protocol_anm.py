@@ -31,6 +31,7 @@ This module will provide ProDy normal mode analysis (NMA) using the anisotropic 
 """
 from multiprocessing import cpu_count
 import numpy as np
+from os.path import abspath
 
 import prody
 from prody2 import Plugin, copyConvertPDB
@@ -161,13 +162,13 @@ class ProDyANM(ProDyModesBase):
         self.gnm = False
         self.nzeros = 6 if self.zeros.get() else 0
 
-        self._insertFunctionStep('computeModesStep', inputFn, numModes)
-        self._insertFunctionStep('qualifyModesStep', numModes,
+        self._insertFunctionStep(self.computeModesStep, inputFn, numModes)
+        self._insertFunctionStep(self.qualifyModesStep, numModes,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.numSteps.get(),
+        self._insertFunctionStep(self.animateModesStep, self.rmsd.get(), self.numSteps.get(),
                                  self.neg.get(), self.pos.get(), self.nzeros)
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep(self.computeAtomShiftsStep, numModes, self.nzeros)
+        self._insertFunctionStep(self.createOutputStep)
 
     def computeModesStep(self, inputFn='', n=20):
         """Compute ANM normal modes"""
@@ -175,15 +176,9 @@ class ProDyANM(ProDyModesBase):
         self.atomsFn = self._getPath('atoms.pdb')
         copyConvertPDB(inputFn, self.atomsFn)
 
-        if self.membrane.get():
-            self.prefix = 'modes.exanm'
-        else:
-            self.prefix = 'modes.anm'
-        filename = self.prefix + '.npz'
-
         args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
             '--npz -o {1} -p {2} -n {3} -g {4} -c "{5}" -P {6}'.format(self.atomsFn, 
-                self._getPath(), self.prefix, n, self.gamma.get(),
+                self._getPath(), self.getPrefix(), n, self.gamma.get(),
                 self.cutoff.get(), self.numberOfThreads.get())
 
         if self.sparse.get():
@@ -194,11 +189,6 @@ class ProDyANM(ProDyModesBase):
 
         if self.zeros.get():
             args += ' --zero-modes'
-            self.startMode = 6
-            self.nzero = 6
-        else:
-            self.startMode = 0
-            self.nzero = 0
 
         if self.turbo.get():
             args += ' --turbo'
@@ -207,88 +197,11 @@ class ProDyANM(ProDyModesBase):
             args += ' --membrane'
 
         self.runJob(Plugin.getProgram('anm'), args)
-        self.outModesFn = self._getPath("modes.sqlite")
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
-        self._enterWorkingDir()
-
-        fnVec = glob("modes/vec.*")
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
-            msg += "The maximum number of modes allowed by the method for ANM normal mode analysis is "
-            msg += "3 times the number of nodes (atoms or pseudoatoms). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes)))
-
-        # mdOut = MetaData()
-        # collectivityList = list(prody.calcCollectivity(self.outModes))
-        # eigvals = self.outModes.getEigvals()
-
-        self.collecFn = self._getExtraPath('collectivity.txt')
-        self.eigvalsFn = self._getExtraPath('eigvals.txt')
-        self.gnmCheckFn = self._getExtraPath('gnmCheck.txt')
-
-        args = '--modesFn {0} --collecFn {1} --eigvalsFn {2} --gnmCheckFn {3}' \
-            ''.format(self.outModesFn, self.collecFn, self.eigvalsFn, self.gnmCheckFn)
-        
-        self.runJob(Plugin.getProgram('qualify.py', script=True), args)
-
-        collectivityList = np.loadtxt(self.collecFn)
-        eigvals = np.loadtxt(self.eigvalsFn)
-        self.gnm = bool(np.loadtxt(self.gnmCheckFn))
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", vecStr % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            eigval = eigvals[n]
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigval, objId)
-
-            if eigval > prody.utilities.ZERO:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
-
-        self._leaveWorkingDir()
-        
-    #     prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-    #                             collectivityThreshold=collectivityThreshold)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
+        nmSet._nmdFileName = String(self._getPath(self.getPrefix() + '.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
@@ -306,3 +219,14 @@ class ProDyANM(ProDyModesBase):
                     modes.numModes(), modes.numAtoms())]
         return summ
 
+    def getPrefix(self):
+        if self.membrane.get():
+            return 'modes.exanm'
+        else:
+            return 'modes.anm'
+
+    def getNzero(self):
+        if self.zeros.get():
+            return 6
+        else:
+            return 0

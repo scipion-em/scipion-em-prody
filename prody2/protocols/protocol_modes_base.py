@@ -166,9 +166,8 @@ class ProDyModesBase(EMProtocol):
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
                          suffix=''):
-        nzero = self.nzero
-        self._enterWorkingDir()
-        fnVec = glob("modes/vec.*")
+        nzero = self.getNzero()
+        fnVec = glob(self._getPath("modes/vec.*"))
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
@@ -180,18 +179,20 @@ class ProDyModesBase(EMProtocol):
         mdOut = MetaData()
         vecStr = "vec.%d"
 
-        self.collecFn = self._getExtraPath('collectivity.txt')
-        self.eigvalsFn = self._getExtraPath('eigvals.txt')
-        self.gnmCheckFn = self._getExtraPath('gnmCheck.txt')
+        collecFn = self._getExtraPath('collectivity.txt')
+        eigvalsFn = self._getExtraPath('eigvals.txt')
+        gnmCheckFn = self._getExtraPath('gnmCheck.txt')
+        outModesFn = self._getPath(self.getPrefix() + '.npz')
 
         args = '--modesFn {0} --collecFn {1} --eigvalsFn {2} --gnmCheckFn {3}' \
-            ''.format(self.outModesFn, self.collecFn, self.eigvalsFn, self.gnmCheckFn)
+            ' --folder {4} --collecThreshold {5}'.format(outModesFn, collecFn, eigvalsFn, gnmCheckFn,
+                                                        self._getPath(), collectivityThreshold)
         
         self.runJob(Plugin.getProgram('qualify.py', script=True), args)
 
-        collectivityList = np.loadtxt(self.collecFn)
-        eigvals = np.loadtxt(self.eigvalsFn)
-        self.gnm = bool(np.loadtxt(self.gnmCheckFn))
+        collectivityList = np.loadtxt(collecFn)
+        eigvals = np.loadtxt(eigvalsFn)
+        self.gnm = bool(np.loadtxt(gnmCheckFn))
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -215,40 +216,35 @@ class ProDyModesBase(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), 
                                           key=lambda x: x[1], reverse=True)]
 
+        numModes = len(fnVec)
         score = []
-        for _ in range(len(fnVec)):
+        for _ in range(numModes):
             score.append(0)
 
         modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
+        for k in range(numModes):
             modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
+ 
+        for i in range(numModes):
             score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
 
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
+        for i, objId in enumerate(mdOut):
+            score[i] = float(score[i]) / (2.0 * numModes)
+            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
+        mdOut.write(self._getPath("modes%s.xmd" % suffix))
 
     def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
+        outModesFn = self._getPath(self.getPrefix() + '.npz')
+        atomsFn = self._getPath('atoms.pdb')
 
         if not self.gnm:
             animationsDir = self._getExtraPath('animations')
             makePath(animationsDir)
 
             args = '--modesFn {0} --atomsFn {1} --animationsDir {2} ' \
-                '--nzero {3} --rmsd {4} -- nSteps {5} --pos {6} --neg {7}'.format(
-                    self.modesFn, self.atomsFn, animationsDir, 
+                '--nzero {3} --rmsd {4} --nSteps {5} --pos {6} --neg {7}'.format(
+                    outModesFn, atomsFn, animationsDir, 
                     nzero, rmsd, nSteps, pos, neg)
             
             self.runJob(Plugin.getProgram('animate.py', script=True), args)
@@ -306,3 +302,11 @@ class ProDyModesBase(EMProtocol):
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.inputStructure, nmSet)
 
+    def getPrefix(self):
+        return 'modes.nma'
+    
+    def getNzero(self):
+        if self.zeros.get():
+            return 6
+        else:
+            return 0
