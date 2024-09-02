@@ -190,9 +190,9 @@ class ProDyModesBase(EMProtocol):
         
         self.runJob(Plugin.getProgram('qualify.py', script=True), args)
 
-        collectivity = np.loadtxt(collecFn).tolist()
-        if isinstance(collectivity, float):
-            collectivityList = [collectivity]
+        collectivityList = np.loadtxt(collecFn).tolist()
+        if isinstance(collectivityList, float):
+            collectivityList = [collectivityList]
 
         eigvals = np.loadtxt(eigvalsFn).tolist()
         if isinstance(eigvals, float):
