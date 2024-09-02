@@ -26,8 +26,8 @@
 from collections import OrderedDict
 import os
 import pwem
+from pwem.convert.atom_struct import cifToPdb
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
 
 from .constants import *
 
@@ -159,3 +159,13 @@ def parseMatchDict(cls):
         cls.matchDic = OrderedDict()
 
     cls.labels = list(cls.matchDic.keys())
+
+def copyConvertPDB(infilename, outfilename):
+    from os import path, symlink
+    import shutil
+
+    extension = path.splitext(infilename)[1]
+    if extension == ".pdb":
+        shutil.copy(infilename, outfilename)
+    elif extension == '.cif':
+        cifToPdb(infilename, outfilename)

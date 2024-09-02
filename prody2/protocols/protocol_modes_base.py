@@ -30,20 +30,22 @@
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
 import math
+import numpy as np
 from os.path import exists, join
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
+from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
+from prody2 import Plugin
 
 
 class ProDyModesBase(EMProtocol):
@@ -162,72 +164,34 @@ class ProDyModesBase(EMProtocol):
         # This gets defined in each child protocol
         pass
 
-    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
-        self.nzero = nzero
-
-        if isinstance(self.outModes, prody.GNM):
-            self.gnm = True
-        else:
-            animationsDir = self._getExtraPath('animations')
-            makePath(animationsDir)
-            for i, mode in enumerate(self.outModes[nzero:]):
-                modenum = i+nzero+1
-                fnAnimation = join(animationsDir, "animated_mode_%03d"
-                                % modenum)
-                prody.writePDB(fnAnimation+".pdb", 
-                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=nSteps,
-                                                  pos=pos, neg=neg)
-                              )
-
-                fhCmd=open(fnAnimation+".vmd",'w')
-                fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-                fhCmd.write("animate style Rock\n")
-                fhCmd.write("display projection Orthographic\n")
-                fhCmd.write("mol modcolor 0 0 Index\n")
-
-                numAtomsP = numAtomsCA = 0
-                if self.atoms.select('name P') is not None:
-                    numAtomsP = self.atoms.select('name P').numAtoms()
-                if self.atoms.ca is not None:
-                    numAtomsCA = self.atoms.ca.numAtoms()
-
-                numAtomsRep = numAtomsCA + numAtomsP
-                if numAtomsRep == self.atoms.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
-                fhCmd.write("animate speed 0.5\n")
-                fhCmd.write("animate forward\n")
-                fhCmd.close()    
-
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
                          suffix=''):
-
         nzero = self.nzero
-
         self._enterWorkingDir()
-
         fnVec = glob("modes/vec.*")
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
             msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
             msg += "The maximum number of modes allowed by the method for normal mode analysis is "
-            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
+            msg += "3 times the number of nodes (atoms or pseudoatoms). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes)))
 
         mdOut = MetaData()
-        collectivity = prody.calcCollectivity(self.outModes)
-        if isinstance(collectivity, float):
-            collectivityList = [collectivity]
-        else:
-            collectivityList = list(collectivity)
-        eigvals = self.outModes.getEigvals()
-
         vecStr = "vec.%d"
+
+        self.collecFn = self._getExtraPath('collectivity.txt')
+        self.eigvalsFn = self._getExtraPath('eigvals.txt')
+        self.gnmCheckFn = self._getExtraPath('gnmCheck.txt')
+
+        args = '--modesFn {0} --collecFn {1} --eigvalsFn {2} --gnmCheckFn {3}' \
+            ''.format(self.outModesFn, self.collecFn, self.eigvalsFn, self.gnmCheckFn)
+        
+        self.runJob(Plugin.getProgram('qualify.py', script=True), args)
+
+        collectivityList = np.loadtxt(self.collecFn)
+        eigvals = np.loadtxt(self.eigvalsFn)
+        self.gnm = bool(np.loadtxt(self.gnmCheckFn))
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
@@ -248,7 +212,8 @@ class ProDyModesBase(EMProtocol):
             if collectivity < collectivityThreshold:
                 mdOut.setValue(MDL_ENABLED, -1, objId)
 
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
+        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), 
+                                          key=lambda x: x[1], reverse=True)]
 
         score = []
         for _ in range(len(fnVec)):
@@ -273,6 +238,20 @@ class ProDyModesBase(EMProtocol):
         
         prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
+
+    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
+        self.nzero = nzero
+
+        if not self.gnm:
+            animationsDir = self._getExtraPath('animations')
+            makePath(animationsDir)
+
+            args = '--modesFn {0} --atomsFn {1} --animationsDir {2} ' \
+                '--nzero {3} --rmsd {4} -- nSteps {5} --pos {6} --neg {7}'.format(
+                    self.modesFn, self.atomsFn, animationsDir, 
+                    nzero, rmsd, nSteps, pos, neg)
+            
+            self.runJob(Plugin.getProgram('animate.py', script=True), args)
 
     def computeAtomShiftsStep(self, numberOfModes, nzero=6):
         fnOutDir = self._getExtraPath("distanceProfiles")
