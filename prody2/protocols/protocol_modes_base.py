@@ -151,7 +151,8 @@ class ProDyModesBase(EMProtocol):
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
         if self.doAnimation:
-            self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
+            self._insertFunctionStep('animateModesStep', self.rmsd.get(), 
+                                     self.n_steps.get(),
                                      self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
@@ -233,7 +234,7 @@ class ProDyModesBase(EMProtocol):
             mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
         mdOut.write(self._getPath("modes%s.xmd" % suffix))
 
-    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
+    def animateModesStep(self, rmsd, nSteps, neg, pos, nzero=6):
         self.nzero = nzero
         outModesFn = self._getPath(self.getPrefix() + '.npz')
         atomsFn = self._getPath('atoms.pdb')
