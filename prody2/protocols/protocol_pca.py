@@ -156,10 +156,11 @@ class ProDyPCA(ProDyModesBase):
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
-               ' -o {3} -p modes.pca -n {4} -P {5}'.format(self.dcdFileName,
+               ' -o {3} -p {4} -n {5} -P {6}'.format(self.dcdFileName,
                                                            self.pdbFileName,
                                                            self.selstr.get(),
-                                                           self._getPath(), n,
+                                                           self._getPath(), 
+                                                           self.getPrefix(), n,
                                                            self.numberOfThreads.get())
         if self.keepAlignment.get():
             args += " --aligned"

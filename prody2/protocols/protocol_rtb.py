@@ -215,8 +215,9 @@ class ProDyRTB(ProDyModesBase):
             self.startMode = 0
         
         prody.writeScipionModes(self._getPath(), self.outModes)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.amap)
-        prody.saveModel(self.outModes, self._getPath('modes.rtb.npz'), matrices=True)
+        prefix = self.getPrefix()
+        prody.writeNMD(self._getPath(prefix + '.nmd'), self.outModes, self.amap)
+        prody.saveModel(self.outModes, self._getPath(prefix + '.npz'), matrices=True)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()
@@ -291,3 +292,5 @@ class ProDyRTB(ProDyModesBase):
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.inputStructure, nmSet)
 
+    def getPrefix(self):
+        return 'modes.rtb'
