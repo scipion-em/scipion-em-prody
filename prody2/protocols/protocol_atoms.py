@@ -109,6 +109,24 @@ class ProDyAtomicBase(EMProtocol):
                       label=UNITE_CHAINS_LABEL,
                       help=UNITE_CHAINS_HELP)
 
+    def getPdbFileName(self, inputFn):
+        return self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
+
+    def getInputFn(self):
+        if self.inputPdbData == self.IMPORT_FROM_ID:
+            args = '--pdb {0} --folder {1}'.format(self.pdbId.get(), self._getPath())
+            self.runJob(Plugin.getProgram('parse.py', script=True), args)
+            with open(self._getPath('inputFn.txt'), 'r') as fi:
+                inputFn = fi.readlines()[0]
+        elif self.inputPdbData == self.IMPORT_FROM_FILES:
+            inputFn = self.pdbFile.get()
+            if not exists(inputFn):
+                raise notFoundException(inputFn)
+        else:
+            inputFn = self.inputStructure.get().getFileName()
+
+        return inputFn
+
 class ProDySelect(ProDyAtomicBase):
     """
     This protocol will perform atom selection
@@ -121,33 +139,24 @@ class ProDySelect(ProDyAtomicBase):
 
     def selectionStep(self):
         # First handle inputs
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            args = '--pdb {0} --folder {1}'.format(self.pdbId.get(), self._getPath())
-            self.runJob(Plugin.getProgram('parse.py', script=True), args)
-            
-            with open(self._getPath('inputFn.txt'), 'r') as fi:
-                inputFn = fi.readlines()[0]
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
-            inputFn = self.inputStructure.get().getFileName()
+        self.inputFn = self.getInputFn()
 
         self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
+        self.inputStruct.setFileName(self.inputFn)
 
         # Then actually perform the selection
-        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
+        self.pdbFileName = self.getPdbFileName(self.inputFn)
+        args = '"{0}" {1} -o {2}'.format(str(self.selection), self.inputFn,
                                          self.pdbFileName)
         if self.uniteChains.get():
             args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
 
     def createOutputStep(self):
+        if not self.hasAttribute('inputFn'):
+            self.inputFn = self.getInputFn()
+        if not self.hasAttribute('pdbFileName'):
+            self.pdbFileName = self.getPdbFileName(self.inputFn)
         if exists(self.pdbFileName):
             outputPdb = AtomStruct()
             outputPdb.setFileName(self.pdbFileName)
@@ -426,46 +435,22 @@ class ProDyBiomol(ProDyAtomicBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-
-            if self.membrane.get():
-                inputFn = prody.fetchPDBfromOPM(self.pdbId.get(), filename=self.getPath(self.pdbId.get()+'-opm.pdb'))
-            else:
-                inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
-            
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
-
-            prody.pathPDBFolder("")
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
-            inputFn = self.inputStructure.get().getFileName()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
-
-        self._insertFunctionStep('extractionStep', inputFn)
+        self._insertFunctionStep('extractionStep')
         self._insertFunctionStep('createOutputStep')
 
-    def extractionStep(self, inputFn):
-        ags = prody.parsePDB(inputFn, alt='all', compressed=False,
-                             biomol=True, extend_biomol=True,
-                             unite_chains=self.uniteChains.get())
-        if isinstance(ags, prody.AtomGroup):
-            ags = [ags] 
+    def extractionStep(self):
+        self.inputFn = self.getInputFn()
+        self.inputStruct = AtomStruct()
+        self.inputStruct.setFileName(self.inputFn)
+
+        args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
+            self.inputFn, self.uniteChains.get(), self._getPath())
+        self.runJob(Plugin.getProgram('biomol.py', script=True), args)
+        with open(self._getPath('filenames.txt'), 'r') as fi:
+            filenames = fi.readlines().split()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for i, ag in enumerate(ags):
-            filename = self._getPath(splitext(basename(inputFn))[0] + '_atoms_{0}.pdb'.format(i))
-            prody.writePDB(filename, ag)
+        for filename in filenames:
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
 
@@ -484,16 +469,6 @@ class ProDyBiomol(ProDyAtomicBase):
                 self._summ = CsvList()
                 numStructs = len(self.outputStructures)
                 self._summ.append('Extracted *{0}* biomolecular assemblies'.format(numStructs))
-
-                ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures],
-                                     unite_chains=self.uniteChains.get())
-                if numStructs == 1:
-                    ags = [ags]
-                     
-                for i, ag in enumerate(ags):
-                    self._summ.append('New structure {0} has *{1}* residues '
-                                     'across *{2}* chains'.format(i+1, ag.numResidues(), 
-                                                                 ag.numChains()))
         return self._summ
 
 
