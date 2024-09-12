@@ -224,6 +224,8 @@ class ProDyRmsd(EMProtocol):
                 self.npz.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
                                 objLabel=label, weight=allWeights[i]))
 
+            prody.saveEnsemble(self.ens, self.ensBaseName)
+
     def createOutputStep(self):
         args = {}
         args["outputClasses"] = self.npzClasses
