@@ -135,7 +135,8 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(),
+                                 self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
@@ -292,3 +293,6 @@ class ProDyPCA(ProDyModesBase):
         # We provide data directly so don't need a row
         fractVar = Float(self.fractVarsDict[item.getObjId()])
         setattr(item, PRODY_FRACT_VARS, fractVar)
+
+    def getPrefix(self):
+        return 'modes.pca'
