@@ -104,11 +104,14 @@ class Plugin(pwem.Plugin):
                 
                 installCmd.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
                 installCmd.append('cd ProDy &&')
+                installCmd.append('git fetch &&')
+
+                installCmd.append('git remote add upstream https://github.com/prody/ProDy.git &&')
+                installCmd.append('git fetch upstream &&')
+                installCmd.append('git checkout -t upstream/main &&')
                 
                 installCmd.append('git checkout scipion &&')
                 installCmd.append('git pull &&')
-
-                installCmd.append('git remote add upstream https://github.com/prody/ProDy.git &&')
 
                 installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
             else:
