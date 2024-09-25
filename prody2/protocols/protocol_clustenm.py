@@ -260,15 +260,18 @@ class ProDyClustENM(EMProtocol):
         if not os.path.exists(direc):
             os.mkdir(direc)
 
-        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
-               '--solvent {9} --force_field {10} --ionicStrength {11} --padding {12} --temp {13} --t_steps_i {14} --t_steps_g {15} ' \
-               '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple -P {19}'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
-                    self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(), 
-                    self.maxclust.get(), self.threshold.get(),
-                    self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
-                    self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
-                    self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
-        
+        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
+               '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} --t_steps_i {12} --t_steps_g {13} ' \
+               '--tolerance {14} --maxIterations {15} -o {16} --file-prefix pdbs --multiple -P {17}'.format(
+                   pdb, self.n_gens.get(), self.numberOfModes.get(),
+                   self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(),
+                   self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
+                   self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
+                   self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
+
+        if self.n_gens.get() > 0:
+            args += ' --maxclust "{0}" --threshold "{1}"'.format(self.maxclust.get(), self.threshold.get())
+
         if self.sim.get() is False:
             args += ' --no-sim'
 
