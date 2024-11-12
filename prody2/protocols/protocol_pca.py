@@ -44,7 +44,7 @@ from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
 from pyworkflow.object import Float
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import replaceCoordsets, loadAndWriteEnsemble
+from prody2.objects import replaceCoordsets, loadAndWriteEnsemble, ProDyNpzEnsemble
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import Plugin
 
@@ -61,7 +61,8 @@ class ProDyPCA(ProDyModesBase):
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
     _label = 'PCA'
-    _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
+    _possibleOutputs = {'outputModes': SetOfPrincipalComponents,
+                        'outputEnsemble': ProDyNpzEnsemble}
     _nmdFileName = 'modes.pca.nmd'
 
     # -------------------------- DEFINE param functions ----------------------
@@ -141,6 +142,8 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=5):
+        aligned = self.keepAlignment.get()
+
         if (len(self.inputEnsemble)==1 and
             isinstance(self.inputEnsemble[0].get(), DcdMDSystem)):
                 self.npz = None
@@ -152,17 +155,17 @@ class ProDyPCA(ProDyModesBase):
                 self.averageStructure = AtomStruct()
                 self.averageStructure.setFileName(self.pdbFileName)
         else:
-            loadAndWriteEnsemble(self) # creates self.npz, self.dcdFileName, self.pdbFileName and others
+            loadAndWriteEnsemble(self, iterpose=(not aligned)) # creates self.npz, self.dcdFileName, self.pdbFileName and others
 
         args = '{0} --pdb {1} -s "{2}" ' \
                '--covariance --export-scipion --npz --npzmatrices' \
                ' -o {3} -p {4} -n {5} -P {6}'.format(self.dcdFileName,
-                                                           self.pdbFileName,
-                                                           self.selstr.get(),
-                                                           self._getPath(), 
-                                                           self.getPrefix(), n,
-                                                           self.numberOfThreads.get())
-        if self.keepAlignment.get():
+                                                     self.pdbFileName,
+                                                     self.selstr.get(),
+                                                     self._getPath(),
+                                                     self.getPrefix(), n,
+                                                     self.numberOfThreads.get())
+        if aligned:
             args += " --aligned"
 
         self.runJob(Plugin.getProgram('pca'), args)
@@ -179,8 +182,8 @@ class ProDyPCA(ProDyModesBase):
 
             if self.npz is not None:
                 self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(),
-                                            suffix='_aligned', iterpose=False,
-                                            coords=dcdEnsemble.getCoords())
+                                             suffix='_aligned', iterpose=False,
+                                             coords=dcdEnsemble.getCoords())
             else:
                 self.npz2 = None
         else:

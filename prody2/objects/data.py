@@ -448,7 +448,7 @@ class SetOfClassesTraj(SetOfClasses3D):
     REP_TYPE = AtomStruct
     REP_SET_TYPE = SetOfAtomStructs
 
-def loadAndWriteEnsemble(cls):
+def loadAndWriteEnsemble(cls, write=True, iterpose=False):
     """Handle inputs to load ensemble into ProDy and write outputs"""
 
     weights = []
@@ -481,8 +481,10 @@ def loadAndWriteEnsemble(cls):
             cls.ens += ens
 
     cls.ens.select(cls.selstr.get())
+    if iterpose:
+        cls.ens.iterpose()
 
-    if os.path.exists(cls._getPath()):
+    if os.path.exists(cls._getPath()) and write:
         avgStruct = cls.ens.getAtoms()
         avgStruct.setCoords(cls.ens.getCoords())
 
