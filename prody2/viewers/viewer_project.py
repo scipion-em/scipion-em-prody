@@ -28,6 +28,8 @@
 This module implements viewers for plotting projections of ensembles onto 
 modes or distance distributions.
 """
+from difflib import SequenceMatcher
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -39,6 +41,7 @@ from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 from pwem.viewers.plotter import EmPlotter
 from pwem.objects import SetOfAtomStructs, Set
 
+from prody2.objects import SetOfClassesTraj
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 from prody2.protocols.protocol_measure import ProDyMeasure
 
@@ -178,8 +181,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
         for i, ensPointer in enumerate(inputEnsemble):
             ens = ensPointer.get()
             inputClass = type(ens)
-            inputClassStr = str(inputClass).split('.')[-1].replace("'>","").lower().replace('setofatomstructs', 
-                                                                                            'atomstructs')
+            inputClassStr = str(inputClass).split('.')[-1].replace("'>","").lower().replace('setof', '')
             prevClassStrs.append(inputClassStr)
             uniqueStrs, counts = np.unique(prevClassStrs, return_counts=True)
             j = counts[list(uniqueStrs).index(inputClassStr)]-1
@@ -197,15 +199,14 @@ class ProDyProjectionsViewer(ProtocolViewer):
             if projection.ndim == 1 and self.numModes != ONE:
                 projection = projection.reshape(1,-1)
 
-            if len(ens) > 50:
-                labels = [str(i) for i in ens.getIdSet()]
+            if isinstance(ens, SetOfAtomStructs):
+                labels = ens.getFiles()
+            elif isinstance(ens, SetOfClassesTraj):
+                labels = [class_.getFirstItem().getObjLabel() for class_ in ens]
             else:
-                if isinstance(ens, SetOfAtomStructs):
-                    labels = ens.getFiles()
-                    labels = self._cleanLabels(labels)
-                else:
-                    labels = [frame.getObjLabel() for frame in ens]
-                    labels = self._cleanLabels(labels)
+                labels = [frame.getObjLabel() for frame in ens]
+
+            labels = self._cleanLabels(labels)
 
             ens = inputClass(filename=extraPath+'/'+inputClassStr+'_'+str(j+1)+'.sqlite')
 
@@ -220,7 +221,7 @@ class ProDyProjectionsViewer(ProtocolViewer):
             else:
                 weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
 
-            if weights.max() < 1:
+            if weights.max() < 10:
                 weights *= 100
 
             if self.numModes == ONE:
@@ -259,16 +260,24 @@ class ProDyProjectionsViewer(ProtocolViewer):
                                          adjust=self.adjustText.get(), c=c,
                                          use_weights=self.useWeights.get(), weights=weights)
                 else:
-                    prody.showProjection(projection=projection,
-                                         show_density=self.density.get(), 
-                                         adjust=self.adjustText.get(), c=c,
-                                         use_weights=self.useWeights.get(), weights=weights)
-                    
+                    prody.showProjection(projection=projection, c=c,
+                                         show_density=self.density.get(),
+                                         use_weights=self.useWeights.get(), 
+                                         weights=weights)
+
                 if self.points.get():
-                    prody.showProjection(projection=projection,
-                                         show_density=False, 
-                                         adjust=self.adjustText.get(), c=c,
-                                         use_weights=self.useWeights.get(), weights=weights)
+                    if self.label.get():
+                        prody.showProjection(projection=projection,
+                                            text=labels,
+                                            show_density=False, 
+                                            adjust=self.adjustText.get(), c=c,
+                                            use_weights=self.useWeights.get(), 
+                                            weights=weights)
+                    else:
+                        prody.showProjection(projection=projection, c=c,
+                                            show_density=False,
+                                            use_weights=self.useWeights.get(), 
+                                            weights=weights)
                 
                 ax = plt.gca()
                 modeStr = "mode %s"
@@ -325,10 +334,12 @@ class ProDyProjectionsViewer(ProtocolViewer):
         if labels[0].endswith('_ca'):
             labels = [label[:-3] for label in labels]
 
-        if labels[0].startswith('Unknown_m'):
-            labels = [label.split('Unknown_m')[-1] for label in labels]
+        string1 = labels[0]
+        for string2 in labels[1:]:
+            matchObj = SequenceMatcher(None, string1, string2).find_longest_match(
+                0, len(string1), 0, len(string2))
+            string1 = string1[matchObj.a: matchObj.a + matchObj.size]
 
-        if labels[0][5:12] == 'atoms_m' and labels[1][5:12] == 'atoms_m':
-            labels = [label.split('atoms_m')[-1] for label in labels]
+        labels = [label.replace(string1, '') for label in labels]
 
         return labels
