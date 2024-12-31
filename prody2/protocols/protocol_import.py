@@ -386,7 +386,7 @@ class ProDyImportEnsemble(ProtImportFiles):
                 self.outEns = prody.PDBEnsemble(prody.parseDCD(point.getTrajectoryFile()))
                 self.atoms = prody.parsePDB(point.getSystemFile())
 
-        if self.weights is None or np.array_equal(np.array(self.weights), np.zeros(self.weights.shape)):
+        if self.weights is None or np.array_equal(np.array(self.weights), np.zeros(np.array(self.weights).shape)):
             self.weights = np.ones(self.outEns.numConfs())
 
         selstr = self.selstr.get()
