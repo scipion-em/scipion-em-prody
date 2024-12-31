@@ -31,6 +31,7 @@ This module will provide the ClustENM(D) hybrid simulation method from ProDy, co
 """
 
 from multiprocessing import cpu_count
+import numpy as np
 import os
 
 from pwem.objects import AtomStruct, SetOfAtomStructs
@@ -40,7 +41,6 @@ import pyworkflow.object as pwobj
 from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, BooleanParam,
                                         EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 
-import prody
 from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2 import Plugin
@@ -260,7 +260,7 @@ class ProDyClustENM(EMProtocol):
         if not os.path.exists(direc):
             os.mkdir(direc)
 
-        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
+        args = '"{0}" --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
                '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} --t_steps_i {12} --t_steps_g {13} ' \
                '--tolerance {14} --maxIterations {15} -o {16} --file-prefix pdbs --multiple -P {17}'.format(
                    pdb, self.n_gens.get(), self.numberOfModes.get(),
@@ -306,8 +306,16 @@ class ProDyClustENM(EMProtocol):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
-        ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
-        self.weights = ens.getSizes()
+        args = '--path {0} --filename {1}'.format(direc, 'pdbs.ens.npz')
+        self.runJob(Plugin.getProgram('ensemble_weights.py', script=True), args)
+
+        self.weights = np.loadtxt(os.path.join(direc, 'weights.txt'))
+        if self.weights.ndim == 0:
+            self.weights = self.weights.reshape(-1)
+
+        self.labels = np.loadtxt(os.path.join(direc, 'labels.txt'))
+        if self.labels.shape[0] == 0:
+            self.labels = np.arange(len(self.weights))
 
         outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
         outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
@@ -315,9 +323,9 @@ class ProDyClustENM(EMProtocol):
 
         self.ensBaseName = os.path.join(direc, 'pdbs')
         npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
-        for j in range(ens.numCoordsets()):
+        for j in range(len(self.weights)):
             frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
-                              objLabel=ens.getLabels()[j],
+                              objLabel=self.labels[j],
                               weight=self.weights[j])
             npz.append(frame)
 
