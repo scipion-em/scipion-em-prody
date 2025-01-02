@@ -307,14 +307,15 @@ class ProDyClustENM(EMProtocol):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
-        args = '--path {0} --filename {1}'.format(direc, 'pdbs.ens.npz')
-        self.runJob(Plugin.getProgram('ensemble_weights.py', script=True), args)
+        if not os.path.exists(os.path.join(direc, 'weights.txt')):
+            args = '--path {0} --filename {1}'.format(direc, 'pdbs.ens.npz')
+            self.runJob(Plugin.getProgram('ensemble_weights.py', script=True), args)
 
         self.weights = np.loadtxt(os.path.join(direc, 'weights.txt'))
         if self.weights.ndim == 0:
             self.weights = self.weights.reshape(-1)
 
-        self.labels = np.loadtxt(os.path.join(direc, 'labels.txt'))
+        self.labels = np.loadtxt(os.path.join(direc, 'labels.txt'), dtype=str)
         if self.labels.shape[0] == 0:
             self.labels = np.arange(len(self.weights))
 
