@@ -299,7 +299,8 @@ class ProDyClustENM(EMProtocol):
             if self.replaceFiltered.get():
                 args += ' --replace_filtered'
 
-        self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
+        if not os.path.exists(os.path.join(direc, 'pdbs.ens.npz')):
+            self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
         for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
