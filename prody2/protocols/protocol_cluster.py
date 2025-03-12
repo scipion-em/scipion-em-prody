@@ -207,8 +207,9 @@ class ProDyRmsd(EMProtocol):
             
             if self.writePDBFiles.get():
                 ag.setCoords(self.ens.getCoordsets()[repId])
+                label = self.ens.getLabels()[repId].replace(' ', '_').replace("'", "")
                 filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(repId+1,
-                                                                       self.ens.getLabels()[repId]))
+                                                                       label))
                 prody.writePDB(filename, ag)
                 pdb = AtomStruct(filename)
                 self.pdbs.append(pdb)
