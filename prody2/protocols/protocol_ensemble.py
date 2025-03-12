@@ -454,11 +454,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 amap = atommaps[i]
                 if indices is not None:
                     amap = amap[indices]
+
+                ag_title = ag.getTitle().replace(' ', '_').replace("'", "")
                 
                 amap.setTitle(amap.getTitle().split('[')[0])
                 filename = self._getExtraPath(
-                    '{:06d}_{:s}_amap.pdb'.format(i+1,
-                                                  ag.getTitle().replace(' ', '_')))
+                    '{:06d}_{:s}_amap.pdb'.format(i+1, ag_title))
                 prody.writePDB(filename, amap)
                 pdb = AtomStruct(filename)
                 setattr(pdb, ENSEMBLE_WEIGHTS, Float(self.weights[i]))
