@@ -25,8 +25,7 @@
 # *
 # **************************************************************************
 """
-This module implement the wrappers around ProDy GNM 
-visualization programs.
+This module implements wrappers around ProDy GNM visualization programs.
 """
 
 from pyworkflow.utils import glob
