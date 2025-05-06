@@ -447,7 +447,7 @@ class ProDyBiomol(ProDyAtomicBase):
             self.inputFn, self.uniteChains.get(), self._getPath())
         self.runJob(Plugin.getProgram('biomol.py', script=True), args)
         with open(self._getPath('filenames.txt'), 'r') as fi:
-            filenames = fi.readlines().split()
+            filenames = fi.readlines()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
         for filename in filenames:
