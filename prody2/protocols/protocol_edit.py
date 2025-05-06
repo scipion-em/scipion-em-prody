@@ -32,7 +32,7 @@ This module will provide ProDy mode editing tools.
 import os
 import numpy as np
 
-from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
+from pwem.objects import Integer, String
 
 from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
@@ -117,9 +117,9 @@ class ProDyEdit(ProDyModesBase):
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
         modes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.nzero = len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0])
+        self.zeros = Integer(len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0]))
 
-        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
+        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.zeros.get())
 
     def computeModesStep(self):
         self.inputStructure = self.modes.get().getPdb()
@@ -166,8 +166,13 @@ class ProDyEdit(ProDyModesBase):
         self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
         prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
 
+        self.npzFileName = self._getPath('modes.{0}.npz'.format(typeStr))
+        prody.saveModel(self.outModes, self.npzFileName)
+
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
+        else:
+            self.gnm = False
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

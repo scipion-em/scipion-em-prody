@@ -36,7 +36,7 @@ from os.path import exists, join
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfNormalModes, String
+from pwem.objects import SetOfNormalModes, String, AtomStruct
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob, redStr
@@ -147,9 +147,7 @@ class ProDyModesBase(EMProtocol):
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
         self._insertFunctionStep('computeModesStep')
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 collectivityThreshold=0.15,
-                                 structureEM=False, suffix='')
+        self._insertFunctionStep('qualifyModesStep', n, 0.15, '')
         if self.doAnimation:
             self._insertFunctionStep('animateModesStep', self.rmsd.get(), 
                                      self.n_steps.get(),
