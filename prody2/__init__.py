@@ -78,7 +78,7 @@ class Plugin(pwem.Plugin):
 
         installCmd = [
             cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.9 &&',
+            f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&']
 
         # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
