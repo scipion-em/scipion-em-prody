@@ -119,12 +119,10 @@ class ProDyRmsd(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-
-        self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('ensembleModificationStep')
         self._insertFunctionStep('createOutputStep')
 
-    def convertInputStep(self):
+    def ensembleModificationStep(self):
 
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
@@ -133,8 +131,6 @@ class ProDyRmsd(EMProtocol):
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
-
-    def ensembleModificationStep(self):
 
         self.ensBaseName = self._getExtraPath('ensemble')
         ensFn = prody.saveEnsemble(self.ens, self.ensBaseName)
@@ -216,16 +212,15 @@ class ProDyRmsd(EMProtocol):
 
         self.npzClasses.write()
 
-        if self.doReorder.get():
+        if self.doReorder.get() and self.clusteringMethod.get() == 0:
             self.ens = self.ens[reordIndices]
             allWeights = allWeights[reordIndices]
 
+            prody.saveEnsemble(self.ens, self.ensBaseName)
             self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix='_reordered')
             for i, label in enumerate(self.ens.getLabels()):
                 self.npz.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
                                 objLabel=label, weight=allWeights[i]))
-
-            prody.saveEnsemble(self.ens, self.ensBaseName)
 
     def createOutputStep(self):
         args = {}
@@ -236,7 +231,7 @@ class ProDyRmsd(EMProtocol):
             outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
             args["outputStructures"] = outSetAS
 
-        if self.doReorder.get():
+        if self.doReorder.get() and self.clusteringMethod.get() == 0:
             args['outputEnsemble'] = self.npz
 
         self._defineOutputs(**args)
