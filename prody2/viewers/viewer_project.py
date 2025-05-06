@@ -41,6 +41,7 @@ from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 from pwem.viewers.plotter import EmPlotter
 from pwem.objects import SetOfAtomStructs, Set
 
+from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2.objects import SetOfClassesTraj
 from prody2.protocols.protocol_project import ProDyProject, ONE, TWO, THREE
 from prody2.protocols.protocol_measure import ProDyMeasure
@@ -219,7 +220,8 @@ class ProDyProjectionsViewer(ProtocolViewer):
                 weights = prody.parseArray(self.protocol._getPath('weights_{0}.csv'.format(i+1)),
                                            delimiter=',')
             else:
-                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ens])
+                weights = np.array([np.array(item.getAttributeValue(ENSEMBLE_WEIGHTS,
+                                                                    defaultValue=1), dtype=float) for item in ens])
 
             if weights.max() < 10:
                 weights *= 100
