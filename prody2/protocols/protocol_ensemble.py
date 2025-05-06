@@ -251,6 +251,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       label="Whether to reorder ensemble by custom match dict",
                       help='Otherwise the order matches the input')
 
+        form.addParam('keepAlignment', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Keep alignment",
+                      help="The alternative is to realign the structures over the whole structure")
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # actual steps
@@ -260,6 +265,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
         degeneracy = self.degeneracy.get()
+
+        if self.keepAlignment.get():
+            superpose = False
+        else:
+            superpose = 'iter'
 
         # handle reference
         self.weights = []
@@ -347,7 +357,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           mapping=mappings,
                                           atommaps=atommaps,
                                           unmapped=unmapped,
-                                          rmsd_reject=self.rmsdReject.get())
+                                          rmsd_reject=self.rmsdReject.get(),
+                                          superpose=superpose)
             self.weights = list(np.ones(ens.numConfs()))
         else:
             if self.matchFunc.get() == BEST_MATCH:
@@ -405,7 +416,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get(),
-                                         mapping=mappings)
+                                         mapping=mappings,
+                                         superpose=superpose)
             
             if self.delReference.get():
                 ens.delCoordset(ref)
@@ -583,5 +595,5 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         return summ
     
     def _setWeights(self, item, row=None):
-            weight = Float(self.weights[item.getObjId()-1])
-            setattr(item, ENSEMBLE_WEIGHTS, weight)
+        weight = Float(self.weights[item.getObjId()-1])
+        setattr(item, ENSEMBLE_WEIGHTS, weight)
