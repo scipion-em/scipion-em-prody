@@ -125,12 +125,12 @@ if __name__ == '__main__':
                     transformationMatrix = np.loadtxt(args.transformationFn)
                     T = prody.Transformation(transformationMatrix)
 
-                alg = prody.applyTransformation(T, mobSel)
-
                 keepMismatching = bool(args.keepMismatching)
                 if keepMismatching:
                     alg = prody.applyTransformation(T, mob)
                     tarSel = tar
+                else:
+                    alg = prody.applyTransformation(T, mobSel)
 
                 prody.writePDB(join(folder, 'mobile.pdb'), alg)
                 prody.writePDB(join(folder, 'target.pdb'), tarSel)
