@@ -49,6 +49,13 @@ class TestProDyClustENMsingle(TestWorkflow):
         protClustenm1.setObjLabel('ClustENM_4akeA')
         cls.launchProtocol(protClustenm1)
 
+    def testProDyClustENMminim(cls):
+        """Run ClustENM for chain A from 4ake to test single structure option"""
+        protClustenm1 = cls.newProtocol(ProDyClustENM, n_gens=0,
+                                        n_confs=5, sim=False, outlier=True)
+        protClustenm1.inputStructures.set([cls.protSelA.outputStructure])
+        protClustenm1.setObjLabel('ClustENM_4akeA_minim')
+        cls.launchProtocol(protClustenm1)
 
 class TestProDyClustENMmulti(TestWorkflow):
     @classmethod
