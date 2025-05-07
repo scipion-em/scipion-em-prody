@@ -162,11 +162,11 @@ class ProDyEdit(ProDyModesBase):
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
 
-        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
-        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
+        prefix = self.getPrefix()
+        self.nmdFileName = self._getPath('{0}.nmd'.format(prefix))
         prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
 
-        self.npzFileName = self._getPath('modes.{0}.npz'.format(typeStr))
+        self.npzFileName = self._getPath('{0}.npz'.format(prefix))
         prody.saveModel(self.outModes, self.npzFileName)
 
         if isinstance(self.outModes, prody.GNM):
@@ -184,3 +184,7 @@ class ProDyEdit(ProDyModesBase):
 
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.newNodes, nmSet)
+
+    def getPrefix(self):
+        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+        return 'modes.{0}'.format(typeStr)
