@@ -29,17 +29,12 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the the rotation and translation of blocks (RTB) framework.
 """
-from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
-                        MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_EIGENVAL)
-from pwem.objects import SetOfNormalModes, String
-
-from pyworkflow.utils import glob, redStr
+from pwem.objects import SetOfNormalModes, String, AtomStruct
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
-import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2 import Plugin, copyConvertPDB
 
 BLOCKS_FROM_RES = 0
 BLOCKS_FROM_SECSTR = 1
@@ -139,6 +134,20 @@ class ProDyRTB(ProDyModesBase):
                       label="Use turbo mode",
                       help='Elect whether to use a memory intensive, but faster way to calculate modes.')
 
+        form.addParam('sparse', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use sparse matrices?",
+                      help='This saves memory at the expense of computational time.')
+        form.addParam('kdtree', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use KDTree for building Hessian matrix?",
+                      help='This takes more computational time.')
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
+
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=5,
                       label='RMSD Amplitude (A)',
@@ -178,113 +187,40 @@ class ProDyRTB(ProDyModesBase):
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):       
-        self.pdbFileName = self._getPath('atoms.pdb')
-        self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
+        self.atomsFn = self._getPath('atoms.pdb')
+        copyConvertPDB(inputFn, self.atomsFn)
 
-        if self.blockDef.get() == BLOCKS_FROM_RES:
-            self.blocks, self.amap = prody.assignBlocks(self.atoms, res_per_block=self.res_per_block.get(),
-                                                        shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get(),
-                                                        min_dist_cutoff=self.min_dist_cutoff.get())
-        else:
-            self.blocks, self.amap = prody.assignBlocks(self.atoms, secstr=True,
-                                                        shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get(),
-                                                        min_dist_cutoff=self.min_dist_cutoff.get())
+        args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
+            '--npz -o {1} -p {2} -n {3} -g {4} -c "{5}" -P {6}'.format(self.atomsFn,
+                self._getPath(), self.getPrefix(), n, self.gamma.get(),
+                self.cutoff.get(), self.numberOfThreads.get())
 
-        prody.writePDB(self.pdbFileName, self.amap)
+        if self.sparse.get():
+            args += ' --sparse-hessian'
 
-        self.outModes = prody.RTB()
-        try:
-            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
-                                gamma=self.gamma.get())
-        except MemoryError as err:
-            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
-            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
-                                    gamma=self.gamma.get(), sparse=True)
-
-        try:
-            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
-        except MemoryError as err:
-            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
-            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=False)
+        if self.kdtree.get():
+            args += ' --use-kdtree'
 
         if self.zeros.get():
-            self.startMode = 6
+            args += ' --zero-modes'
+
+        if self.turbo.get():
+            args += ' --turbo'
+
+        if self.blockDef.get() == BLOCKS_FROM_RES:
+            args += ' --block-input-type 1 --res-per-block {0}'.format(self.res_per_block.get())
         else:
-            self.startMode = 0
-        
-        prody.writeScipionModes(self._getPath(), self.outModes)
-        prefix = self.getPrefix()
-        prody.writeNMD(self._getPath(prefix + '.nmd'), self.outModes, self.amap)
-        prody.saveModel(self.outModes, self._getPath(prefix + '.npz'), matrices=True)
+            args += ' --block-input-type 2'
 
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
-        self._enterWorkingDir()
-        fnVec = glob("modes/vec.*")
+        args += f' --res-per-block {self.res_per_block.get()} --shortest-block {self.shortest_block.get()}'
+        args += f' --longest-block {self.longest_block.get()} --min-block-dist-cutoff {self.min_dist_cutoff.get()}'
 
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for RTB normal mode analysis is "
-            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
-
-        mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
-        eigvals = self.outModes.getEigvals()
-
-        vecStr = "vec.%d"
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", vecStr % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            if n >= self.startMode:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
-
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
-
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
+        self.runJob(Plugin.getProgram('rtb'), args)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath('modes.rtb.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)
