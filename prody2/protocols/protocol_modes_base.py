@@ -143,6 +143,12 @@ class ProDyModesBase(EMProtocol):
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
 
+        form.addParam('registerAnimations', BooleanParam, default=True,
+                      condition=animCheck,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Register animation pdbs as outputs",
+                      help='Elect whether to register multi-state pdbs from animations as outputs.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
@@ -301,6 +307,14 @@ class ProDyModesBase(EMProtocol):
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.inputStructure, nmSet)
 
+        if self.registerAnimations.get():
+            args = {}
+            for i in range(len(nmSet)):
+                name = "animation" + str(i+1)
+                args[name] = AtomStruct(self.getAnimationPdbPath(i))
+
+            self._defineOutputs(**args)
+
     def getPrefix(self):
         return 'modes.nma'
     
@@ -316,3 +330,6 @@ class ProDyModesBase(EMProtocol):
             return bool(np.loadtxt(gnmCheckFn))
         else:
             return False
+
+    def getAnimationPdbPath(self, i):
+        return self._getExtraPath('animations/animated_mode_{:03d}.pdb'.format(i+1))

@@ -166,7 +166,12 @@ class ProDyRTB(ProDyModesBase):
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
-                           
+
+        form.addParam('registerAnimations', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Register animation pdbs as outputs",
+                      help='Elect whether to register multi-state pdbs from animations as outputs.')
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n=20, nzeros=6):
         # Insert processing steps
@@ -227,6 +232,14 @@ class ProDyRTB(ProDyModesBase):
 
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.inputStructure, nmSet)
+
+        if self.registerAnimations.get():
+            args = {}
+            for i in range(len(nmSet)):
+                name = "animation" + str(i+1)
+                args[name] = AtomStruct(self.getAnimationPdbPath(i))
+
+            self._defineOutputs(**args)
 
     def getPrefix(self):
         return 'modes.rtb'
