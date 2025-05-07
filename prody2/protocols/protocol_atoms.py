@@ -29,11 +29,10 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
-from collections import OrderedDict
 import numpy as np
 from os.path import basename, splitext, abspath
 
-from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList
+from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList, Integer
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import exists
@@ -42,12 +41,12 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         PathParam, MultiPointerParam, LEVEL_ADVANCED)
 
 import prody
-from pyworkflow.utils import logger
 
 from prody2 import Plugin
 from prody2.objects import Atom, SetOfAtoms
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
-                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM) # chain matching
+                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM, # chain matching
+                              N_ATOMS, N_RESIDUES, N_CHAINS)
 
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
@@ -447,11 +446,15 @@ class ProDyBiomol(ProDyAtomicBase):
             self.inputFn, self.uniteChains.get(), self._getPath())
         self.runJob(Plugin.getProgram('biomol.py', script=True), args)
         with open(self._getPath('filenames.txt'), 'r') as fi:
-            filenames = fi.readlines()
+            lines = fi.readlines()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for filename in filenames:
+        for line in lines:
+            filename, numAtoms, numResidues, numChains = line.split('\t')
             pdb = AtomStruct(filename)
+            setattr(pdb, N_ATOMS, Integer(numAtoms))
+            setattr(pdb, N_RESIDUES, Integer(numResidues))
+            setattr(pdb, N_CHAINS, Integer(numChains))
             self.pdbs.append(pdb)
 
     def createOutputStep(self):

@@ -42,6 +42,10 @@ PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
 MEASURES = "_prodyMeasures"
 
+N_ATOMS = "_numAtoms"
+N_RESIDUES = "_numResidues"
+N_CHAINS = "_numChains"
+
 PRODY_FRACT_VARS = "_prodyFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),

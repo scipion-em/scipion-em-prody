@@ -25,7 +25,6 @@
 # *
 # **************************************************************************
 
-import math
 import os
 
 from pwem.protocols import ProtImportPdb, exists
@@ -40,6 +39,8 @@ from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NM
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
+from prody2.constants import N_ATOMS, N_RESIDUES, N_CHAINS
+
 import prody
 from prody.tests.datafiles import pathDatafile
 
@@ -48,8 +49,8 @@ animationsFile1 = "animations/animated_mode_001.pdb"
 distProfile1 = "distanceProfiles/vec1.xmd"
 distProfile7 = "distanceProfiles/vec7.xmd"
 
-class TestProDyCore(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
+class TestProDyCore1(TestWorkflow):
+    """ Test protocol for ProDy Anisotropic Network Model (ANM) Normal Mode Analysis (NMA) and Deformation Analysis. """
 
     @classmethod
     def setUpClass(cls):
@@ -365,6 +366,15 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_imported_ANMs')
         cls.launchProtocol(protComp6)  
 
+class TestProDyRTB(TestWorkflow):
+    """ Test protocol for ProDy Rotating and Translating Blocks (RTB) Normal Mode Analysis (NMA)"""
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+
     def testProDyRTB(cls):
         # -------------------------------------------------------
         # Step 9. RTB in 2 ways -> Compare to each other and ANM
@@ -403,6 +413,16 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
         cls.launchProtocol(protComp6)
 
+class TestProDyAtomic(TestWorkflow):
+    """ Test protocol for other ProDy atomic operations"""
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+        importSelect1ake(cls)
+
     def testProDyBiomol(cls):
         # extract biomol from 4ake (dimer) from id
         protBm1 = cls.newProtocol(ProDyBiomol)
@@ -414,11 +434,13 @@ class TestProDyCore(TestWorkflow):
         numStructs = len(protBm1.outputStructures)
         cls.assertTrue(numStructs == 1, "Failed to extract 1 biomol from 4ake (dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm1.outputStructures])
-        cls.assertTrue(ag.numResidues() == 575,
-                        "4ake biomol 1 should have 575 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 2,
-                        "4ake biomol 1 should have 2 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm1.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 575,
+                       "1ake biomol 1 should have 575 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 2,
+                       "1ake biomol 1 should have 2 chains, not {0}".format(nChains))
 
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains False (default)
         protBm2 = cls.newProtocol(ProDyBiomol)
@@ -430,11 +452,13 @@ class TestProDyCore(TestWorkflow):
         numStructs = len(protBm2.outputStructures)
         cls.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
-        cls.assertTrue(ag.numResidues() == 456,
-                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 3,
-                       "1ake biomol 1 should have 3 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm2.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 456,
+                       "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 3,
+                       "1ake biomol 1 should have 1 chains, not {0}".format(nChains))
 
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains True
         protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
@@ -446,11 +470,13 @@ class TestProDyCore(TestWorkflow):
         numStructs = len(protBm2b.outputStructures)
         cls.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
-        cls.assertTrue(ag.numResidues() == 456,
-                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 3,
-                       "1ake biomol 1 should have 1 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm2b.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 456,
+                       "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 3,
+                       "1ake biomol 1 should have 1 chains, not {0}".format(nChains))
 
     def testProDyRenumberAll(cls):
         """ Run different selection options and confirm if it works """

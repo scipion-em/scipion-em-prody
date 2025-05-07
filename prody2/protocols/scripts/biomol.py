@@ -20,14 +20,12 @@ if __name__ == '__main__':
     if isinstance(ags, prody.AtomGroup):
         ags = [ags]
 
-    filenames = []
+    fo = open(join(folder, 'filenames.txt'), 'w')
     for i, ag in enumerate(ags):
         filename = join(folder, splitext(basename(inputFn))[0] \
                         + '_atoms_{0}.pdb'.format(i))
         prody.writePDB(filename, ag)
-        filenames.append(filename)
-
-    fo = open(join(folder, 'filenames.txt'), 'w')
-    for filename in filenames:
-        fo.write(filename + '\n')
+        fo.write('\t'.join([filename, str(ag.numAtoms()),
+                           str(ag.numResidues()),
+                           str(ag.numChains())]) + '\n')
     fo.close()
