@@ -446,7 +446,7 @@ class TestProDyAtomic(TestWorkflow):
         protBm2 = cls.newProtocol(ProDyBiomol)
         protBm2.inputPdbData.set(2)
         protBm2.inputStructure.set(cls.protImportPdb2.outputPdb)
-        protBm2.setObjLabel('Biomol_1ake_pointer')
+        protBm2.setObjLabel('Biomol_1ake_pointer_uniteChains_False')
         cls.launchProtocol(protBm2)
 
         numStructs = len(protBm2.outputStructures)
@@ -464,7 +464,7 @@ class TestProDyAtomic(TestWorkflow):
         protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
         protBm2b.inputPdbData.set(2)
         protBm2b.inputStructure.set(cls.protImportPdb2.outputPdb)
-        protBm2b.setObjLabel('Biomol_1ake_pointer')
+        protBm2b.setObjLabel('Biomol_1ake_pointer_uniteChains_True')
         cls.launchProtocol(protBm2b)
 
         numStructs = len(protBm2b.outputStructures)
