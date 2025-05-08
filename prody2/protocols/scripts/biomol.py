@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                          biomol=True, extend_biomol=True,
-                         unite_chains=args.uniteChains)
+                         unite_chains=eval(args.uniteChains))
     if isinstance(ags, prody.AtomGroup):
         ags = [ags]
 

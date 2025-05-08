@@ -458,7 +458,7 @@ class TestProDyAtomic(TestWorkflow):
         cls.assertTrue(nResidues == 456,
                        "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
         cls.assertTrue(nChains == 3,
-                       "1ake biomol 1 should have 1 chains, not {0}".format(nChains))
+                       "1ake biomol 1 should have 3 chains with uniteChains False, not {0}".format(nChains))
 
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains True
         protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
@@ -475,8 +475,8 @@ class TestProDyAtomic(TestWorkflow):
         nChains = struct1.getAttributeValue(N_CHAINS)
         cls.assertTrue(nResidues == 456,
                        "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
-        cls.assertTrue(nChains == 3,
-                       "1ake biomol 1 should have 1 chains, not {0}".format(nChains))
+        cls.assertTrue(nChains == 1,
+                       "1ake biomol 1 should have 1 chains with uniteChains True, not {0}".format(nChains))
 
     def testProDyRenumberAll(cls):
         """ Run different selection options and confirm if it works """
