@@ -40,13 +40,11 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         BooleanParam, EnumParam, TextParam, IntParam,
                                         PathParam, MultiPointerParam, LEVEL_ADVANCED)
 
-import prody
-
 from prody2 import Plugin
-from prody2.objects import Atom, SetOfAtoms
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
                               BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM, # chain matching
-                              N_ATOMS, N_RESIDUES, N_CHAINS)
+                              N_ATOMS, N_RESIDUES, N_CHAINS,
+                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM, MIN_RESNUM)
 
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
@@ -139,9 +137,6 @@ class ProDySelect(ProDyAtomicBase):
     def selectionStep(self):
         # First handle inputs
         self.inputFn = self.getInputFn()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(self.inputFn)
 
         # Then actually perform the selection
         self.pdbFileName = self.getPdbFileName(self.inputFn)
@@ -439,13 +434,11 @@ class ProDyBiomol(ProDyAtomicBase):
 
     def extractionStep(self):
         self.inputFn = self.getInputFn()
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(self.inputFn)
 
         args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
             self.inputFn, self.uniteChains.get(), self._getPath())
         self.runJob(Plugin.getProgram('biomol.py', script=True), args)
-        with open(self._getPath('filenames.txt'), 'r') as fi:
+        with open(self._getPath('pdb_data.txt'), 'r') as fi:
             lines = fi.readlines()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
@@ -513,18 +506,14 @@ class ProDyAddPDBs(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def additionStep(self):
-        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
 
-        ags = prody.parsePDB(pdbs, unite_chains=self.uniteChains.get())
-
-        outAg = ags[0]
-        for ag in ags[1:]:
-            outAg += ag
-
-        self.pdbFileName = self._getPath('joined_atoms.pdb')
-        prody.writePDB(self.pdbFileName, outAg)
+        pdbs = ' '.join([struct.get().getFileName() for struct in self.inputStructure])
+        args = '--inputFns "{0}" --uniteChains {1} --folder {2}'.format(
+            pdbs, self.uniteChains.get(), self._getPath())
+        self.runJob(Plugin.getProgram('add_pdbs.py', script=True), args)
 
     def createOutputStep(self):
+        self.pdbFileName = self._getPath('joined_atoms.pdb')
         if exists(self.pdbFileName):
             outputPdb = AtomStruct()
             outputPdb.setFileName(self.pdbFileName)
@@ -534,61 +523,12 @@ class ProDyAddPDBs(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             summ = [SUMMARY_NO_OUTPUT]
         else:
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(), 
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['The new structure has *{0}* protein residues '
+            summ = ['The new structure has *{0}* residues '
                      'and *{1}* atoms in *{2}* chains'.format(
-                     outputAg.ca.numAtoms(), outputAg.numAtoms(),
-                     outputAg.numChains())]
+                     self.outputStructure.getAttributeValue(N_RESIDUES),
+                     self.outputStructure.getAttributeValue(N_ATOMS),
+                     self.outputStructure.getAttributeValue(N_CHAINS))]
         return summ
-
-
-class ProDyToBiopythonMetadata(EMProtocol):
-    """
-    This protocol will add pdb/mmcif files together into a single pdb file
-    """
-    _label = 'convert to metadata'
-    IMPORT_FROM_ID = 0
-    IMPORT_FROM_FILES = 1
-    USE_POINTER = 2
-
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy PDB to metadata')
-
-        form.addParam('inputStructure', PointerParam, label="Input structures",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='Each input structures should be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
-
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        self._insertFunctionStep('createOutputStep')
-
-    def createOutputStep(self):
-        filename = abspath(self.inputStructure.get().getFileName())
-        struct = prody.parsePDB(filename)
-        outputPdb = SetOfAtoms().create(self._getExtraPath())
-        for i in range(struct.numAtoms()):
-            atom = Atom((i, filename))
-            outputPdb.append(atom)
-        self._defineOutputs(outputStructure=outputPdb)
-
-    def _summary(self):
-        if not hasattr(self, 'outputStructure'):
-            summ = [SUMMARY_NO_OUTPUT]
-        else:
-            summ = ['The new structure has *{0}* atoms'.format(len(self.outputStructure))]
-        return summ
-
 
 class ProDyRenumber(ProDyAtomicBase):
     """
@@ -620,46 +560,42 @@ class ProDyRenumber(ProDyAtomicBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
-            
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
-
-            prody.pathPDBFolder("")
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
+        if self.inputPdbData == self.USE_POINTER:
             inputFn = self.inputStructure.get().getFileName()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
+        else:
+            inputFn = self.pdbId.get()
 
         self._insertFunctionStep('renumStep', inputFn)
         self._insertFunctionStep('createOutputStep')
 
     def renumStep(self, inputFn):
-        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        ag = prody.parsePDB(inputFn)
 
-        sel = ag.select(self.selection.get())
-        sel.setResnums(sel.getResnums() + self.offset.get())
-        prody.writePDB(self.pdbFileName, ag)
+        args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
+            inputFn, self.uniteChains.get(), self._getPath())
 
         chain = self.chain.get()
-        if chain != '':
-            sel.setChids(chain)
+        if chain == '':
+            chain = ' '
+        args += ' --selection "{0}" --offset {1} --chain "{2}"'.format(
+            self.selection.get(), self.offset.get(), chain)
+
+        self.runJob(Plugin.getProgram('renumber_pdbs.py', script=True), args)
 
     def createOutputStep(self):
+        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+            line = fi.readlines()[0]
+
+        (self.pdbFileName, numAtoms, numResidues, numChains,
+         firstResnum, lastResnum, maxResnum, minResnum) = line.split('\t')
         if exists(self.pdbFileName):
-            outputPdb = AtomStruct()
-            outputPdb.setFileName(self.pdbFileName)
+            outputPdb = AtomStruct(self.pdbFileName)
+            setattr(outputPdb, N_ATOMS, Integer(numAtoms))
+            setattr(outputPdb, N_RESIDUES, Integer(numResidues))
+            setattr(outputPdb, N_CHAINS, Integer(numChains))
+            setattr(outputPdb, FIRST_RESNUM, Integer(firstResnum))
+            setattr(outputPdb, LAST_RESNUM, Integer(lastResnum))
+            setattr(outputPdb, MAX_RESNUM, Integer(maxResnum))
+            setattr(outputPdb, MIN_RESNUM, Integer(minResnum))
             self._defineOutputs(outputStructure=outputPdb)
 
     def _summary(self):
@@ -669,17 +605,11 @@ class ProDyRenumber(ProDyAtomicBase):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            inputAg = prody.parsePDB(self.inputStruct.getFileName(),
-                                     unite_chains=self.uniteChains.get())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(),
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                outputAg.numAtoms(), inputAg.numAtoms())]
-            if outputAg.ca is not None:
-                summ.append('The new structure has *{0}* protein residues '
-                            'from original *{1}* protein residues'.format(
-                            outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+            summ = ['Selected *{0}* atoms'.format(
+                self.outputStructure.getAttributeValue(N_ATOMS))]
+            if self.hasAttribute('outputStructure'):
+                summ.append('The new structure has *{0}* residues'.format(
+                            self.outputStructure.getAttributeValue(N_RESIDUES)))
             else:
-                summ.append('The new structure has *0* protein residues')
+                summ.append('The new structure has *0* residues')
         return summ

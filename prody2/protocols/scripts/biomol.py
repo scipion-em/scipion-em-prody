@@ -20,7 +20,7 @@ if __name__ == '__main__':
     if isinstance(ags, prody.AtomGroup):
         ags = [ags]
 
-    fo = open(join(folder, 'filenames.txt'), 'w')
+    fo = open(join(folder, 'pdb_data.txt'), 'w')
     for i, ag in enumerate(ags):
         filename = join(folder, splitext(basename(inputFn))[0] \
                         + '_atoms_{0}.pdb'.format(i))

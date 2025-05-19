@@ -39,15 +39,17 @@ from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NM
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
-from prody2.constants import N_ATOMS, N_RESIDUES, N_CHAINS
+from prody2.constants import (PRODY_TESTFILE, N_RESIDUES, N_CHAINS,
+                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM)
 
-import prody
-from prody.tests.datafiles import pathDatafile
+import numpy as np
 
 animationsFile7 = "animations/animated_mode_007.pdb"
 animationsFile1 = "animations/animated_mode_001.pdb"
 distProfile1 = "distanceProfiles/vec1.xmd"
 distProfile7 = "distanceProfiles/vec7.xmd"
+
+renumFilename = "renum_atoms.pdb"
 
 class TestProDyCore1(TestWorkflow):
     """ Test protocol for ProDy Anisotropic Network Model (ANM) Normal Mode Analysis (NMA) and Deformation Analysis. """
@@ -157,7 +159,7 @@ class TestProDyCore1(TestWorkflow):
 
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                         pdbFile=pathDatafile("pdb4ake_fixed"))
+                                         pdbFile=PRODY_TESTFILE)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -320,7 +322,7 @@ class TestProDyCore1(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         cls.launchProtocol(protComp5)
 
-        compMatrix5 = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
+        compMatrix5 = np.loadtxt(protComp5._getExtraPath('matrix.txt'))
         cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison didn't normalise")
 
         # Compare original CA NMA to defvec with raw overlaps
@@ -331,7 +333,7 @@ class TestProDyCore1(TestWorkflow):
         protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
         cls.launchProtocol(protComp6)
 
-        compMatrix6 = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
+        compMatrix6 = np.loadtxt(protComp6._getExtraPath('matrix.txt'))
         cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison didn't generate large numbers")
 
         # ------------------------------------------------
@@ -489,16 +491,18 @@ class TestProDyAtomic(TestWorkflow):
         protRenum.setObjLabel('Renum_all_4akeA_ca_100')
         cls.launchProtocol(protRenum)
 
-        outputFilename = "4ake_atoms_atoms.pdb"
+        outputFilename = renumFilename
         cls.assertTrue(exists(protRenum._getPath(outputFilename)))
         cls.assertTrue(hasattr(protRenum, "outputStructure"))
 
-        ag = prody.parsePDB(protRenum._getPath(outputFilename))
-        cls.assertTrue(ag.getResnums()[0] == 101,
-                        "renumbered 4ake should have first resnum 101, not {0}".format(ag.getResnums()[0]))
-        cls.assertTrue(ag.getResnums()[-1] == 314,
-                        "renumbered 4ake should have last resnum 314, not {0}".format(ag.getResnums()[-1]))
-        
+        struct1 = protRenum.outputStructure
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 101,
+                        "renumbered 4ake should have first resnum 101, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 314,
+                        "renumbered 4ake should have last resnum 314, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
     def testProDyRenumberSome(cls):
         """ Run different selection options and confirm if it works """
 
@@ -510,26 +514,69 @@ class TestProDyAtomic(TestWorkflow):
         protRenum.setObjLabel('Renum_some_4akeA_ca_1000')
         cls.launchProtocol(protRenum)
 
-        outputFilename = "4ake_atoms_atoms.pdb"
+        outputFilename = renumFilename
         cls.assertTrue(exists(protRenum._getPath(outputFilename)))
         cls.assertTrue(hasattr(protRenum, "outputStructure"))
 
-        ag = prody.parsePDB(protRenum._getPath(outputFilename))
+        struct1 = protRenum.outputStructure
+
+        cls.assertTrue(struct1.getAttributeValue(N_RESIDUES) == 214,
+                       "Partially renumbered 4ake should still have 214 residues, not {0}".format(
+                           struct1.getAttributeValue(N_RESIDUES)))
+        cls.assertTrue(struct1.getAttributeValue(N_CHAINS) == 1,
+                       "Partially renumbered 4ake should still have 1 chain, not {0}".format(
+                           struct1.getAttributeValue(N_CHAINS)))
 
         # check that most of the structure stays the same
-        cls.assertTrue(ag.getResnums()[0] == 1,
-                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[0]))
-        cls.assertTrue(ag.getResnums()[98] == 99,
-                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[98]))
-                
-        cls.assertTrue(ag.getResnums()[-1] == 214,
-                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(ag.getResnums()[-1]))
-        
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 1,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 214,
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
         # check that the part got renumbered
-        cls.assertTrue(ag.getResnums()[99] == 1100,
-                        "Partially renumbered 4ake should have 100th resnum 1100, not {0}".format(ag.getResnums()[99]))
-        cls.assertTrue(ag.getResnums()[149] == 1150,
-                        "Partially renumbered 4ake should have 150th resnum 1150, not {0}".format(ag.getResnums()[149]))
+        cls.assertTrue(struct1.getAttributeValue(MAX_RESNUM) == 1150,
+                        "Partially renumbered 4ake should have max resnum 1150, not {0}".format(
+                            struct1.getAttributeValue(MAX_RESNUM)))
+
+    def testProDyRenumberSomeChid(cls):
+        """ Run different selection options and confirm if it works """
+
+        # ----------------------------------------------------------------------
+        # Step 1a. Renumber imported selected 4akeA_ca to add 100
+        # ----------------------------------------------------------------------
+        protRenum = cls.newProtocol(ProDyRenumber, selection='resnum 100 to 150',
+                                    offset=1000, chain='B')
+        protRenum.inputStructure.set(cls.protSel.outputStructure)
+        protRenum.setObjLabel('Renum_some_4akeA_ca_1000-B')
+        cls.launchProtocol(protRenum)
+
+        outputFilename = renumFilename
+        cls.assertTrue(exists(protRenum._getPath(outputFilename)))
+        cls.assertTrue(hasattr(protRenum, "outputStructure"))
+
+        struct1 = protRenum.outputStructure
+
+        cls.assertTrue(struct1.getAttributeValue(N_RESIDUES) == 214,
+                       "Partially renumbered 4ake should still have 214 residues, not {0}".format(
+                           struct1.getAttributeValue(N_RESIDUES)))
+
+        # check that most of the structure stays the same
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 1,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 214,
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
+        # check that the part got renumbered
+        cls.assertTrue(struct1.getAttributeValue(MAX_RESNUM) == 1150,
+                        "Partially renumbered 4ake should have max resnum 1150, not {0}".format(
+                            struct1.getAttributeValue(MAX_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(N_CHAINS) == 2,
+                       "Partially renumbered and rechained 4ake should now have 2 chain, not {0}".format(
+                           struct1.getAttributeValue(N_CHAINS)))
 
 def importSelect4ake(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 

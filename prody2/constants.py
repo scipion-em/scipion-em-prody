@@ -46,10 +46,17 @@ N_ATOMS = "_numAtoms"
 N_RESIDUES = "_numResidues"
 N_CHAINS = "_numChains"
 
+FIRST_RESNUM = "_firstResnum"
+LAST_RESNUM = "_lastResnum"
+MAX_RESNUM = "_maxResnum"
+MIN_RESNUM = "_minResnum"
+
 PRODY_FRACT_VARS = "_prodyFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
                              "protocols", "scripts")
+PRODY_TESTFILE = os.path.join(os.path.dirname(prody2.__file__),
+                             "protocols", "tests", "pdb4ake_fixed")
 
 
 # chain matching methods
