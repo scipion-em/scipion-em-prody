@@ -513,9 +513,15 @@ class ProDyAddPDBs(EMProtocol):
         self.runJob(Plugin.getProgram('add_pdbs.py', script=True), args)
 
     def createOutputStep(self):
-        self.pdbFileName = self._getPath('joined_atoms.pdb')
+        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+            line = fi.readlines()[0]
+
+        self.pdbFileName, numAtoms, numResidues, numChains = line.split('\t')
         if exists(self.pdbFileName):
             outputPdb = AtomStruct()
+            setattr(outputPdb, N_ATOMS, Integer(numAtoms))
+            setattr(outputPdb, N_RESIDUES, Integer(numResidues))
+            setattr(outputPdb, N_CHAINS, Integer(numChains))
             outputPdb.setFileName(self.pdbFileName)
             self._defineOutputs(outputStructure=outputPdb)
 

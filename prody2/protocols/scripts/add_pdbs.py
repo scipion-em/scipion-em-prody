@@ -13,8 +13,7 @@ if __name__ == '__main__':
 
     folder = args.folder
     inputFns = args.inputFns.split()
-    pdbs = [struct.get().getFileName() for struct in inputFns]
-    ags = prody.parsePDB(pdbs, unite_chains=args.uniteChains)
+    ags = prody.parsePDB(inputFns, unite_chains=args.uniteChains)
 
     outAg = ags[0]
     for ag in ags[1:]:
@@ -24,7 +23,7 @@ if __name__ == '__main__':
     prody.writePDB(pdbFileName, outAg)
 
     fo = open(join(folder, 'pdb_data.txt'), 'w')
-    fo.write('\t'.join([pdbFileName, str(ag.numAtoms()),
-                        str(ag.numResidues()),
-                        str(ag.numChains())]) + '\n')
+    fo.write('\t'.join([pdbFileName, str(outAg.numAtoms()),
+                        str(outAg.numResidues()),
+                        str(outAg.numChains())]) + '\n')
     fo.close()

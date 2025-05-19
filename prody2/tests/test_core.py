@@ -32,6 +32,7 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyRenumber,
+                              ProDyAddPDBs,
                               ProDyANM, ProDyRTB, ProDyDefvec, ProDyEdit, ProDyCompare, 
                               ProDyImportModes)
 
@@ -424,6 +425,22 @@ class TestProDyAtomic(TestWorkflow):
         setupTestProject(cls)
         importSelect4ake(cls)
         importSelect1ake(cls)
+
+    def testProDyAdd(cls):
+        # extract biomol from 4ake (dimer) from id
+        protAdd = cls.newProtocol(ProDyAddPDBs)
+        protAdd.inputStructure.set([cls.protSel.outputStructure,
+                                    cls.protSel3.outputStructure])
+        protAdd.setObjLabel('Add_4akeA_1akeA')
+        cls.launchProtocol(protAdd)
+
+        struct1 = protAdd.outputStructure
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 428,
+                       "AddPDBs output should have 428 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 2,
+                       "AddPDBs output should have 2 chains, not {0}".format(nChains))
 
     def testProDyBiomol(cls):
         # extract biomol from 4ake (dimer) from id
