@@ -17,7 +17,8 @@ if __name__ == '__main__':
     folder = args.folder
     inputFn = args.inputFn
 
-    ag = prody.parsePDB(inputFn)
+    ag = prody.parsePDB(inputFn,
+                         unite_chains=eval(args.uniteChains))
 
     sel = ag.select(args.selection)
     sel.setResnums(sel.getResnums() + args.offset)

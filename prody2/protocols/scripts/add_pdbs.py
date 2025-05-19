@@ -13,7 +13,8 @@ if __name__ == '__main__':
 
     folder = args.folder
     inputFns = args.inputFns.split()
-    ags = prody.parsePDB(inputFns, unite_chains=args.uniteChains)
+    ags = prody.parsePDB(inputFns,
+                         unite_chains=eval(args.uniteChains))
 
     outAg = ags[0]
     for ag in ags[1:]:
