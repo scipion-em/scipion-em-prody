@@ -108,6 +108,7 @@ class SetOfTrajFrames(EMSet):
 
     def __init__(self, **kwargs):
         EMSet.__init__(self, **kwargs)
+        self._oriStructFile = String(kwargs.get('oriStructFile', None))
         self._topoFile = String(kwargs.get('topoFile', None))
         self._trjFile = String(kwargs.get('trjFile', None))
 
@@ -159,6 +160,12 @@ class SetOfTrajFrames(EMSet):
         for frame in framesSet:
             if frame.isEnabled():
                 self.append(frame)
+
+    def getOriStructFile(self):
+        return self._oriStructFile.get()
+
+    def setOriStructFile(self, value):
+        self._oriStructFile.set(value)
 
     def getTopologyFile(self):
         return self._topoFile.get()

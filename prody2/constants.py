@@ -42,6 +42,7 @@ PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
 MEASURES = "_prodyMeasures"
 
+N_FRAMES = "_numFrames"
 N_ATOMS = "_numAtoms"
 N_RESIDUES = "_numResidues"
 N_CHAINS = "_numChains"

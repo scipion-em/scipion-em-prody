@@ -2,6 +2,7 @@
 if __name__ == '__main__':
     import argparse
     import prody
+    from os.path import join
 
     # Input parameters
     parser = argparse.ArgumentParser()
@@ -12,7 +13,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    prody.fetchBioexcelPDB(args.accession, folder=args.folder,
-                           selection=args.selection)
+    pdbFileName = prody.fetchBioexcelPDB(args.accession, folder=args.folder,
+                                         selection=args.selection)
+    ag = prody.parsePDB(pdbFileName)
+
     prody.fetchBioexcelTrajectory(args.accession, folder=args.folder,
                                   frames=args.frames, selection=args.selection)
+
+    fo = open(join(args.folder, 'pdb_data.txt'), 'w')
+    fo.write('\t'.join([pdbFileName, str(ag.numAtoms()),
+                        str(ag.numResidues()),
+                        str(ag.numChains())]) + '\n')
+    fo.close()
