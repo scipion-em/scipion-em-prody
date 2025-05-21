@@ -29,9 +29,10 @@ from pwem.protocols import ProtImportPdb, ProtImportVolumes
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyClustENM)
+from prody2.protocols import ProDyClustENM
+from prody2.constants import (PRODY_TEST_PDB_FILE,
+                              PRODY_TEST_MRC_FILE)
 
-from prody.tests.datafiles import pathDatafile
 import prody
 
 class TestProDyClustenmFit(TestWorkflow):
@@ -44,13 +45,15 @@ class TestProDyClustenmFit(TestWorkflow):
 
         # Import starting structure
         cls.protPdb4ake = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                          pdbFile=pathDatafile('pdb4ake_fixed'))
+                                          pdbFile=PRODY_TEST_PDB_FILE)
         cls.protPdb4ake.setObjLabel('Input PDB')
         cls.launchProtocol(cls.protPdb4ake)
 
         # Import target EM map
-        cls.protImportVol = cls.newProtocol(ProtImportVolumes, importFrom=ProtImportVolumes.IMPORT_FROM_FILES,
-                                            filesPath=pathDatafile('mrc1ake'),  samplingRate=2.0)
+        cls.protImportVol = cls.newProtocol(ProtImportVolumes,
+                                            importFrom=ProtImportVolumes.IMPORT_FROM_FILES,
+                                            filesPath=PRODY_TEST_MRC_FILE,
+                                            samplingRate=2.0)
         cls.protImportVol.setObjLabel('EM map')
         cls.launchProtocol(cls.protImportVol)
 

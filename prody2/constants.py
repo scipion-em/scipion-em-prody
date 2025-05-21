@@ -56,9 +56,12 @@ PRODY_FRACT_VARS = "_prodyFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
                              "protocols", "scripts")
-PRODY_TESTFILE = os.path.join(os.path.dirname(prody2.__file__),
-                             "protocols", "tests", "pdb4ake_fixed")
 
+TESTDIR = os.path.join(os.path.dirname(prody2.__file__),
+                       "tests", "datafiles")
+
+PRODY_TEST_PDB_FILE = os.path.join(TESTDIR, "4akeA_alg_fixed.pdb")
+PRODY_TEST_MRC_FILE = os.path.join(TESTDIR, "1ake.mrc")
 
 # chain matching methods
 BEST_MATCH = 0

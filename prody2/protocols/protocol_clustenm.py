@@ -293,14 +293,16 @@ class ProDyClustENM(EMProtocol):
             args += ' --no-outlier'
 
         if self.doFitting.get():
-            args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
-                                                                                 self.fitResolution.get(),
-                                                                                 self.mapCutoff.get())
+            args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(
+                self.volumes[i], self.fitResolution.get(), self.mapCutoff.get())
+
             if self.replaceFiltered.get():
                 args += ' --replace_filtered'
 
         if not os.path.exists(os.path.join(direc, 'pdbs.ens.npz')):
-            self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
+            self.runJob('export OPENMM_CPU_THREADS={0} && '.format(
+                self.numberOfThreads.get()
+                ) + Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
         for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):

@@ -51,7 +51,7 @@ class ProDyBioExcelCV19(EMProtocol):
     This module will provide the ProDy interface for parsing files from 
     the BioExcel CV19 database
     """
-    _label = 'BioExcelCV19'
+    _label = 'fetchBioExcelTraj'
     _possibleOutputs = {'outputTrajectory': ProDyMDSystem}
 
     selections = [None, '_C', 'backbone', 'backbone and _C']

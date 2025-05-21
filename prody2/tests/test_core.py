@@ -31,16 +31,17 @@ from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyRenumber,
-                              ProDyAddPDBs,
-                              ProDyANM, ProDyRTB, ProDyDefvec, ProDyEdit, ProDyCompare, 
+from prody2.protocols import (ProDySelect, ProDyAlign,
+                              ProDyBiomol, ProDyRenumber, ProDyAddPDBs,
+                              ProDyANM, ProDyRTB, ProDyDefvec,
+                              ProDyEdit, ProDyCompare,
                               ProDyImportModes)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
-from prody2.constants import (PRODY_TESTFILE, N_RESIDUES, N_CHAINS,
+from prody2.constants import (PRODY_TEST_PDB_FILE, N_RESIDUES, N_CHAINS,
                               FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM)
 
 import numpy as np
@@ -160,7 +161,7 @@ class TestProDyCore1(TestWorkflow):
 
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                         pdbFile=PRODY_TESTFILE)
+                                         pdbFile=PRODY_TEST_PDB_FILE)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -367,7 +368,7 @@ class TestProDyCore1(TestWorkflow):
         protComp6.modes1.set(protImportModes1.outputModes)
         protComp6.modes2.set(protImportModes2.outputModes)
         protComp6.setObjLabel('Compare_imported_ANMs')
-        cls.launchProtocol(protComp6)  
+        cls.launchProtocol(protComp6)
 
 class TestProDyRTB(TestWorkflow):
     """ Test protocol for ProDy Rotating and Translating Blocks (RTB) Normal Mode Analysis (NMA)"""
