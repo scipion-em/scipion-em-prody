@@ -44,6 +44,7 @@ class TestProDyBioExcel(TestWorkflow):
     def testProDyBioExcelDefault(cls):
         protFetch = cls.newProtocol(ProDyBioExcelCV19)
         protFetch.accession.set('MCV1900370')
+        protFetch.setObjLabel('fetchBioExcel MDSystem')
         cls.launchProtocol(protFetch)
 
         from prody2.objects import HAVE_CHEM
@@ -67,6 +68,7 @@ class TestProDyBioExcel(TestWorkflow):
         protFetch = cls.newProtocol(ProDyBioExcelCV19)
         protFetch.accession.set('MCV1900370')
         protFetch.useMDSystem.set(False)
+        protFetch.setObjLabel('fetchBioExcel TrajFrames')
         cls.launchProtocol(protFetch)
 
         cls.assertIsInstance(protFetch.outputTrajectory, SetOfTrajFrames,
