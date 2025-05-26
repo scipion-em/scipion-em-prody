@@ -31,7 +31,8 @@ from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import ProDyClustENM
 from prody2.constants import (PRODY_TEST_PDB_FILE,
-                              PRODY_TEST_MRC_FILE)
+                              PRODY_TEST_MRC_FILE,
+                              ENSEMBLE_CCS)
 
 import prody
 
@@ -60,30 +61,36 @@ class TestProDyClustenmFit(TestWorkflow):
     def testProDyClustENMFitting(cls):
 
         # Run ClustENM fitting in with replace filtered False (default)
-        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
-                                        clusterMode=1, threshold='1.5',
-                                        n_confs=20, sim=False, doFitting=True)
+        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
+                                        clusterMode=0, maxclust=2, rmsd=5,
+                                        n_confs=10, sim=False, doFitting=True)
         protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
         protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
         protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
         cls.launchProtocol(protClustenm3)
 
-        ens = prody.loadEnsemble(list(protClustenm3.outputNpz1.getFiles())[0])
-        cls.assertTrue(ens._cc[-1] > ens._cc[0],
-                       "Best last CC should be more than starting CC")
+        cc = [struct.getAttributeValue(ENSEMBLE_CCS)
+              for struct in protClustenm3.outputStructures1]
+        cls.assertTrue(cc[-1] > cc[0],
+                       "Last CC should be more than starting CC when filtering and clustering")
+        cls.assertTrue(len(cc) == 3,
+                       "Number of structures should be 3 (1+2) when filtering and clustering to max 2")
 
     def testProDyClustENMFittingReplace(cls):
 
         # Run ClustENM fitting in with replace filtered True
-        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=3, numberOfModes=32,
-                                        clusterMode=1, threshold='1.5',
-                                        n_confs=20, sim=False, doFitting=True,
+        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
+                                        clusterMode=0, maxclust=10, rmsd=5,
+                                        n_confs=10, sim=False, doFitting=True,
                                         replaceFiltered=True)
         protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
         protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
         protClustenm3.setObjLabel('ClustENM_fitting_4akeA_replace')
         cls.launchProtocol(protClustenm3)
 
-        ens = prody.loadEnsemble(list(protClustenm3.outputNpz1.getFiles())[0])
-        cls.assertTrue(ens._cc[-1] > ens._cc[0],
-                       "Best last CC should be more than starting CC")
+        cc = [struct.getAttributeValue(ENSEMBLE_CCS)
+              for struct in protClustenm3.outputStructures1]
+        cls.assertTrue(cc[-1] > cc[0],
+                       "Last CC should be more than starting CC")
+        cls.assertTrue(len(cc) == 11,
+                       "Number of structures should be 11 (1+10) when filtering and replacing to 10")

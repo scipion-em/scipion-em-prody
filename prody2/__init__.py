@@ -92,7 +92,7 @@ class Plugin(pwem.Plugin):
         # Install PDBFixer and OpenMM for ClustENM
         OPENMM_INSTALLED = 'openmm_installed'
         installOpenMM = installCmd.copy()
-        installOpenMM.append('conda install -c conda-forge openmm==7.6 pdbfixer -y && touch %s' % OPENMM_INSTALLED)
+        installOpenMM.append('conda install -c conda-forge openmm==8 pdbfixer -y && touch %s' % OPENMM_INSTALLED)
 
         prodyCommands = [(" ".join(installTEMPy), TEMPY_INSTALLED),
                          (" ".join(installOpenMM), OPENMM_INSTALLED)]

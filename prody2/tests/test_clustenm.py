@@ -32,8 +32,6 @@ from pwem.protocols import ProtImportPdb, ProtImportVolumes
 from prody2.protocols import ProDySelect, ProDyClustENM
 from prody2.constants import PRODY_TEST_PDB_FILE, PRODY_TEST_MRC_FILE
 
-from prody.tests.datafiles import pathDatafile
-
 class TestProDyClustENMsingle(TestWorkflow):
     @classmethod
     def setUpClass(cls):
@@ -41,7 +39,7 @@ class TestProDyClustENMsingle(TestWorkflow):
         setupTestProject(cls)
         importSelect4akeA(cls)
 
-    def testProDyClustENMsingle(cls):
+    def testProDyClustENMsingle2gen(cls):
         """Run ClustENM for chain A from 4ake to test single structure option"""
         protClustenm1 = cls.newProtocol(ProDyClustENM, n_gens=2,
                                         clusterMode=0, maxclust='(2, 3)',
@@ -49,6 +47,16 @@ class TestProDyClustENMsingle(TestWorkflow):
         protClustenm1.inputStructures.set([cls.protSelA.outputStructure])
         protClustenm1.setObjLabel('ClustENM_4akeA')
         cls.launchProtocol(protClustenm1)
+
+    # def testProDyClustENMsingleGPU(cls):
+    #     """Run ClustENM for chain A from 4ake to test single structure option"""
+    #     protClustenm1 = cls.newProtocol(ProDyClustENM, n_gens=1,
+    #                                     clusterMode=0, maxclust='2',
+    #                                     n_confs=5, sim=False, outlier=True,
+    #                                     useGpu=True)
+    #     protClustenm1.inputStructures.set([cls.protSelA.outputStructure])
+    #     protClustenm1.setObjLabel('ClustENM_4akeA_gpu')
+    #     cls.launchProtocol(protClustenm1)
 
     def testProDyClustENMminim(cls):
         """Run ClustENM for chain A from 4ake to test single structure option"""
@@ -70,7 +78,8 @@ class TestProDyClustENMmulti(TestWorkflow):
         """Run ClustENM for chain A from 4ake and 1ake to test multi input option"""
         protClustenm2 = cls.newProtocol(ProDyClustENM, n_gens=1,
                                         clusterMode=1, threshold='1.',
-                                        n_confs=2, sim=False, outlier=True)
+                                        n_confs=2, sim=False, outlier=True,
+                                        binThreads=3)
         protClustenm2.inputStructures.set([cls.protSelA.outputStructure,
                                            cls.protSelB.outputStructure])
         protClustenm2.setObjLabel('ClustENM_2_structs')

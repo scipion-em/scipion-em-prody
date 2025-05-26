@@ -40,6 +40,7 @@ PRODY_ENV_ACT = "PRODY_ENV_ACT"
 
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
+ENSEMBLE_CCS = "_prodyCCs"
 MEASURES = "_prodyMeasures"
 
 N_FRAMES = "_numFrames"

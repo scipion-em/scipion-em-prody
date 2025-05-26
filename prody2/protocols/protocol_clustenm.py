@@ -39,9 +39,11 @@ from pwem.protocols import EMProtocol
 
 import pyworkflow.object as pwobj
 from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, BooleanParam,
-                                        EnumParam, MultiPointerParam, LEVEL_ADVANCED)
+                                        EnumParam, MultiPointerParam, LEVEL_ADVANCED,
+                                        USE_GPU, GPU_LIST)
+from pyworkflow.protocol import STEPS_PARALLEL, STEPS_SERIAL
 
-from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2.constants import ENSEMBLE_WEIGHTS, ENSEMBLE_CCS
 from prody2.objects import ProDyNpzEnsemble, TrajFrame
 from prody2 import Plugin
 
@@ -57,6 +59,7 @@ class ProDyClustENM(EMProtocol):
     _label = 'ClustENM(D)'
     _possibleOutputs = {'outputStructures1': SetOfAtomStructs,
                         'outputNpz1': ProDyNpzEnsemble}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -65,7 +68,15 @@ class ProDyClustENM(EMProtocol):
             form: this is the form to be populated with sections and params.
         """
         cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
+        form.addParam('binThreads', IntParam,
+                      label='threads',
+                      default=cpus,
+                      help='Number of threads used by ProDy each time it is called in the protocol execution. For '
+                           'example, if 3 Scipion threads and 6 ProDy threads are set, the structures will be '
+                           'processed in groups of 2 at the same time with a call of ProDy with 6 threads each, so '
+                           '12 threads will be used at the same time. Beware the memory of your machine has '
+                           'memory enough to load together the number of structures specified by Scipion threads.')
+        form.addParallelSection(threads=1, mpi=0)
 
         form.addSection(label='ClustENM(D)')
         form.addParam('inputStructures', MultiPointerParam, label="Input structures",
@@ -221,6 +232,16 @@ class ProDyClustENM(EMProtocol):
                       label="Intensity threshold for target maps",
                       help='Minimum intensity cutoff for reading target maps to avoid noise')
 
+        form.addHidden(USE_GPU, BooleanParam, default=False,
+                       label="Use GPU for execution",
+                       help="This protocol has both CPU and GPU implementation.\
+                       Select the one you want to use. Be aware that the GPU program is new and may have problems")
+
+        form.addHidden(GPU_LIST, StringParam, default='0',
+                       expertLevel=LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="Add a list of GPU devices that can be used")
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
@@ -228,6 +249,9 @@ class ProDyClustENM(EMProtocol):
 
         # Insert processing steps
         pdbs = [struct.get().getFileName() for struct in self.inputStructures]
+
+        if len(pdbs) == 1:
+            self.stepsExecutionMode = STEPS_SERIAL
 
         if self.doFitting.get():
             if self.inputVolumes is not None:
@@ -243,29 +267,32 @@ class ProDyClustENM(EMProtocol):
             if len(pdbs) == 1 and len(self.volumes) > 1:
                 pdbs = [pdbs[0] for _ in self.volumes]
 
-        if self.solvent.get() == IMP:
-            self.solvent = 'imp'
-        else:
-            self.solvent = 'exp'
-
+        stepIds = []
         for i, pdb in enumerate(pdbs):
-            self._insertFunctionStep('computeStep', i, pdb)
+            comp = self._insertFunctionStep('computeStep', i, pdb,
+                                            prerequisites=[],
+                                            needsGPU=self.useGpu)
+            outputs = self._insertFunctionStep('createOutputsStep', i,
+                                               prerequisites=comp, 
+                                               needsGPU=False)
+            
+            stepIds.append(outputs)
 
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep('createOutputStep',
+                                 prerequisites=stepIds, needsGPU=False)
 
     def computeStep(self, i, pdb):
-
-        suffix = str(i+1)
-        direc = self._getPath('clustenm_{0}'.format(suffix))
+        direc = self._getDirectory(i)
         if not os.path.exists(direc):
             os.mkdir(direc)
 
         args = '"{0}" --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
-               '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} --t_steps_i {12} --t_steps_g {13} ' \
+               '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} ' \
+                '--t_steps_i {12} --t_steps_g {13} --select all ' \
                '--tolerance {14} --maxIterations {15} -o {16} --file-prefix pdbs --multiple -P {17}'.format(
                    pdb, self.n_gens.get(), self.numberOfModes.get(),
                    self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(),
-                   self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
+                   self._getSolvent(), self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
                    self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
                    self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
 
@@ -299,12 +326,28 @@ class ProDyClustENM(EMProtocol):
             if self.replaceFiltered.get():
                 args += ' --replace_filtered'
 
+        if self.useGpu:
+            gpuId = self._stepsExecutor.getGpuList()
+            if isinstance(gpuId, int):
+                gpuStr = str(gpuId)
+            else:
+                gpuStr = ','.join([str(g) for g in gpuId])
+
+            args += ' --platform CUDA --gpu-ids {0}'.format(gpuStr)
+        else:
+            args += ' --platform CPU'
+
         if not os.path.exists(os.path.join(direc, 'pdbs.ens.npz')):
             self.runJob('export OPENMM_CPU_THREADS={0} && '.format(
                 self.numberOfThreads.get()
                 ) + Plugin.getProgram('clustenm'), args)
 
-        structs = SetOfAtomStructs.create(self._getExtraPath())
+    def createOutputsStep(self, i):
+
+        suffix = str(i+1)
+        direc = self._getDirectory(i)
+
+        structs = SetOfAtomStructs.create(self._getExtraPath(), suffix=suffix)
         for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
@@ -317,27 +360,45 @@ class ProDyClustENM(EMProtocol):
         if self.weights.ndim == 0:
             self.weights = self.weights.reshape(-1)
 
+        if self.doFitting.get():
+            self.ccs = np.loadtxt(os.path.join(direc, 'pdbs_cc.txt'))
+            if self.ccs.ndim == 0:
+                self.ccs = self.ccs.reshape(-1)
+
         self.labels = np.loadtxt(os.path.join(direc, 'labels.txt'), dtype=str)
-        if self.labels.shape[0] == 0:
+        if self.labels.ndim == 0:
+            self.labels = self.labels.reshape(-1)
+        if len(self.labels) == 0:
             self.labels = np.arange(len(self.weights))
 
         outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
-        outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
+        outSetAS.copyItems(structs, updateItemCallback=self._setWeightsCCs)
+
         self.args["outputStructures" + suffix] = outSetAS
 
         self.ensBaseName = os.path.join(direc, 'pdbs')
         npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
         for j in range(len(self.weights)):
-            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
-                              objLabel=self.labels[j],
-                              weight=self.weights[j])
+            if self.doFitting.get():
+                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
+                                  objLabel=self.labels[j],
+                                  weight=self.weights[j],
+                                  cc=self.ccs[j])
+            else:
+                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
+                                  objLabel=self.labels[j],
+                                  weight=self.weights[j])
             npz.append(frame)
 
         self.args["outputNpz" + suffix] = npz
 
-    def _setWeights(self, item, row=None):
-            weight = pwobj.Float(self.weights[item.getObjId()-1])
-            setattr(item, ENSEMBLE_WEIGHTS, weight)
+    def _setWeightsCCs(self, item, row=None):
+        weight = pwobj.Float(self.weights[item.getObjId()-1])
+        setattr(item, ENSEMBLE_WEIGHTS, weight)
+
+        if self.doFitting:
+            cc = pwobj.Float(self.ccs[item.getObjId()-1])
+            setattr(item, ENSEMBLE_CCS, cc)
 
     def createOutputStep(self):
         self._defineOutputs(**self.args)
@@ -346,7 +407,21 @@ class ProDyClustENM(EMProtocol):
         if not hasattr(self, 'outputStructures1'):
             summ = ['Output not ready yet']
         else:
-            summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(
-                    self.n_gens.get(), self.numberOfSteps-1)]
+            numStructs = (self.numberOfSteps-1)//2 # 1 collect output step, 2 steps per struct
+            if numStructs == 1:
+                summ = ['ClustENM completed *{0}* generations for *{1}* structure'.format(
+                        self.n_gens.get(), numStructs)]
+            else:
+                summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(
+                        self.n_gens.get(), numStructs)]
         return summ
 
+    def _getDirectory(self, i):
+        suffix = str(i+1)
+        return self._getPath('clustenm_{0}'.format(suffix))
+
+    def _getSolvent(self):
+        if self.solvent.get() == IMP:
+            return 'imp'
+        
+        return 'exp'
