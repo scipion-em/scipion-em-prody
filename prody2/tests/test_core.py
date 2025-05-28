@@ -43,7 +43,9 @@ from prody2.protocols.protocol_import import MODES_NPZ, SCIPION, NMD
 
 from prody2.constants import (PRODY_TEST_PDB_FILE, N_RESIDUES, N_CHAINS,
                               FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM,
-                              PRODY_TEST_ALG_PDB_FILE, TESTDIR)
+                              PRODY_TEST_ALG_PDB_FILE,
+                              PRODY_TEST_TAR_PDB_FILE,
+                              TESTDIR)
 
 import numpy as np
 
@@ -61,8 +63,8 @@ class TestProDyDefvec(TestWorkflow):
     def setUpClass(cls):
         # Create a new project
         setupTestProject(cls)
-        importSelect4ake(cls)
-        importAligned1ake(cls)
+        importOnly4akeA(cls)
+        importAligned1akeA(cls)
 
 
     def testProDyDefvec(cls):
@@ -70,7 +72,7 @@ class TestProDyDefvec(TestWorkflow):
 
         # Defvec from same starting point as NMA
         protDefvec5 = cls.newProtocol(ProDyDefvec, rmsd=5)
-        protDefvec5.mobStructure.set(cls.protSel.outputStructure)
+        protDefvec5.mobStructure.set(cls.protImportPdb4akeA.outputPdb)
         protDefvec5.tarStructure.set(cls.protImportPdb1akeA.outputPdb)
         protDefvec5.setObjLabel('Defvec_5A_4akeA_1akeA_CA')
         cls.launchProtocol(protDefvec5)
@@ -733,12 +735,19 @@ def importSelect1ake(cls):
     cls.protSel3.setObjLabel('Sel_1akeA_CA')
     cls.launchProtocol(cls.protSel3)
 
-def importAligned1ake(cls):
+def importAligned1akeA(cls):
     # Import the already processed PDB
     cls.protImportPdb1akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
                                       pdbFile=PRODY_TEST_ALG_PDB_FILE)
     cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
     cls.launchProtocol(cls.protImportPdb1akeA)
+
+def importOnly4akeA(cls):
+    # Import the already processed PDB
+    cls.protImportPdb4akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                      pdbFile=PRODY_TEST_TAR_PDB_FILE)
+    cls.protImportPdb4akeA.setObjLabel('pwem import 4akeA_ca')
+    cls.launchProtocol(cls.protImportPdb4akeA)
 
 def importANM2(cls):
     # Import modes from prody npz
