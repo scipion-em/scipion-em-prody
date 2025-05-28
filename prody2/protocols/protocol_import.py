@@ -42,10 +42,10 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
-from pyworkflow.utils import logger
+from pyworkflow.utils import logger, copyFile
 
 import prody
-from prody.dynamics.gnm import ZERO
+from prody2.constants import ZERO
 
 NMD = 0
 MODES_NPZ = 1
@@ -144,7 +144,11 @@ class ProDyImportModes(ProtImportFiles):
 
         if self.inputStructure.get() is not None:
             pdbFilename = self.inputStructure.get().getFileName()
-        
+            outPdbfileName = self._getPath(os.path.basename(pdbFilename))
+            if not pdbFilename.endswith('atoms.pdb'):
+                outPdbfileName = outPdbfileName[:4] + 'atoms.pdb'
+            prody.writePDB(outPdbfileName, prody.parsePDB(pdbFilename))
+
         if self.importType == NMD:
             if not self.pattern1.endswith('.nmd'):
                 self.pattern1 += '.nmd'
@@ -162,7 +166,8 @@ class ProDyImportModes(ProtImportFiles):
                                                        type=prodyType)
 
             if self.inputStructure.get() is None:
-                pdbFilename = prody.writePDB(self._getExtraPath('atoms'), self.atoms)
+                pdbFilename = prody.writePDB(self._getExtraPath('atoms'),
+                                             self.atoms)
                 self.inputStructure = AtomStruct(filename=pdbFilename)
 
         elif self.importType == MODES_NPZ:
@@ -193,6 +198,8 @@ class ProDyImportModes(ProtImportFiles):
 
         if isinstance(self.outModes, prody.GNM) or self.outModes.numAtoms() < self.atoms.numAtoms():
             nmSet = SetOfGnmModes(filename=fnSqlite)
+        elif len(self.outModes.getEigvals()) == 1:
+            nmSet = SetOfNormalModes(filename=fnSqlite)
         elif (self.outModes.getEigvals()[0] <= self.outModes.getEigvals()[1]
             or self.outModes.getEigvals()[0] < ZERO):
             nmSet = SetOfNormalModes(filename=fnSqlite)

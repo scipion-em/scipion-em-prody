@@ -1,6 +1,7 @@
 if __name__ == '__main__':
     import argparse
     import prody
+    from prody.utilities import ZERO
     from os.path import join
     import numpy as np
 
@@ -14,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--inputModesFns', type=str, required=True)
     parser.add_argument('--folder', type=str, required=True)
 
-    parser.add_argument('--metric', type=str, required=True)
+    parser.add_argument('--metric', type=int, required=True)
 
     parser.add_argument('--match', type=bool,
                         required=False, default=False)
@@ -28,13 +29,17 @@ if __name__ == '__main__':
     folder = args.folder
     pdb1, pdb2 = args.inputPdbFns.split()
     modesFn1, modesFn2 = args.inputModesFns.split()
-    match = eval(args.match)
 
     modes1 = prody.parseScipionModes(modesFn1, pdb=pdb1)
     modes2 = prody.parseScipionModes(modesFn2, pdb=pdb2)
 
-    nModes = np.max([modes1.numModes(), modes2.numModes()])
     nModesMin = np.min([modes1.numModes(), modes2.numModes()])
+
+    nzeros1 = len(np.nonzero(modes1.getEigvals() < ZERO)[0])
+    modes1 = modes1[nzeros1:]
+
+    nzeros2 = len(np.nonzero(modes2.getEigvals() < ZERO)[0])
+    modes2 = modes2[nzeros2:]
 
     if nModesMin != 1 and args.match:
         modeEns = prody.ModeEnsemble()
@@ -54,31 +59,29 @@ if __name__ == '__main__':
         args.nmdFileName = join(folder, 'matched_modes.{0}.nmd'.format(typeStr))
 
         prody.writeNMD(args.nmdFileName, modeEns[1], atoms)
-        prody.writeScipionModes(join(folder, ), modeEns[1], write_star=True)
+        prody.writeScipionModes(folder, modeEns[1], write_star=True)
     else:
         modeEns = [modes1, modes2]
 
     if args.metric == NMA_METRIC_OVERLAP:
         if args.norm:
-            args.matrix = prody.calcOverlap(modeEns[0], modeEns[1],
+            matrix = prody.calcOverlap(modeEns[0], modeEns[1],
                                             diag=args.diag)
         else:
             # Calculate direct dot product without vector normalisation found in calcOverlap
-            args.matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
-
-        if args.matrix.ndim == 1:
-            args.matrix.reshape(-1, 1)
-
+            matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
     else:
-        args.matrix = np.empty((nModes-6, 1))
-        for i in range(6, nModes):
-            if args.metric == NMA_METRIC_COV_OVERLAP:
-                args.matrix[i-6, 0] = prody.calcEnsembleSpectralOverlaps(
-                    modeEns[:, 6:i+1])[0, 1]
-            else:
-                args.matrix[i-6, 0] = prody.calcRWSIP(modeEns[0, 6:i+1],
-                                                      modeEns[1, 6:i+1])
+        if args.metric == NMA_METRIC_COV_OVERLAP:
+            matrix = prody.calcEnsembleSpectralOverlaps(modeEns)[0,1]
+        else:
+            matrix = prody.calcRWSIP(modeEns[0], modeEns[1])
 
-    prody.writeArray(join(folder, 'matrix.txt'), args.matrix,
-                     format='%' + str(max([len(str(int(np.max(args.matrix)))),
-                                           len(str(int(np.min(args.matrix))))]) + 4) + '.2f')
+    if isinstance(matrix, float):
+        matrix = np.array([matrix])
+
+    if matrix.ndim == 1:
+        matrix.reshape(-1, 1)
+
+    prody.writeArray(join(folder, 'matrix.txt'), matrix,
+        format='%' + str(max([len(str(int(np.max(matrix)))),
+                              len(str(int(np.min(matrix))))]) + 4) + '.2f')

@@ -40,6 +40,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2.constants import ZERO
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
@@ -117,7 +118,7 @@ class ProDyEdit(ProDyModesBase):
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
         modes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.zeros = Integer(len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0]))
+        self.zeros = Integer(len(np.nonzero(modes.getEigvals() < ZERO)[0]))
 
         super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.zeros.get())
 
@@ -147,7 +148,7 @@ class ProDyEdit(ProDyModesBase):
             if fromPrody:
                 modes = prody.loadModel(glob(modesPath+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
-                zeros = bool(np.any(modes.getEigvals() < prody.utilities.ZERO))
+                zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(modes.numModes(), zeros=zeros)
             else:
                 logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')

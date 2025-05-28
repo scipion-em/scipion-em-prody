@@ -39,11 +39,11 @@ from prody2.protocols import (ProDySelect, ProDyAlign,
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
+from prody2.protocols.protocol_import import MODES_NPZ, SCIPION, NMD
 
 from prody2.constants import (PRODY_TEST_PDB_FILE, N_RESIDUES, N_CHAINS,
                               FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM,
-                              PRODY_TEST_ALG_PDB_FILE)
+                              PRODY_TEST_ALG_PDB_FILE, TESTDIR)
 
 import numpy as np
 
@@ -366,7 +366,8 @@ class TestProDyCore1(TestWorkflow):
         # ------------------------------------------------
         # Define path
         modes = protANM2.outputModes
-        modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        modesPath = os.path.dirname(os.path.dirname(
+            modes._getMapper().selectFirst().getModeFile()))
 
         # Import modes from prody npz
         protImportModes1 = cls.newProtocol(ProDyImportModes)
@@ -375,7 +376,7 @@ class TestProDyCore1(TestWorkflow):
         protImportModes1.filesPattern.set("modes.anm.npz")
         protImportModes1.inputStructure.set(cls.protSel.outputStructure)
         protImportModes1.setObjLabel('import_npz_ANM_CA')
-        cls.launchProtocol(protImportModes1)   
+        cls.launchProtocol(protImportModes1)
 
         # Import scipion modes
         protImportModes2 = cls.newProtocol(ProDyImportModes)
@@ -618,6 +619,98 @@ class TestProDyAtomic(TestWorkflow):
                        "Partially renumbered and rechained 4ake should now have 2 chain, not {0}".format(
                            struct1.getAttributeValue(N_CHAINS)))
 
+class TestProDyCompareModes(TestWorkflow):
+    """ Test protocol for comparing modes. """
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+        importANM2(cls)
+        importDefvec(cls)
+
+    def testProDyCompareANMvsDefvec(cls):
+        # Compare original CA ANM NMA to defvec with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protDefvec1.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_Defvec_overlap')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMdefaultOverlap(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_overlap')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,14)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMcovOverlap(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_covOverlap')
+        protComp5.metric.set(1)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # cov overlap collapses
+
+    def testProDyCompareANMvsANMrwsip(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_rwsip')
+        protComp5.metric.set(2)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # rwsip collapses
+
+    def testProDyCompareANMvsANMdefaultOverlapMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_overlap_match')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,14)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMcovOverlapMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare, match=True)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_covOverlap_match')
+        protComp5.metric.set(1)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # cov overlap collapses
+
+    def testProDyCompareANMvsANMrwsipMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare, match=True)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_rwsip_match')
+        protComp5.metric.set(2)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # rwsip collapses
+
 def importSelect4ake(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 
                                   selection="name CA and chain A",
@@ -646,3 +739,23 @@ def importAligned1ake(cls):
                                       pdbFile=PRODY_TEST_ALG_PDB_FILE)
     cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
     cls.launchProtocol(cls.protImportPdb1akeA)
+
+def importANM2(cls):
+    # Import modes from prody npz
+    cls.protANM2 = cls.newProtocol(ProDyImportModes)
+    cls.protANM2.importType.set(MODES_NPZ)
+    cls.protANM2.filesPath.set(TESTDIR)
+    cls.protANM2.filesPattern.set("modes.anm.npz")
+    cls.protANM2.inputStructure.set(cls.protSel.outputStructure)
+    cls.protANM2.setObjLabel('import_npz_ANM_CA')
+    cls.launchProtocol(cls.protANM2)
+
+def importDefvec(cls):
+    # Import modes from prody npz
+    cls.protDefvec1 = cls.newProtocol(ProDyImportModes)
+    cls.protDefvec1.importType.set(NMD)
+    cls.protDefvec1.filesPath.set(TESTDIR)
+    cls.protDefvec1.filesPattern.set("defvec.nmd")
+    cls.protDefvec1.inputStructure.set(cls.protSel.outputStructure)
+    cls.protDefvec1.setObjLabel('import_nmd_Defvec_CA')
+    cls.launchProtocol(cls.protDefvec1)

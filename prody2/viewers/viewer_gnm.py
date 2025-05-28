@@ -40,6 +40,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
 from prody2.protocols import ProDyGNM
+from prody2.constants import ZERO
 
 import os
 
@@ -76,7 +77,7 @@ class ProDyGNMViewer(ProtocolViewer):
         self.modes = prody.parseScipionModes(self.modesObj.getFileName(), 
                                              pdb=pdbFileName)
 
-        if self.modes.getEigvals()[0] < prody.utilities.ZERO:
+        if self.modes.getEigvals()[0] < ZERO:
             self.startMode = 1
         else:
             self.startMode = 0

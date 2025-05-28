@@ -84,7 +84,7 @@ class ProDyCompare(EMProtocol):
                       'or in sets using either covariance overlap (Hess, Phys Rev E 2002; aka spectral overlap) '
                       'or the root weighted square inner product (RWSIP; Carnevale et al., J Phys Condens Matter 2007). \n'
                       'Covariance overlaps and RWSIPs are calculated over growing mode sets.\n'
-                      'The six zero modes are excluded from covariance overlap and RWSIP calculations.')
+                      'Zero eigenvalue modes are excluded from all calculations.')
 
         form.addParam('diag', BooleanParam, default=False, 
                       condition='metric==%d' % NMA_METRIC_OVERLAP,
@@ -111,18 +111,22 @@ class ProDyCompare(EMProtocol):
         modesPath1 = os.path.dirname(os.path.dirname(
             self.modes1.get()._getMapper().selectFirst().getModeFile()))
 
-        pdb1 = glob(modesPath1+"/*atoms.pdb")[0]
-        if len(pdb1) == 0:
-            pdb1 = None
+        pdb1 = glob(modesPath1+"/*atoms.pdb")
+        if len(pdb1) != 0:
+            pdb1 = pdb1[0]
+        else:
+            pdb1 = "None"
 
         modesFn1 = self.modes1.get().getFileName()
 
         modesPath2 = os.path.dirname(os.path.dirname(
             self.modes2.get()._getMapper().selectFirst().getModeFile()))
             
-        pdb2 = glob(modesPath2+"/*atoms.pdb")[0]
-        if len(pdb2) == 0:
-            pdb2 = None
+        pdb2 = glob(modesPath2+"/*atoms.pdb")
+        if len(pdb2) != 0:
+            pdb2 = pdb2[0]
+        else:
+            pdb2 = "None"
 
         modesFn2 = self.modes2.get().getFileName()
 
@@ -132,16 +136,16 @@ class ProDyCompare(EMProtocol):
             self._getPath()
         )
 
-        args += '--metric {0}'.format(self.metric.get())
+        args += '--metric {0} '.format(self.metric.get())
 
         if self.match:
             args += '--match True '
 
         if self.diag:
-            args += 'diag True '
+            args += '--diag True '
 
         if self.norm:
-            args += 'norm True '
+            args += '--norm True '
 
         self.runJob(Plugin.getProgram('compare_modes.py', script=True), args)
 
@@ -152,7 +156,7 @@ class ProDyCompare(EMProtocol):
             fnSqlite = self._getPath('modes.sqlite')
             inputClass = type(self.modes1.get())
             nmSet = inputClass(filename=fnSqlite)
-            nmSet._nmdFileName = String(self.nmdFileName)
+            nmSet._nmdFileName = String(self.getNmdFileName)
 
             outputPdb = AtomStruct()
             outputPdb.setFileName(self._getPath('atoms.pdb'))
@@ -169,3 +173,6 @@ class ProDyCompare(EMProtocol):
 
     def getMatchIndsFn(self):
         return self._getPath('matchInds.txt')
+
+    def getNmdFileName(self):
+        return glob(self._getPath() + '/matched_modes.*.nmd')

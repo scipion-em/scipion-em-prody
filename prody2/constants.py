@@ -78,3 +78,5 @@ NOTHING = 0 # stop trivial mapping if trivial mapping fails
 PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
 CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
 DEFAULT = 3 # try pwalign then CE
+
+ZERO = 1e-6
