@@ -42,7 +42,8 @@ from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
 from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 
 from prody2.constants import (PRODY_TEST_PDB_FILE, N_RESIDUES, N_CHAINS,
-                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM)
+                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM,
+                              PRODY_TEST_ALG_PDB_FILE)
 
 import numpy as np
 
@@ -52,6 +53,27 @@ distProfile1 = "distanceProfiles/vec1.xmd"
 distProfile7 = "distanceProfiles/vec7.xmd"
 
 renumFilename = "renum_atoms.pdb"
+
+class TestProDyDefvec(TestWorkflow):
+    """ Test protocol for ProDy Deformation Vector Analysis. """
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+        importAligned1ake(cls)
+
+
+    def testProDyDefvec(cls):
+        """ Run deformation vector calculation and confirm if it works """
+
+        # Defvec from same starting point as NMA
+        protDefvec5 = cls.newProtocol(ProDyDefvec, rmsd=5)
+        protDefvec5.mobStructure.set(cls.protSel.outputStructure)
+        protDefvec5.tarStructure.set(cls.protImportPdb1akeA.outputPdb)
+        protDefvec5.setObjLabel('Defvec_5A_4akeA_1akeA_CA')
+        cls.launchProtocol(protDefvec5)
 
 class TestProDyCore1(TestWorkflow):
     """ Test protocol for ProDy Anisotropic Network Model (ANM) Normal Mode Analysis (NMA) and Deformation Analysis. """
@@ -613,7 +635,14 @@ def importSelect1ake(cls):
 
     # Select Chain A
     cls.protSel3 = cls.newProtocol(ProDySelect,
-                                selection="protein and chain A and name CA")
+        selection="protein and chain A and name CA")
     cls.protSel3.inputStructure.set(cls.protImportPdb2.outputPdb)
     cls.protSel3.setObjLabel('Sel_1akeA_CA')
     cls.launchProtocol(cls.protSel3)
+
+def importAligned1ake(cls):
+    # Import the already processed PDB
+    cls.protImportPdb1akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                      pdbFile=PRODY_TEST_ALG_PDB_FILE)
+    cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
+    cls.launchProtocol(cls.protImportPdb1akeA)

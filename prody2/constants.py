@@ -61,8 +61,11 @@ PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
 TESTDIR = os.path.join(os.path.dirname(prody2.__file__),
                        "tests", "datafiles")
 
-PRODY_TEST_PDB_FILE = os.path.join(TESTDIR, "4akeA_alg_fixed.pdb")
+PRODY_TEST_PDB_FILE = os.path.join(TESTDIR, "4akeA_alg_map_fixed.pdb")
 PRODY_TEST_MRC_FILE = os.path.join(TESTDIR, "1ake.mrc")
+
+PRODY_TEST_TAR_PDB_FILE = os.path.join(TESTDIR, "4akeA_orig.pdb")
+PRODY_TEST_ALG_PDB_FILE = os.path.join(TESTDIR, "1akeA_alg_4akeA.pdb")
 
 # chain matching methods
 BEST_MATCH = 0
