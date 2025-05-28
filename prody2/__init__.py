@@ -26,6 +26,8 @@
 from collections import OrderedDict
 import os
 import pwem
+import numpy
+import Bio
 from pwem.convert.atom_struct import cifToPdb
 import pyworkflow.utils as pwutils
 
@@ -36,6 +38,9 @@ __version__ = "3.4.0"
 _logo = "icon.png"
 _references = ['ProDy2']
 
+
+file_path = os.path.abspath(__file__)
+dir_path = os.path.split(os.path.split(file_path)[0])[0]
 
 class Plugin(pwem.Plugin):
     _supportedVersions = VERSIONS
@@ -75,48 +80,29 @@ class Plugin(pwem.Plugin):
     def addProDyPackage(cls, env, version, default=False):
 
         ENV_NAME = getProDyEnvName(version)
+        ENV_YAML_PATH = os.path.join(dir_path, 'myenv.yaml')
+        prodyCommands = []
 
-        installCmd = [
+        PRODY_V241_INSTALLED = 'prody_v2.4.1_installed'
+        installCmd = [cls.getCondaActivationCmd()]
+        installCmd.append('pip install -U ProDy==2.4.1 &&')
+        installCmd.append('pip install numpy=={0} biopython=={1} &&'.format(numpy.__version__,
+                                                                            Bio.__version__))
+        installCmd.append('touch %s' % PRODY_V241_INSTALLED)
+        prodyCommands.append((" ".join(installCmd.copy()), PRODY_V241_INSTALLED))
+
+        PRODY_INSTALLED = 'prody_%s_installed' % version
+        installProDyGithub = [
             cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.10 &&',
+            f'conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} &&',
             f'conda activate {ENV_NAME} &&']
-
-        # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
-        # and threadpoolctl for control of thread pools for apps generally
-        TEMPY_INSTALLED = 'tempy_installed'
-        installTEMPy = installCmd.copy()
-        installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
-                            'threadpoolctl requests mdtraj pyparsing==3.1.1 && touch %s' % TEMPY_INSTALLED)
-        installCmd.pop(1) # remove conda create to only do it the first time
-
-        # Install PDBFixer and OpenMM for ClustENM
-        OPENMM_INSTALLED = 'openmm_installed'
-        installOpenMM = installCmd.copy()
-        installOpenMM.append('conda install -c conda-forge openmm==8 pdbfixer -y && touch %s' % OPENMM_INSTALLED)
-
-        prodyCommands = [(" ".join(installTEMPy), TEMPY_INSTALLED),
-                         (" ".join(installOpenMM), OPENMM_INSTALLED)]
-
-        PRODY_INSTALLED_OWN = 'prody_%s_installed_own_env' % version
-        PRODY_INSTALLED_SCIPION = 'prody_%s_installed_scipion_env' % version
-        for i, PRODY_INSTALLED in enumerate([PRODY_INSTALLED_OWN, PRODY_INSTALLED_SCIPION]):
-            if i == 0:
-                
-                installCmd.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
-                installCmd.append('cd ProDy &&')
-                
-                installCmd.append('git checkout scipion &&')
-                installCmd.append('git pull &&')
-
-                installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
-            else:
-                installCmd = []
-                installCmd.append('cd ProDy &&')
-                installCmd.append('pip install -Ue . &&')
-            
-            installCmd.append('cd .. && touch %s' % PRODY_INSTALLED)
-
-            prodyCommands.append((" ".join(installCmd.copy()), PRODY_INSTALLED))
+        installProDyGithub.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+        installProDyGithub.append('cd ProDy &&')
+        installProDyGithub.append('git checkout scipion &&')
+        installProDyGithub.append('git pull &&')
+        installProDyGithub.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
+        installProDyGithub.append('cd .. && touch %s' % PRODY_INSTALLED)
+        prodyCommands.append((" ".join(installProDyGithub.copy()), PRODY_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
