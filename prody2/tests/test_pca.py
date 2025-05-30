@@ -52,8 +52,6 @@ class TestProDyPCA(TestWorkflow):
         # Create a new project
         setupTestProject(cls)
         importStructs(cls)
-        cls.oldVerbosity = prody.confProDy("verbosity")
-        cls.oldSecondary = prody.confProDy("auto_secondary")
 
     def testProDyPCA_1(cls):
         """ Run PCA simple workflows for two ways of building ensembles with A3 NTDs."""
@@ -343,12 +341,6 @@ class TestProDyPCA(TestWorkflow):
         protComp3.modes2.set(protImportModes2.outputModes)
         protComp3.setObjLabel('Compare_imported_2k39')
         cls.launchProtocol(protComp3)
-
-        cls.assertTrue(prody.confProDy("verbosity") == cls.oldVerbosity,
-                       "prody verbosity changed")
-
-        cls.assertTrue(prody.confProDy("auto_secondary") == cls.oldSecondary,
-                       "prody auto_secondary changed")
 
     def testProDyPCA_3(cls):
         """ Test slicing PCAs."""

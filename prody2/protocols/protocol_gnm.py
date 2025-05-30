@@ -36,7 +36,7 @@ import math
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, String, EMFile
+from pwem.objects import String, EMFile
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob, redStr
@@ -46,7 +46,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
 
 import prody
 from prody2.objects import SetOfGnmModes
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 
 class ProDyGNM(EMProtocol):
     """
@@ -90,7 +90,7 @@ class ProDyGNM(EMProtocol):
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
 
         form.addParam('membrane', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
@@ -165,10 +165,7 @@ class ProDyGNM(EMProtocol):
 
         self.runJob(Plugin.getProgram('gnm'), args)
 
-        fixVerbositySecondary(self)
-
         self.gnm = prody.loadModel(self._getPath(filename))
-
         covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
         prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
 
@@ -275,8 +272,6 @@ class ProDyGNM(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))

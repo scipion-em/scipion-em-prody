@@ -39,7 +39,6 @@ from pwem.protocols import ProtImportFiles
 from prody2.objects import (ProDyNpzEnsemble, TrajFrame,
                             SetOfGnmModes, SetOfLogisticModes)
 from prody2.constants import ENSEMBLE_WEIGHTS
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
@@ -135,8 +134,6 @@ class ProDyImportModes(ProtImportFiles):
         self._insertFunctionStep('createOutputStep')
 
     def importModesStep(self):
-        fixVerbositySecondary(self)
-
         filesPaths = self.getMatchFiles()
 
         if self.importType == SCIPION:
@@ -190,8 +187,6 @@ class ProDyImportModes(ProtImportFiles):
             prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
         else:
             self.nmdFileName = self.pattern1
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -325,9 +320,7 @@ class ProDyImportEnsemble(ProtImportFiles):
         self._insertFunctionStep('importEnsembleStep')
         self._insertFunctionStep('createOutputStep')
 
-    def importEnsembleStep(self):
-        fixVerbositySecondary(self)
-        
+    def importEnsembleStep(self):      
         self.weights = None
         self.atoms = None
 
@@ -471,8 +464,6 @@ class ProDyImportEnsemble(ProtImportFiles):
             frame = TrajFrame((i+1, self.filename), objLabel=self.outEns.getLabels()[i],
                               weight=pwobj.Float(self.weights[i]))
             self.npz.append(frame)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputs = {"outputNpz": self.npz}

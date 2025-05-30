@@ -41,15 +41,14 @@ from pyworkflow.utils import glob, redStr, copyFile
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam,
                                         LEVEL_ADVANCED)
-from pyworkflow.object import Float, Pointer
+from pyworkflow.object import Float
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import replaceCoordsets, loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 
 import prody
-import matplotlib.pyplot as plt
 
 from prody2.objects import HAVE_CHEM, DcdMDSystem
 if HAVE_CHEM:
@@ -66,7 +65,7 @@ class ProDyPCA(ProDyModesBase):
     _nmdFileName = 'modes.pca.nmd'
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -136,14 +135,11 @@ class ProDyPCA(ProDyModesBase):
         self._insertFunctionStep('qualifyModesStep', n,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, n=5):
-        fixVerbositySecondary(self)
-
         if (len(self.inputEnsemble)==1 and
             isinstance(self.inputEnsemble[0].get(), DcdMDSystem)):
                 self.npz = None
@@ -188,15 +184,8 @@ class ProDyPCA(ProDyModesBase):
         else:
             self.npz2 = self.npz
         
-        plt.figure()
-        prody.showFractVars(self.outModes)
-        prody.showCumulFractVars(self.outModes, 'r')
-        plt.savefig(self._getPath('pca_fract_vars.png'))
-        
         self.fract_vars = prody.calcFractVariance(self.outModes)
         prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
-
-        restoreVerbositySecondary(self)
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=None):
         self._enterWorkingDir()

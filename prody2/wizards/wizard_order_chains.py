@@ -33,7 +33,6 @@ information such as name and number of residues.
 """
 
 # Imports
-from collections import OrderedDict
 import re
 
 from ..protocols.protocol_atoms import ProDyAlign
@@ -76,10 +75,6 @@ class ProDyAddChainOrderWizard(VariableWizard):
         form.setVar(outputParam[0], output)
 
 
-ProDyAddChainOrderWizard().addTarget(protocol=ProDyAlign,
-                                     targets=['insertOrder'],
-                                     inputs=['insertOrder'],
-                                     outputs=['chainOrders'])
 
 ProDyAddChainOrderWizard().addTarget(protocol=ProDyBuildPDBEnsemble,
                                      targets=['insertOrder'],
@@ -90,6 +85,37 @@ ProDyAddChainOrderWizard().addTarget(protocol=ProDyLRA,
                                          targets=['insertOrder'],
                                          inputs=['insertOrder', 'label'],
                                          outputs=['chainOrders'])
+
+
+
+class ProDyAddChainOrderWizard2(VariableWizard):
+    """Add a step of the workflow in the defined position"""
+    _targets, _inputs, _outputs = [], {}, {}
+
+    def show(self, form, *params):
+        inputParam, outputParam = self.getInputOutput(form)
+        protocol = form.protocol
+        index = getattr(protocol, inputParam[0]).get()
+
+        matchDic = protocol.createMatchDic(index)
+
+        output = str(matchDic)
+        cnt = 0
+        for i in re.finditer(" ", output):
+            cnt=cnt+1
+            if cnt%3==0:
+                output = output[:i.start()] + "\n" + output[i.start() + 1:]
+            
+        if output.find('\n' + " "*22) == -1:
+            output = output.replace('\n', '\n' + " "*22)
+
+        form.setVar(outputParam[0], output)
+
+
+ProDyAddChainOrderWizard2().addTarget(protocol=ProDyAlign,
+                                     targets=['insertOrder'],
+                                     inputs=['insertOrder'],
+                                     outputs=['chainOrders'])
 
 class ProDyRecoverChainOrderWizard(VariableWizard):
     """Watch the parameters of the step of the workflow defined by the index"""

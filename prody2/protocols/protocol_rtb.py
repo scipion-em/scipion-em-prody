@@ -29,22 +29,17 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the the rotation and translation of blocks (RTB) framework.
 """
-from os.path import exists, join
-import math
-
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
+                        MDL_NMA_EIGENVAL)
 from pwem.objects import SetOfNormalModes, String
 
 from pyworkflow.utils import glob, redStr
-from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
+from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 BLOCKS_FROM_RES = 0
 BLOCKS_FROM_SECSTR = 1
@@ -57,7 +52,7 @@ class ProDyRTB(ProDyModesBase):
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -121,7 +116,7 @@ class ProDyRTB(ProDyModesBase):
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -175,17 +170,14 @@ class ProDyRTB(ProDyModesBase):
         self.nzeros = 6 if self.zeros.get() else 0
 
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
-        self._insertFunctionStep('animateModesStep', numModes,
-                                 self.rmsd.get(), self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), self.nzeros)
         self._insertFunctionStep('qualifyModesStep', numModes,
                                  self.collectivityThreshold.get())
         self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn='', n=20):
-        fixVerbositySecondary(self, secondary=True)
-        
+    def computeModesStep(self, inputFn='', n=20):       
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
 
@@ -226,11 +218,8 @@ class ProDyRTB(ProDyModesBase):
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.amap)
         prody.saveModel(self.outModes, self._getPath('modes.rtb.npz'), matrices=True)
 
-        restoreVerbositySecondary(self)
-
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()
-
         fnVec = glob("modes/vec.*")
 
         if len(fnVec) < numberOfModes:

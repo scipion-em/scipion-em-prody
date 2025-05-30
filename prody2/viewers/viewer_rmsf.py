@@ -70,7 +70,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                       condition=os.path.isfile(findNmdFile(self.protocol)),
                       label="Display mode color structures with VMD NMWiz?",
                       help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
-                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
+                           "See http://http://www.bahargroup.org/prody/tutorials/nmwiz_tutorial/nmwiz.html")
 
     def _getVisualizeDict(self):
         return {'showPlot': self._viewFlucts,
@@ -133,12 +133,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                                 str(atoms[ind].getResname()),
                                 '{:5d}'.format(atoms[ind].getResnum()),
                                 atoms[ind].getChid()]) + '\n')
-        fo.close()    
-
-        for i, ind in enumerate(inds):
-            plt.plot(inds, rmsf[inds], 'r*')
-            plt.text(ind - np.mod(i,2)*2, 
-                     rmsf[ind], resnums[ind])
+        fo.close()
 
         return [plotter]
 

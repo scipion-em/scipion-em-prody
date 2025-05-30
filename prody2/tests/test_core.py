@@ -43,9 +43,6 @@ from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
 import prody
 from prody.tests.datafiles import pathDatafile
 
-oldVerbosity = prody.confProDy("verbosity")
-oldSecondary = prody.confProDy("auto_secondary")
-
 animationsFile7 = "animations/animated_mode_007.pdb"
 animationsFile1 = "animations/animated_mode_001.pdb"
 distProfile1 = "distanceProfiles/vec1.xmd"
@@ -405,12 +402,6 @@ class TestProDyCore(TestWorkflow):
         protComp6.modes2.set(protRTB2.outputModes)
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
         cls.launchProtocol(protComp6)
-
-        cls.assertTrue(prody.confProDy("verbosity") == oldVerbosity,
-                        "prody verbosity changed")
-        
-        cls.assertTrue(prody.confProDy("auto_secondary") == oldSecondary,
-                        "prody auto_secondary changed")
 
     def testProDyBiomol(cls):
         # extract biomol from 4ake (dimer) from id

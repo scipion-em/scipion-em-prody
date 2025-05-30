@@ -37,11 +37,10 @@ from pyworkflow.viewer import ProtocolViewer, DESKTOP_TKINTER, WEB_DJANGO
 
 from pwem.viewers.plotter import EmPlotter
 from pwem.viewers import VmdView, DataView
-from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
+from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
-from prody2.protocols import ProDyGNM, ProDyPCA
-from prody2.objects import SetOfGnmModes
+from prody2.protocols import ProDyGNM
 
 import os
 
@@ -58,18 +57,10 @@ class ProDyGNMViewer(ProtocolViewer):
         score are preferred.
     """
     _label = 'GNM viewer'
-    _targets = [ProDyGNM, SetOfGnmModes, ProDyPCA, SetOfPrincipalComponents]
+    _targets = [ProDyGNM, SetOfNormalModes]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
-
-
     
     def _defineParams(self, form):
-
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-
         if isinstance(self.protocol, SetOfNormalModes):
             self.modesObj = self.protocol
         else:
@@ -107,12 +98,12 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot RMSF from all the computed modes?",
                       help="Plot the root mean square fluctuations (RMSF) for all the computed modes.")
         group.addParam ('displayCovMatrix', LabelParam,
-                      label='Display Covariance matrix?',
+                      label='Plot covariance matrix?',
                       help='Raw covariance matrices are shown as heatmaps.')
         group.addParam ('displayCrossCorrMatrix', LabelParam,
-                      label='Display Cross Correlation matrix?',
+                      label='Plot cross-correlation matrix?',
                       help='Orientational cross correlation matrices are shown as heatmaps. Cross correlation is equal to '
-                        'Normalized Covariance matrix')
+                        'Normalized covariance matrix')
         group.addParam('allModesPercentile', FloatParam, default=-1,
                       label='Percentile for clipping matrices',
                       help='Maximum and minimum values will be set at this percentile')
@@ -141,10 +132,10 @@ class ProDyGNMViewer(ProtocolViewer):
                       label="Plot root mean square fluctuation?",
                       help="Shows the cumulative Root Mean Square Fluctuations of the range of modes selected.")
         group.addParam('displayCov', LabelParam, default=False,
-                label="Plot covariance?",
+                label="Plot covariance matrix?",
                 help="Covariance matrices (3Nx3N or NxN) are shown as heatmaps.")
         group.addParam('displayCC', LabelParam, default=False,
-                label="Plot cross-correlation?",
+                label="Plot cross-correlation matrix?",
                 help="Orientational cross-correlation matrices are shown as heatmaps. "
                      "Cross correlation is equal to NxN normalized Covariance matrix")
         group.addParam('selectedModesPercentile', FloatParam, default=-1,
@@ -155,7 +146,7 @@ class ProDyGNMViewer(ProtocolViewer):
                       condition=os.path.isfile(nmdFile),
                       label="Display mode color structures with VMD NMWiz?",
                       help="Use ProDy Normal Mode Wizard to view all modes in a more interactive way. "
-                           "See http://prody.csb.pitt.edu/tutorials/nmwiz_tutorial/nmwiz.html")
+                           "See http://http://www.bahargroup.org/prody/tutorials/nmwiz_tutorial/nmwiz.html")
         
     def _getVisualizeDict(self):
         return {'displayModes': self._viewParam,
@@ -250,18 +241,18 @@ class ProDyGNMViewer(ProtocolViewer):
             
 
         if paramName == 'displaySqFlucts':
-            prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms)
+            prody.showSqFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
         elif paramName == 'displayRMSFlucts':
-            prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms)
-        else:            
+            prody.showRMSFlucts(self.modes[self.startMode:], atoms=self.atoms, gap=True)
+        else:
             if modeNumber1+1 == modeNumber2:
                 mode = self.modes[modeNumber1]
                 
                 if paramName == 'displayRangeSqFluct':
-                    prody.showSqFlucts(mode, atoms=self.atoms)
+                    prody.showSqFlucts(mode, atoms=self.atoms, gap=True)
 
                 elif paramName == 'displayRangeRMSFluct':
-                    prody.showRMSFlucts(mode, atoms=self.atoms)
+                    prody.showRMSFlucts(mode, atoms=self.atoms, gap=True)
 
                 elif paramName == 'displayCov':
                     p = self.selectedModesPercentile.get()
@@ -281,9 +272,9 @@ class ProDyGNMViewer(ProtocolViewer):
                 modes = self.modes[modeNumber1:modeNumber2]
                 
                 if paramName == 'displayRangeSqFluct':
-                    prody.showSqFlucts(modes, atoms=self.atoms)
+                    prody.showSqFlucts(modes, atoms=self.atoms, gap=True)
                 elif paramName == 'displayRangeRMSFluct':
-                    prody.showRMSFlucts(modes, atoms=self.atoms)                  
+                    prody.showRMSFlucts(modes, atoms=self.atoms, gap=True)                  
                 elif paramName == 'displayCov':
                     prody.showCovarianceMatrix(modes, atoms=self.atoms)
                 elif paramName == 'displayCC':   

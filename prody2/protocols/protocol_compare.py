@@ -32,15 +32,13 @@ This module will provide ProDy normal mode analysis using the anisotropic networ
 import os
 import numpy as np
 
-from pwem.objects import SetOfNormalModes, AtomStruct, EMFile, String
+from pwem.objects import AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob
-from pyworkflow.protocol.params import (PointerParam, EnumParam,
-                                        BooleanParam, NumericRangeParam, LEVEL_ADVANCED)
+from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
 
 import prody
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
 
 NMA_METRIC_OVERLAP = 0
 NMA_METRIC_COV_OVERLAP = 1
@@ -112,8 +110,6 @@ class ProDyCompare(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def compareModesStep(self):
-        fixVerbositySecondary(self)
-
         modesPath1 = os.path.dirname(os.path.dirname(
             self.modes1.get()._getMapper().selectFirst().getModeFile()))
 
@@ -182,8 +178,6 @@ class ProDyCompare(EMProtocol):
         prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix,
                          format='%' + str(max([len(str(int(np.max(self.matrix)))),
                                                len(str(int(np.min(self.matrix))))]) + 4) + '.2f')
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))

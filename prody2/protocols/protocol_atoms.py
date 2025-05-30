@@ -43,7 +43,7 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
 import prody
 from pyworkflow.utils import logger
 
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 from prody2.objects import Atom, SetOfAtoms
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
                               BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM) # chain matching
@@ -102,7 +102,7 @@ class ProDyAtomicBase(EMProtocol):
                       label="selection string", condition=includeSelection,
                       help='This determines which atoms are selected. '
                            'There is a rich selection engine with similarities to VMD. '
-                           'See http://prody.csb.pitt.edu/tutorials/prody_tutorial/selection.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/prody_tutorial/selection.html')
 
         form.addParam('uniteChains', BooleanParam, default=False,
                       label=UNITE_CHAINS_LABEL,
@@ -141,16 +141,12 @@ class ProDySelect(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def selectionStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
                                          self.pdbFileName)
         if self.uniteChains.get():
             args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):
@@ -237,7 +233,7 @@ class ProDyAlign(EMProtocol):
                       help='Chains can be matched by either trying all combinations and taking the best one '
                            'based on a number of criteria including final RMSD or by taking chains with the same ID '
                            'or position in the list of chains.\n'
-                           'See http://prody.csb.pitt.edu/manual/release/v1.11_series.html for more details.')
+                           'See http://http://www.bahargroup.org/prody/manual/release/v1.11_series.html for more details.')
         
         matchFuncCheck = 'matchFunc == %d'
         group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
@@ -278,7 +274,7 @@ class ProDyAlign(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Residue mapping function",
                       help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
-                           'See http://prody.csb.pitt.edu/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
+                           'See http://http://www.bahargroup.org/prody/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
                            'for more details.')
 
         form.addParam('rmsd_reject', FloatParam, default=15.,
@@ -308,8 +304,6 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
-        fixVerbositySecondary(self, secondary=True)
-
         mobFn = self.mobStructure.get().getFileName()
         mob = prody.parsePDB(mobFn, alt='all',
                              unite_chains=self.uniteChains.get())
@@ -417,8 +411,6 @@ class ProDyAlign(EMProtocol):
                 self.pdbFileNameMob = self._getPath('mobile.pdb')
                 prody.writePDB(self.pdbFileNameMob, alg)
 
-        restoreVerbositySecondary(self)
-
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
             outputPdbMob = AtomStruct()
@@ -457,7 +449,7 @@ class ProDyAlign(EMProtocol):
         try:
             self.matchDic = eval(self.chainOrders.get())
             _ = self.matchDic.keys()
-        except AttributeError:
+        except (AttributeError, TypeError):
             self.matchDic = OrderedDict()
             self.matchDic[self.mob.getTitle()] = self.getInitialMobileChainOrder()
             self.matchDic[self.tar.getTitle()] = self.getInitialTargetChainOrder()
@@ -545,8 +537,6 @@ class ProDyBiomol(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def extractionStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         ags = prody.parsePDB(inputFn, alt='all', compressed=False,
                              biomol=True, extend_biomol=True,
                              unite_chains=self.uniteChains.get())
@@ -559,8 +549,6 @@ class ProDyBiomol(ProDyAtomicBase):
             prody.writePDB(filename, ag)
             pdb = AtomStruct(filename)
             self.pdbs.append(pdb)
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         self._defineOutputs(outputStructures=self.pdbs)
@@ -726,7 +714,11 @@ class ProDyRenumber(ProDyAtomicBase):
         
         form.addParam('offset', IntParam, default=0,
                       label="Renumbering offset",
-                      help='This number is added to the residue number of the selection')
+                      help='This number is added to all the residue numbers of the selection')
+
+        form.addParam('chain', StringParam, default='',
+                      label="New chain ID",
+                      help='This will replace the chain ID of all atoms in the selection')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -756,8 +748,6 @@ class ProDyRenumber(ProDyAtomicBase):
         self._insertFunctionStep('createOutputStep')
 
     def renumStep(self, inputFn):
-        fixVerbositySecondary(self, secondary=True)
-
         self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
         ag = prody.parsePDB(inputFn)
 
@@ -765,7 +755,9 @@ class ProDyRenumber(ProDyAtomicBase):
         sel.setResnums(sel.getResnums() + self.offset.get())
         prody.writePDB(self.pdbFileName, ag)
 
-        restoreVerbositySecondary(self)
+        chain = self.chain.get()
+        if chain != '':
+            sel.setChids(chain)
 
     def createOutputStep(self):
         if exists(self.pdbFileName):

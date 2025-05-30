@@ -44,7 +44,7 @@ from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, Stri
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
-from prody2 import restoreVerbositySecondary
+
 
 class ProDyModesBase(EMProtocol):
     """
@@ -55,16 +55,18 @@ class ProDyModesBase(EMProtocol):
     _label = 'Modes base'
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy modes base')
+        form.addSection(label='ProDy modes base',
+                        condition=besidesAnimation)
 
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
+                      condition=besidesAnimation,
                       pointerClass='AtomStruct',
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
@@ -72,12 +74,14 @@ class ProDyModesBase(EMProtocol):
 
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
+                      condition=besidesAnimation,
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
@@ -87,14 +91,16 @@ class ProDyModesBase(EMProtocol):
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label='Threshold on collectivity',
                       help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
@@ -105,6 +111,7 @@ class ProDyModesBase(EMProtocol):
                       'in order to decide which modes to use at the image analysis step.')
 
         form.addParam('zeros', BooleanParam, default=True,
+                      condition=besidesAnimation,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
@@ -146,8 +153,7 @@ class ProDyModesBase(EMProtocol):
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
         if self.doAnimation:
-            self._insertFunctionStep('animateModesStep', n,
-                                     self.rmsd.get(), self.n_steps.get(),
+            self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                      self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
@@ -156,7 +162,7 @@ class ProDyModesBase(EMProtocol):
         # This gets defined in each child protocol
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, nSteps, pos, neg, nzero=6):
+    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
 
         if isinstance(self.outModes, prody.GNM):
@@ -309,8 +315,6 @@ class ProDyModesBase(EMProtocol):
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

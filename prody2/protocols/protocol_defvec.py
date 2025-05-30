@@ -38,8 +38,6 @@ from pyworkflow.protocol.params import (PointerParam, FloatParam, IntParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
-from prody2 import fixVerbositySecondary, restoreVerbositySecondary
-
 import math
 
 class ProDyDefvec(EMProtocol):
@@ -96,14 +94,12 @@ class ProDyDefvec(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         self._insertFunctionStep('defvecStep')
-        self._insertFunctionStep('animateModesStep', self.n_steps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get())
         self._insertFunctionStep('computeAtomShiftsStep')
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self):
-        fixVerbositySecondary(self)
-
         mobStruct = self.mobStructure.get()
         self.mobFn = mobStruct.getFileName()
 
@@ -125,13 +121,13 @@ class ProDyDefvec(EMProtocol):
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
         prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.mob)
 
-    def animateModesStep(self, nSteps, pos, neg):
+    def animateModesStep(self, rmsd, nSteps, pos, neg):
         animationsDir = self._getExtraPath('animations')
         makePath(animationsDir)
 
         fnAnimation = join(animationsDir, "animated_mode_001")
 
-        self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=self.rmsd,
+        self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=rmsd,
                                            n_steps=nSteps,
                                            pos=pos, neg=neg)
         prody.writePDB(fnAnimation+".pdb", self.outAtoms)
@@ -189,8 +185,6 @@ class ProDyDefvec(EMProtocol):
             md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        restoreVerbositySecondary(self)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

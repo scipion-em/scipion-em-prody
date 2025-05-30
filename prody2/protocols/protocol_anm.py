@@ -29,12 +29,10 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-import math
 from multiprocessing import cpu_count
-from os.path import exists, join
 
 import prody
-from prody2 import Plugin, fixVerbositySecondary, restoreVerbositySecondary
+from prody2 import Plugin
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
@@ -57,7 +55,7 @@ class ProDyANM(ProDyModesBase):
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -98,7 +96,7 @@ class ProDyANM(ProDyModesBase):
                            'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
                            'more sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
         form.addParam('sparse', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       label="Use sparse matrices?",
@@ -166,14 +164,13 @@ class ProDyANM(ProDyModesBase):
         self._insertFunctionStep('computeModesStep', inputFn, numModes)
         self._insertFunctionStep('qualifyModesStep', numModes,
                                  self.collectivityThreshold.get())
-        self._insertFunctionStep('animateModesStep', numModes,
-                                 self.rmsd.get(), self.numSteps.get(),
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.numSteps.get(),
                                  self.neg.get(), self.pos.get(), self.nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self, inputFn='', n=20):
-        fixVerbositySecondary(self)
+        """Compute ANM normal modes"""
 
         self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all')
@@ -212,9 +209,6 @@ class ProDyANM(ProDyModesBase):
             args += ' --membrane'
 
         self.runJob(Plugin.getProgram('anm'), args)
-
-        restoreVerbositySecondary(self)
-        
         self.outModes = prody.loadModel(self._getPath(filename))
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
