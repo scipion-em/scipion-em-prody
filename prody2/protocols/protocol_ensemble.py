@@ -451,9 +451,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                           if label in self.labels]
             ens = ens[newIndices]
 
-        msa = ens.getMSA()
-        prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
-
         if self.writePDBFiles.get():
             indices = ens.getIndices()
             amapTitles = [amap.getAtomGroup().getTitle() for amap in atommaps]
@@ -494,11 +491,7 @@ class ProDyBuildPDBEnsemble(EMProtocol):
             prody.writePDB(self.pdbFilename, ens.getAtoms())
 
     def createOutputStep(self):
-        outputSeqs = SetOfSequences().create(self._getExtraPath())
-        outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
-
-        outputs = {"outputNpz": self.npz,
-                   "outAlignment": outputSeqs}
+        outputs = {"outputNpz": self.npz}
         
         if self.writeDCDFile.get():
             if HAVE_CHEM:
