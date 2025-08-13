@@ -30,7 +30,7 @@
 This module will provide ProDy atom tools including selection and superposition.
 """
 import numpy as np
-from os.path import basename, splitext, abspath
+from os.path import basename, splitext
 
 from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList, Integer
 from pwem.protocols import EMProtocol
