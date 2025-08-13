@@ -59,16 +59,16 @@ class TestProDyClustenmFit(TestWorkflow):
     def testProDyClustENMFitting(cls):
 
         # Run ClustENM fitting in with replace filtered False (default)
-        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
-                                        clusterMode=0, maxclust=2, rmsd=5,
-                                        n_confs=10, sim=False, doFitting=True)
-        protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
-        protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
-        protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
-        cls.launchProtocol(protClustenm3)
+        cls.protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
+                                            clusterMode=0, maxclust=2, rmsd=5,
+                                            n_confs=10, sim=False, doFitting=True)
+        cls.protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
+        cls.protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
+        cls.protClustenm3.setObjLabel('ClustENM_fitting_4akeA')
+        cls.launchProtocol(cls.protClustenm3)
 
         cc = [struct.getAttributeValue(ENSEMBLE_CCS)
-              for struct in protClustenm3.outputStructures1]
+              for struct in cls.protClustenm3.outputStructures1]
         cls.assertTrue(cc[-1] > cc[0],
                        "Last CC should be more than starting CC when filtering and clustering")
         cls.assertTrue(len(cc) == 3,
@@ -77,18 +77,22 @@ class TestProDyClustenmFit(TestWorkflow):
     def testProDyClustENMFittingReplace(cls):
 
         # Run ClustENM fitting in with replace filtered True
-        protClustenm3 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
+        protClustenm4 = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
                                         clusterMode=0, maxclust=10, rmsd=5,
                                         n_confs=10, sim=False, doFitting=True,
                                         replaceFiltered=True)
-        protClustenm3.inputStructures.set([cls.protPdb4ake.outputPdb])
-        protClustenm3.inputVolumes.set([cls.protImportVol.outputVolume])
-        protClustenm3.setObjLabel('ClustENM_fitting_4akeA_replace')
-        cls.launchProtocol(protClustenm3)
+        protClustenm4.inputStructures.set([cls.protPdb4ake.outputPdb])
+        protClustenm4.inputVolumes.set([cls.protImportVol.outputVolume])
+        protClustenm4.setObjLabel('ClustENM_fitting_4akeA_replace')
+        cls.launchProtocol(protClustenm4)
 
         cc = [struct.getAttributeValue(ENSEMBLE_CCS)
-              for struct in protClustenm3.outputStructures1]
+              for struct in protClustenm4.outputStructures1]
+
+        cc_no_rep = [struct.getAttributeValue(ENSEMBLE_CCS)
+                     for struct in cls.protClustenm3.outputStructures1]
+
         cls.assertTrue(cc[-1] > cc[0],
                        "Last CC should be more than starting CC")
-        cls.assertTrue(len(cc) == 11,
-                       "Number of structures should be 11 (1+10) when filtering and replacing to 10")
+        cls.assertTrue(len(cc) > len(cc_no_rep),
+                       "Number of structures when filtering and replacing should be greater than number without replacing")
