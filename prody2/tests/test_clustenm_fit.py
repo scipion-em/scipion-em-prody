@@ -34,8 +34,6 @@ from prody2.constants import (PRODY_TEST_PDB_FILE,
                               PRODY_TEST_MRC_FILE,
                               ENSEMBLE_CCS)
 
-import prody
-
 class TestProDyClustenmFit(TestWorkflow):
     """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
 

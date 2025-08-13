@@ -32,13 +32,11 @@ This module will provide ProDy mode algebra tools (linear combinations).
 import os
 import numpy as np
 
-from pwem.objects import SetOfNormalModes, String, Integer, CsvList
+from pwem.objects import SetOfNormalModes, String, CsvList
 
-from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, IntParam,
-                                        StringParam, LEVEL_ADVANCED)
+                                        StringParam)
 
-import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2 import Plugin
 
