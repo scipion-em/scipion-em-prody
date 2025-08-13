@@ -38,7 +38,7 @@ from pwem.protocols import EMProtocol
 from pyworkflow.utils import glob
 from pyworkflow.protocol.params import PointerParam, IntParam
 
-import prody
+from prody2 import Plugin
 
 class  ProDyDomainDecomp(EMProtocol):
     """
@@ -72,24 +72,25 @@ class  ProDyDomainDecomp(EMProtocol):
 
     def computeDecompStep(self):
         modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
-        modes = prody.parseScipionModes(self.modesGNM.get().getFileName(),
-                                            pdb=glob(modesPath+"/*atoms.pdb"))
+        modesFn = self.modesGNM.get().getFileName()
+        pdbFn = glob(modesPath+"/*atoms.pdb")
+
+        self.pdbFilename = self._getPath("atoms.pdb")
 
         numModes = self.modeNumber.get()
-        
         try:
-            mode = modes[:numModes] 
+            _ = self.modesGNM.get()[:numModes]
         except IndexError:
             return [self.errorMessage("Invalid number of modes *%d*\n"
                                       "Display the output Normal Modes to see "
                                       "the availables ones." % numModes,
                                       title="Invalid input")] 
-        atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
 
-        domains = prody.calcGNMDomains(mode)
-
-        self.pdbFilename = self._getPath("atoms.pdb")
-        prody.writePDB(self.pdbFilename, atoms, beta=domains)
+        args = '--inputPdb "{0}" --inputModes "{1}" --folder {2} ' \
+            '--nModes {3} --outputPdb {4}'.format(
+            pdbFn, modesFn, modesPath, numModes, self.pdbFilename
+        )
+        self.runJob(Plugin.getProgram('domdec.py', script=True), args)
 
     def createOutputStep(self):
         fhCmd=open(self._getPath("domains.vmd"),'w')
