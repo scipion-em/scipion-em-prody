@@ -37,7 +37,6 @@ from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
 from prody2.objects import SetOfGnmModes
 
-import prody
 from os.path import split, join
 
 gnmModesTypeWarning = "GNM modes should be parsed as a SetOfGnmModes, not {0}"
