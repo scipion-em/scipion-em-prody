@@ -13,12 +13,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    selection = args.selection
+    if selection == 'None':
+        selection = None
+
     pdbFileName = prody.fetchBioexcelPDB(args.accession, folder=args.folder,
-                                         selection=args.selection)
+                                         selection=selection)
     ag = prody.parsePDB(pdbFileName)
 
     prody.fetchBioexcelTrajectory(args.accession, folder=args.folder,
-                                  frames=args.frames, selection=args.selection)
+                                  frames=args.frames, selection=selection)
 
     fo = open(join(args.folder, 'pdb_data.txt'), 'w')
     fo.write('\t'.join([pdbFileName, str(ag.numAtoms()),

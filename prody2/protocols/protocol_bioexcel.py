@@ -54,7 +54,7 @@ class ProDyBioExcelCV19(EMProtocol):
     _label = 'fetchBioExcelTraj'
     _possibleOutputs = {'outputTrajectory': ProDyMDSystem}
 
-    selections = [None, '_C', 'backbone', 'backbone and _C']
+    selections = ['None', '_C', 'backbone', 'backbone and _C']
     NONE = 0
     _C = 1
 
@@ -93,9 +93,8 @@ class ProDyBioExcelCV19(EMProtocol):
         args = '--accession {0} --folder {1}'.format(accession, 
                                                      self._getExtraPath())
         
-        if self.selection.get() != self.NONE:
-            selection = self.selections[self.selection.get()]
-            args += ' --selection {0}'.format(selection)
+        selection = self.selections[self.selection.get()]
+        args += ' --selection {0}'.format(selection)
 
         if self.frames.get() != self.NONE:
             args += ' --frames {0}'.format(self.frames.get())
