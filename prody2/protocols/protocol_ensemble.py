@@ -101,6 +101,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
                             'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
 
+        form.addParam('incrementTers', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Increment serial numbers for TER lines when writing PDB files",
+                      help='Elect whether to increment serial numbers when writing PDB files. '
+                            'Default is **True** as this is the normal behaviour but the **False** option is needed for Plumed.')
+
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
                       condition=inputTypeCheck % INDEX,
                       help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
@@ -469,12 +475,14 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 amap.setTitle(amap.getTitle().split('[')[0])
                 filename = self._getExtraPath(
                     '{:06d}_{:s}_amap.pdb'.format(i+1, ag_title))
-                prody.writePDB(filename, amap)
+                prody.writePDB(filename, amap,
+                               increment_ter=self.incrementTers.get())
                 pdb = AtomStruct(filename)
                 setattr(pdb, ENSEMBLE_WEIGHTS, Float(self.weights[i]))
                 self.pdbs.append(pdb)
 
-        prody.writePDB(self._getPath('ensemble.pdb'), ens)
+        prody.writePDB(self._getPath('ensemble.pdb'), ens,
+                       increment_ter=self.incrementTers.get())
 
         self.npzFileName = self._getPath('ensemble.ens.npz')
         prody.saveEnsemble(ens, self.npzFileName)
@@ -488,7 +496,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         if self.writeDCDFile.get():
             self.pdbFilename = self._getPath('refStructure.pdb')
             prody.writeDCD(self._getPath(ENS_FILENAME), ens)
-            prody.writePDB(self.pdbFilename, ens.getAtoms())
+            prody.writePDB(self.pdbFilename, ens.getAtoms(),
+                           increment_ter=self.incrementTers.get())
 
     def createOutputStep(self):
         outputs = {"outputNpz": self.npz}
