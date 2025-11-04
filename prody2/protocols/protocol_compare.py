@@ -114,6 +114,8 @@ class ProDyCompare(EMProtocol):
         pdb1 = glob(modesPath1+"/*atoms.pdb")
         if len(pdb1) != 0:
             pdb1 = pdb1[0]
+        elif self.modes1.get().getPdb().getFileName() is not None:
+            pdb1 = self.modes1.get().getPdb().getFileName()
         else:
             pdb1 = "None"
 
@@ -125,6 +127,8 @@ class ProDyCompare(EMProtocol):
         pdb2 = glob(modesPath2+"/*atoms.pdb")
         if len(pdb2) != 0:
             pdb2 = pdb2[0]
+        elif self.modes2.get().getPdb().getFileName() is not None:
+            pdb2 = self.modes2.get().getPdb().getFileName()
         else:
             pdb2 = "None"
 
