@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -56,7 +56,7 @@ setup(
     long_description=long_description,  # Optional
     url='https://github.com/scipion-em/scipion-em-prody',  # Optional
     author='James Krieger',  # Optional
-    author_email='jmkrieger@cnb.csic.es',  # Optional
+    author_email='jamesmkrieger@gmail.com',  # Optional
     keywords='scipion cryoem imageprocessing scipion-3.0 prody-2.0',  # Optional
     packages=find_packages(),
     entry_points={'pyworkflow.plugin': 'prody2 = prody2'},

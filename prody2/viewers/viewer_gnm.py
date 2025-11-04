@@ -2,7 +2,7 @@
 # *
 # * Authors:     J.M. De la Rosa Trevin (jmdelarosa@cnb.csic.es)
 # *              Slavica Jonic  (slavica.jonic@upmc.fr)
-# *              James Krieger (jmkrieger@cnb.csic.es)
+# *              James Krieger (jamesmkrieger@gmail.com)
 # *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)  
 # *
 # * This program is free software; you can redistribute it and/or modify

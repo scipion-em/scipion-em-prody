@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
