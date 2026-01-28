@@ -113,12 +113,13 @@ class ProDyGNM(ProDyModesBase):
         inputFn = self.inputStructure.get().getFileName()
         self.structureEM = self.inputStructure.get().getPseudoAtoms()
         n = self.numberOfModes.get()
+        nzeros = self.getNzero()
 
         self._insertFunctionStep(self.computeModesStep, inputFn, n)
         self._insertFunctionStep(self.qualifyModesStep, n,
                                  self.collectivityThreshold.get(),
                                  self.structureEM)
-        self._insertFunctionStep(self.computeAtomShiftsStep, n)
+        self._insertFunctionStep(self.computeAtomShiftsStep, n, nzeros)
         self._insertFunctionStep(self.createOutputStep)
 
     def computeModesStep(self, inputFn, n):
