@@ -73,6 +73,10 @@ class ProDyRmsd(EMProtocol):
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms.')
+        
+        form.addParam('doSuperpose', BooleanParam, default=False,
+                      label="Perform structural superposition?",
+                      help='Whether to perform structural superposition after atom matching')
 
         form.addParam('doCluster', BooleanParam, default=True,
                       label="Cluster ensemble?",
@@ -129,7 +133,9 @@ class ProDyRmsd(EMProtocol):
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos,
+                                              seqid=0., overlap=0.,
+                                              superpose=self.doSuperpose.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
