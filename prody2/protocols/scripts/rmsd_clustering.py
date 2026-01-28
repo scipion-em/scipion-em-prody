@@ -18,7 +18,6 @@ if __name__ == '__main__':
     matrix = ens.getRMSDs(pairwise=True)
     labels = ens.getLabels()
     tree = prody.calcTree(labels, matrix)
-    _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
     subgroups = prody.findSubgroups(tree, args.rmsdThreshold)
 
     counts = [len(sg) for sg in subgroups]
@@ -30,6 +29,8 @@ if __name__ == '__main__':
         submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
         repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
         classLabels[sgIdx[i]] = i
+
+    _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
     np.savetxt(os.path.join(args.outputDir, "cluster_labels.txt"), 
                labels, fmt="%d")           # save cluster labels for each frame
