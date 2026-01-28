@@ -24,17 +24,20 @@
 # *
 # **************************************************************************
 from collections import OrderedDict
+from importlib import resources
 import os
+
 import pwem
-import numpy
-import Bio
-from pwem.convert.atom_struct import cifToPdb
-import pyworkflow.utils as pwutils
 
 from .constants import *
 
 
-__version__ = "3.4.0"
+try:
+    __version__ = resources.read_text(__package__, "VERSION").strip()
+except Exception:
+    # Fallback for unusual environments; adjust to your needs
+    __version__ = "3.4.0"
+
 _logo = "icon.png"
 _references = ['ProDy2']
 
@@ -53,7 +56,8 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getEnviron(cls):
         """ Setup the environment variables needed to launch ProDy. """
-        environ = pwutils.Environ(os.environ)
+        from pyworkflow.utils import Environ
+        environ = Environ(os.environ)
         if 'PYTHONPATH' in environ:
             # this is required for python virtual env to work
             del environ['PYTHONPATH']
@@ -78,6 +82,9 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
+        # import numpy and Biopython to get versions to restore
+        import numpy
+        import Bio
 
         ENV_NAME = getProDyEnvName(version)
         ENV_YAML_PATH = os.path.join(dir_path, 'myenv.yaml')
@@ -154,4 +161,5 @@ def copyConvertPDB(infilename, outfilename):
     if extension == ".pdb":
         shutil.copy(infilename, outfilename)
     elif extension == '.cif':
+        from pwem.convert.atom_struct import cifToPdb
         cifToPdb(infilename, outfilename)
