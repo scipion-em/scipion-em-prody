@@ -146,43 +146,28 @@ class ProDyRmsd(EMProtocol):
             allWeights = np.ones(self.ens.numConfs(), dtype=float)
         
         if not self.doCluster.get():
-            repIdx = range(self.ens.numConfs())
+            repIdx = range(len(inputEnsemble))
         elif self.clusteringMethod.get() == 0:
-            matrix = self.ens.getRMSDs(pairwise=True)
-            labels = self.ens.getLabels()
-
-            tree = prody.calcTree(labels, matrix)
-            _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
-
-            classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
-            subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
-            self.weights = np.zeros(len(subgroups), dtype=float)
-            repIdx = np.zeros(len(subgroups), dtype=int)
-            sgIdx = []
-            for i, sg in enumerate(subgroups):
-                sgIdx.append([labels.index(label) for label in sg])
-                submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
-                repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
-
-                weight = len(sg)/self.ens.numCoordsets()
-                self.weights[i] = allWeights[repIdx[i]] * weight
-                allWeights[sgIdx[i]] *= weight
-                classLabels[sgIdx[i]] = i
+            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2}'.format(ensFn, 
+                                                                               self.rmsdThreshold.get(),
+                                                                               self._getExtraPath())
+            self.runJob(Plugin.getProgram('rmsd_clustering.py', script=True), args)
+            reordIndices = np.loadtxt(self._getExtraPath("reordering_indices.txt"))
         else:
-            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
-                                                                            self._getExtraPath())
+            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(),
+                                                                           self._getExtraPath())
             self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
 
-            classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
-            repIdx = np.loadtxt(self._getExtraPath("cluster_medoids.txt"), dtype=int)
-            weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
-            
-            sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
-            self.weights = np.zeros(len(weights), dtype=float)
-            for i, weight in enumerate(weights):
-                weight /= weights.sum()
-                allWeights[sgIdx[i]] *= weight
-                self.weights[i] = allWeights[repIdx[i]]
+        classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
+        repIdx = np.loadtxt(self._getExtraPath("cluster_reps.txt"), dtype=int)
+        weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
+
+        sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
+        self.weights = np.zeros(len(weights), dtype=float)
+        for i, weight in enumerate(weights):
+            weight /= weights.sum()
+            allWeights[sgIdx[i]] *= weight
+            self.weights[i] = allWeights[repIdx[i]]
 
         prody.writePDB(self.ensBaseName, self.ens)
         self.ens.setData('size', allWeights)
