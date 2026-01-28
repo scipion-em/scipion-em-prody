@@ -79,7 +79,7 @@ class  ProDyDomainDecomp(EMProtocol):
 
         numModes = self.modeNumber.get()
         try:
-            _ = self.modesGNM.get()[:numModes]
+            _ = list(self.modesGNM.get().iterItems())[:numModes]
         except IndexError:
             return [self.errorMessage("Invalid number of modes *%d*\n"
                                       "Display the output Normal Modes to see "
