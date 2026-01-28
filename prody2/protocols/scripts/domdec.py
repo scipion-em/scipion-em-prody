@@ -1,9 +1,6 @@
 if __name__ == '__main__':
     import argparse
     import prody
-    from prody.utilities import ZERO
-    from os.path import join
-    import numpy as np
 
     NMA_METRIC_OVERLAP = 0
     NMA_METRIC_COV_OVERLAP = 1
