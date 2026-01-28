@@ -30,7 +30,7 @@ if __name__ == '__main__':
         repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
         classLabels[sgIdx[i]] = i
 
-    _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
+    reordMatrix, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
     np.savetxt(os.path.join(args.outputDir, "cluster_labels.txt"), 
                labels, fmt="%d")           # save cluster labels for each frame
@@ -38,5 +38,8 @@ if __name__ == '__main__':
                repIdx, fmt="%d")           # save the representatives as frame numbers
     np.savetxt(os.path.join(args.outputDir, "cluster_counts.txt"), 
                counts, fmt="%d")           # save the number of members in each cluster
+
     np.savetxt(os.path.join(args.outputDir, "reordering_indices.txt"), 
                reordIndices, fmt="%d")     # save the reordering indices from reorderMatrix
+    np.savetxt(os.path.join(args.outputDir, "reordered_rmsd_matrix.txt"), 
+               reordMatrix, fmt="%d")      # save the reordered RMSD matrix
