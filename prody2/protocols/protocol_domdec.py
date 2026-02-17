@@ -73,7 +73,7 @@ class  ProDyDomainDecomp(EMProtocol):
     def computeDecompStep(self):
         modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
         modesFn = self.modesGNM.get().getFileName()
-        pdbFn = glob(modesPath+"/*atoms.pdb")
+        pdbFn = glob(modesPath+"/*atoms.pdb")[0]
 
         self.pdbFilename = self._getPath("atoms.pdb")
 
