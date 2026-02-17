@@ -144,7 +144,7 @@ class ProDyImportModes(ProtImportFiles):
             f' --filesPattern2 {self.filesPattern2} --protocolPath {self._getPath()}' \
             f'--pdbFileName {pdbFileName}'
 
-        self.runJob(Plugin.getProgram('fixer.py', script=True), args)
+        self.runJob(Plugin.getProgram('import_modes.py', script=True), args)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
