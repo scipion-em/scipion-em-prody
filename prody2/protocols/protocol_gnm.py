@@ -30,12 +30,11 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the Gaussian network model (GNM).
 """
-from pwem.objects import String, EMFile
+from pwem.objects import String, EMFile, SetOfNormalModes
 
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
-from prody2.objects import SetOfGnmModes
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2 import Plugin, copyConvertPDB
 
@@ -188,7 +187,7 @@ class ProDyGNM(ProDyModesBase):
         outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_cross-correlations.txt'))
 
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfGnmModes(filename=fnSqlite)
+        nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath(self.getPrefix() + '.nmd'))
 
         inputPdb = self.inputStructure.get()

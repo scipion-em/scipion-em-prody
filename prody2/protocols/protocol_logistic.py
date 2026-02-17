@@ -32,15 +32,15 @@ This module will provide ProDy linear discriminant analysis (LRA) using atomic s
 from collections import OrderedDict
 import numpy as np
 
-from pwem.objects import Float, String
+from pwem.objects import Float, String, SetOfNormalModes
 from pyworkflow.utils import getListFromRangeString
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam, TextParam, 
                                         NumericRangeParam, 
-                                        LEVEL_ADVANCED, Float)
+                                        LEVEL_ADVANCED)
 
 from prody2.protocols.protocol_modes_base import ProDyModesBase
-from prody2.objects import SetOfLogisticModes, loadAndWriteEnsemble
+from prody2.objects import loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
 from prody2 import parseMatchDict
 
@@ -52,7 +52,7 @@ class ProDyLRA(ProDyModesBase):
     This protocol will perform ProDy logistic regression analysis (LRA) using atomic structures
     """
     _label = 'LRA'
-    _possibleOutputs = {'outputModes': SetOfLogisticModes}
+    _possibleOutputs = {'outputModes': SetOfNormalModes}
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
@@ -151,14 +151,14 @@ class ProDyLRA(ProDyModesBase):
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfLogisticModes(filename=fnSqlite)
+        nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = self._nmdFileName
 
         self.fractVarsDict = {}
         for _, item in enumerate(nmSet):
             self.fractVarsDict[item.getObjId()] = 1
 
-        outSet = SetOfLogisticModes().create(self._getPath())
+        outSet = SetOfNormalModes().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
         outSet._nmdFileName = self._nmdFileName
 
