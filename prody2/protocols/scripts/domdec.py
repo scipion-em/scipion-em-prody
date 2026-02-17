@@ -17,7 +17,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     modesPath = args.folder
-    pdb1 = args.inputPdbFns
+    pdb1 = args.inputPdb
     modesFn1 = args.inputModesFns
 
     modes = prody.parseScipionModes(modesFn1, pdb=pdb1)
