@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     modesPath = args.folder
     pdb1 = args.inputPdb
-    modesFn1 = args.inputModesFns
+    modesFn1 = args.inputModes
 
     modes = prody.parseScipionModes(modesFn1, pdb=pdb1)
     atoms = prody.parsePDB(pdb1)
