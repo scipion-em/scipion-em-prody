@@ -348,8 +348,8 @@ class TestProDyCore1(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         cls.launchProtocol(protComp5)
 
-        compMatrix5 = np.loadtxt(protComp5._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison didn't normalise")
+        compMatrix5 = np.loadtxt(protComp5._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison is normalised")
 
         # Compare original CA NMA to defvec with raw overlaps
         protComp6 = cls.newProtocol(ProDyCompare)
@@ -359,8 +359,8 @@ class TestProDyCore1(TestWorkflow):
         protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
         cls.launchProtocol(protComp6)
 
-        compMatrix6 = np.loadtxt(protComp6._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison didn't generate large numbers")
+        compMatrix6 = np.loadtxt(protComp6._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison generated larger numbers")
 
         # ------------------------------------------------
         # Step 8. Import ANM & compare scipion vs prody npz
