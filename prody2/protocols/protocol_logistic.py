@@ -32,7 +32,7 @@ This module will provide ProDy linear discriminant analysis (LRA) using atomic s
 from collections import OrderedDict
 import numpy as np
 
-from pwem.objects import Float, String, SetOfNormalModes
+from pwem.objects import Float, String, SetOfNormalModes, Integer
 from pyworkflow.utils import getListFromRangeString
 from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
                                         BooleanParam, StringParam, TextParam, 
@@ -42,7 +42,7 @@ from pyworkflow.protocol.params import (MultiPointerParam, IntParam, FloatParam,
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2.objects import loadAndWriteEnsemble
 from prody2.constants import PRODY_FRACT_VARS
-from prody2 import parseMatchDict
+from prody2 import parseMatchDict, Plugin
 
 import prody
 
@@ -121,38 +121,32 @@ class ProDyLRA(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=1, nzeros=0):
+    def _insertAllSteps(self):
         # Insert processing steps
         labelsMap = self.createMatchDic(self.insertOrder.get())
         self.classes = list(labelsMap.values())
         numModes = len(set(self.classes)) - 1
         self.gnm = False
-        self.nzero = nzeros
+        self.zeros = Integer(0)
 
-        self._insertFunctionStep('computeModesStep', numModes)
+        self._insertFunctionStep('computeModesStep')
         self._insertFunctionStep('qualifyModesStep', numModes, 0.)
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, 0)
         self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
                                  self.neg.get(), self.pos.get(), 0)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, n=1):
+    def computeModesStep(self):
         loadAndWriteEnsemble(self)
-        self.atoms = self.ens.getAtoms()
 
-        self.outModes = prody.LRA()
-        self.outModes.calcModes(self.ens, self.classes,
-                                n_shuffles=self.numberOfShuffles.get())
-
-        prody.writeScipionModes(self._getPath(), self.outModes)
-        self._nmdFileName = String(self._getPath('modes.logreg.nmd'))
-        prody.writeNMD(self._nmdFileName.get(), self.outModes, self.atoms)
-        prody.saveModel(self.outModes, self._getPath('modes.logreg.npz'), matrices=True)
+        args = f'{self.dcdFileName} -s "all" --altloc "all" -p "modes" --export-scipion --npzmatrices ' \
+            f'--npz -o {self._getPath()} -l "{self.classes}" -P {self.numberOfThreads.get()}'
+        self.runJob(Plugin.getProgram('lra'), args)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = self._nmdFileName
+        nmSet._nmdFileName = String(self._getPath(f'{self.getPrefix()}.nmd'))
 
         self.fractVarsDict = {}
         for _, item in enumerate(nmSet):
@@ -160,7 +154,7 @@ class ProDyLRA(ProDyModesBase):
 
         outSet = SetOfNormalModes().create(self._getPath())
         outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
-        outSet._nmdFileName = self._nmdFileName
+        outSet._nmdFileName = nmSet._nmdFileName
 
         inputPdb = self.averageStructure
         self._defineOutputs(refPdb=inputPdb)
@@ -216,3 +210,6 @@ class ProDyLRA(ProDyModesBase):
 
         self.matchDic.update(zip(self.labels, self.classes))
         return self.matchDic
+
+    def getPrefix(self):
+        return 'modes.lra'
