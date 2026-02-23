@@ -91,7 +91,7 @@ class Plugin(pwem.Plugin):
         prodyCommands = []
 
         PRODY_V241_INSTALLED = 'prody_v2.4.1_installed'
-        installCmd = [cls.getCondaActivationCmd()]
+        installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
         installCmd.append('pip install -U ProDy==2.4.1 &&')
         installCmd.append('pip install numpy=={0} biopython=={1} &&'.format(numpy.__version__,
                                                                             Bio.__version__))
