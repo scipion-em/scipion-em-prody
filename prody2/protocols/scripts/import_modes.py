@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    filesPaths = args.filesPaths
+    filesPaths = eval(args.filesPaths)
     pdbFilename = args.pdbFileName
     protocolPath = args.protocolPath
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
         if filesPattern1.find('pca') != -1:
             prodyType = prody.PCA
-        elif filesPattern1.find('logreg') != -1:
+        elif filesPattern1.find('lra') != -1:
             prodyType = prody.LRA
         elif filesPattern1.find('gnm') != -1:
             prodyType = prody.GNM
