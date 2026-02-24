@@ -15,7 +15,6 @@ authors = [
     {name = "Ricardo Serrano Gutiérrez", email = "rserranogut@hotmail.com"},
     {name = "Scipion Team", email = "scipion@cnb.csic.es"}
 ]
-dependencies = ["threadpoolctl==3.1.0"]
 classifiers = [
     #   3 - Alpha
     #   4 - Beta
