@@ -91,10 +91,13 @@ class Plugin(pwem.Plugin):
         prodyCommands = []
 
         PRODY_INSTALLED = 'prody_%s_installed' % version
-        installProDyGithub = [
-            cls.getCondaActivationCmd(),
-            f'conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} &&',
-            f'conda activate {ENV_NAME} &&']
+        installProDyGithub = [cls.getCondaActivationCmd()]
+        installProDyGithub.append(
+            f'conda env list | grep -q "^{ENV_NAME}" '
+            f'&& conda env update -n {ENV_NAME} --file {ENV_YAML_PATH} --prune '
+            f'|| conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} -y &&'
+        )
+        installProDyGithub.append(f'conda activate {ENV_NAME} &&')
         installProDyGithub.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
         installProDyGithub.append('cd ProDy &&')
         installProDyGithub.append('git checkout scipion &&')
@@ -105,11 +108,9 @@ class Plugin(pwem.Plugin):
 
         PRODY_SCIPION_INSTALLED = 'prody_scipion_installed'
         installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
-        installProDyGithub.append('cd ProDy &&')
-        installProDyGithub.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
-        installProDyGithub.append('cd .. && touch %s' % PRODY_SCIPION_INSTALLED)
-        installCmd.append('pip install numpy=={0} biopython=={1} &&'.format(numpy.__version__,
-                                                                            Bio.__version__))
+        installCmd.append('cd ProDy &&')
+        installCmd.append('pip install -Ue . &&')
+        installCmd.append('cd .. && touch %s' % PRODY_SCIPION_INSTALLED)
         prodyCommands.append((" ".join(installCmd.copy()), PRODY_SCIPION_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
