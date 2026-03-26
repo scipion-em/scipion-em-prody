@@ -16,7 +16,7 @@ dependencies:
   - pyparsing=3.1.1
   - pip
   - scikit-learn
-  - kmedoids
+  - scikit-learn-extra
   - cudatoolkit
   - pip:
       - biotempy
