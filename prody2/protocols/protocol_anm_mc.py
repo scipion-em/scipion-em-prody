@@ -31,14 +31,12 @@
 This module will provide ProDy normal mode random walks using the anisotropic network model Monte Carlo algorithm (ANM MC).
 """
 from multiprocessing import cpu_count
-import numpy as np
 import os
-import prody
 
 from prody2 import Plugin
-from prody2.objects import DcdMDSystem
 
-from pwem.objects import AtomStruct, SetOfAtomStructs
+from pwem import Config
+from pwem.objects import AtomStruct, SetOfAtomStructs, Float
 from pwem.protocols import EMProtocol
 
 from pyworkflow.protocol import params
@@ -63,30 +61,67 @@ class ProDyANMMC(EMProtocol):
                            'example, if 3 Scipion threads and 6 ProDy threads are set, 2 random walks will run '
                            'at the same time with each call of ProDy using 6 threads for normal mode analysis, so '
                            '12 threads will be used at the same time. This should be balanced for memory and efficiency.')
-        form.addParallelSection(threads=1, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
+
         # You need a params to belong to a section:
         form.addSection(label='ProDy ANM MC')
 
         form.addParam('numberOfWalks', params.IntParam, default=2,
                       label='Number of random walks',
-                      help='This protocol can run multiple random walks in parallel or serial depending on threads')
+                      help='This protocol can run multiple random walks in parallel or serial '
+                        'depending on threads')
 
         form.addParam('startingStructure', params.PointerParam, label="Starting structure",
-                      important=True,
+                    #   important=True,
                       pointerClass='AtomStruct',
                       help='The starting structure should have just representative atoms '
                             '(e.g. CA) for efficient normal mode analysis')
 
-        form.addParam('targetStructure', params.PointerParam, label="Target structure (optional)",
+        form.addParam('useTarget', params.BooleanParam, default=False,
+                      label='Whether to use a target structure.',
+                      help='If using a target, steps will be accepted depending on approaching it') 
+        form.addParam('targetStructure', params.PointerParam,
+                      label="Target structure (optional)",
                       allowsNull=True,
+                      condition='useTarget==True',
                       pointerClass='AtomStruct',
                       help='The target structure, if provided, should have matching atoms '
-                            'to the starting structure')
+                            'to the starting structure. Steps will be accepted or rejected '
+                            'with a certain probability based on an energy from '
+                            'contacts agreeing with the target (depending on the acceptance ratio)')
+
+        form.addParam('devi', params.FloatParam,
+                      label="Maximum deviation per step (A)",
+                      default=0.5,
+                      help='Each step is scaled by the mode frequency and this scale factor '
+                            'such that steps along the slowest mode with largest amplitude have '
+                            'this step size in Angstroms')
+
+        form.addParam('stepcutoff', params.FloatParam,
+                      label="Maximum total RMSD (A)",
+                      default=2.,
+                      help='The random walk is stopped when the RMSD exceeds this value. '
+                            'Unreasonable deformations may occur if this is too high in one walk. '
+                            'It may be better to use the output of one run and the input for another '
+                            'so that the normal modes are recalculated')
+
+        form.addParam('acceptance_ratio', params.FloatParam, label="Acceptance ratio",
+                      default=0.9,
+                      condition='useTarget==True',
+                      help='This parameter scales the probability of accepting '
+                            'moves in the wrong direction')
         
+        form.addParam('cutoff', params.FloatParam, default=15,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="ANM cut-off distance (A)",
+                      help='Atoms beyond this distance will not interact')
 
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
+
+        self.args = {}
+
         # Insert processing steps
         stepIds = []
         for i in range(self.numberOfWalks.get()):
@@ -102,12 +137,38 @@ class ProDyANMMC(EMProtocol):
         self._insertFunctionStep('createOutputStep',
                                  prerequisites=stepIds, needsGPU=False)
 
-    def computeStep(self):
+    def computeStep(self, i):
+        direc = self._getDirectory(i)
+        if not os.path.exists(direc):
+            os.mkdir(direc)
 
-        args = f"{self.startingStructure.get().getFileName()}"
-        self.runJob(Plugin.getProgram(
-            'anmmc.py',
-            location=os.path.join(prody.__path__, 'dynamics/comd.py')), args)
+        startingStructureFn = self.startingStructure.get().getFileName()
+        if self.useTarget.get():
+            targetStructureFn = self.targetStructure.get().getFileName()
+        else:
+            targetStructureFn = startingStructureFn
+
+        args = f"{startingStructureFn} {targetStructureFn} "*2 # repeats make sense with CoMD code
+
+        args += f"{i+1} {self.devi.get()} {self.stepcutoff.get()} {self.acceptance_ratio.get()} "
+        args += f"{self.cutoff.get()} 1000000 " # enough steps that RMSD dominates 
+
+        args += f"{os.path.join(direc, f'run_{i+1}_final_structure.dcd')} "
+        args += "0 1 1"  # these numbers are 0 for not selecting backbone and 1 for saving all coordinates and writing pdbs
+
+        self.runJob(
+            Plugin.getProgram(
+                'comd.py',
+                location=os.path.join(
+                    Config.EM_ROOT,
+                    "prody-github",
+                    "ProDy",
+                    "prody",
+                    "dynamics"
+                )
+            ),
+            args
+        )
 
     def createOutputsStep(self, i):
 
@@ -115,57 +176,25 @@ class ProDyANMMC(EMProtocol):
         direc = self._getDirectory(i)
 
         structs = SetOfAtomStructs.create(self._getExtraPath(), suffix=suffix)
-        for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
-            pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
-            structs.append(pdb)
-
-        if not os.path.exists(os.path.join(direc, 'weights.txt')):
-            args = '--path {0} --filename {1}'.format(direc, 'pdbs.ens.npz')
-            self.runJob(Plugin.getProgram('ensemble_weights.py', script=True), args)
-
-        self.weights = np.loadtxt(os.path.join(direc, 'weights.txt'))
-        if self.weights.ndim == 0:
-            self.weights = self.weights.reshape(-1)
-
-        if self.doFitting.get():
-            self.ccs = np.loadtxt(os.path.join(direc, 'pdbs_cc.txt'))
-            if self.ccs.ndim == 0:
-                self.ccs = self.ccs.reshape(-1)
-
-        self.labels = np.loadtxt(os.path.join(direc, 'labels.txt'), dtype=str)
-        if self.labels.ndim == 0:
-            self.labels = self.labels.reshape(-1)
-        if len(self.labels) == 0:
-            self.labels = np.arange(len(self.weights))
-
-        outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
-        outSetAS.copyItems(structs, updateItemCallback=self._setWeightsCCs)
-
-        self.args["outputStructures" + suffix] = outSetAS
-
-        self.ensBaseName = os.path.join(direc, 'pdbs')
-        npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
-        for j in range(len(self.weights)):
-            if self.doFitting.get():
-                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
-                                  objLabel=self.labels[j],
-                                  weight=self.weights[j],
-                                  cc=self.ccs[j])
-            else:
-                frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
-                                  objLabel=self.labels[j],
-                                  weight=self.weights[j])
-            npz.append(frame)
-
-        self.args["outputNpz" + suffix] = npz
-
-    def _setWeightsCCs(self, item, row=None):
-        weight = pwobj.Float(self.weights[item.getObjId()-1])
-        setattr(item, ENSEMBLE_WEIGHTS, weight)
-
-        if self.doFitting:
-            cc = pwobj.Float(self.ccs[item.getObjId()-1])
-            setattr(item, ENSEMBLE_CCS, cc)
+        for filename in sorted(os.listdir(os.path.join(direc))):
+            if filename.endswith(".pdb"):
+                pdb = AtomStruct(os.path.join(direc, filename))
+                structs.append(pdb)
+        self.args["outputStructures" + suffix] = structs
 
     def createOutputStep(self):
+        outSetAS = SetOfAtomStructs.create(self._getExtraPath())
+        n = 0
+        for key, output in self.args.items():
+            if key.startswith("outputStructures"):
+                outSetAS.copyItems(output, updateItemCallback=self._cleanIds)
+        self.args["outputStructures"] = outSetAS
+
         self._defineOutputs(**self.args)
+
+    def _getDirectory(self, i):
+        suffix = str(i+1)
+        return self._getPath('walk_{0}'.format(suffix))
+
+    def _cleanIds(self, item, row=None):
+        item.cleanObjId()
