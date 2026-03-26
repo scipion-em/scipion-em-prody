@@ -17,5 +17,6 @@ dependencies:
   - pip
   - scikit-learn
   - kmedoids
+  - cudatoolkit
   - pip:
       - biotempy
