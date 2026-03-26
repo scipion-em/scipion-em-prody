@@ -98,7 +98,7 @@ class Plugin(pwem.Plugin):
             f'|| conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} -y &&'
         )
         installProDyGithub.append(f'conda activate {ENV_NAME} &&')
-        installProDyGithub.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+        installProDyGithub.append('ls | grep -q "^ProDy" || git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
         installProDyGithub.append('cd ProDy &&')
         installProDyGithub.append('git checkout scipion &&')
         installProDyGithub.append('git pull &&')
