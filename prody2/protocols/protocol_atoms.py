@@ -363,7 +363,7 @@ class ProDyAlign(EMProtocol):
     
     def createMatchDic(self, index):
 
-        args += ' --mobFn {0} --tarFn {1} --uniteChains {2}' \
+        args = ' --mobFn {0} --tarFn {1} --uniteChains {2}' \
                 ' --chainOrders {3} --customOrder {4} --index {5} --folder {6}'.format(
                 self.mobStructure.get().getFileName(), 
                 self.tarStructure.get().getFileName(), self.uniteChains.get(),
