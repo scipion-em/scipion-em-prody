@@ -108,9 +108,10 @@ class Plugin(pwem.Plugin):
 
         PRODY_SCIPION_INSTALLED = 'prody_scipion_installed'
         installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
-        installCmd.append('cd ProDy &&')
-        installCmd.append('pip install -Ue . &&')
-        installCmd.append('cd .. && touch %s' % PRODY_SCIPION_INSTALLED)
+        # installCmd.append('cd ProDy &&')
+        installCmd.append('pip install -U prody')
+        # installCmd.append('cd ..')
+        installCmd.append('touch %s' % PRODY_SCIPION_INSTALLED)
         prodyCommands.append((" ".join(installCmd.copy()), PRODY_SCIPION_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
