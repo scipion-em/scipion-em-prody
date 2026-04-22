@@ -33,7 +33,7 @@ This module will provide ProDy normal mode random walks using the anisotropic ne
 from multiprocessing import cpu_count
 import os
 
-from prody2 import Plugin
+from prody2 import Plugin, ENSEMBLE_WEIGHTS
 
 from pwem import Config
 from pwem.objects import AtomStruct, SetOfAtomStructs, Float
@@ -184,7 +184,6 @@ class ProDyANMMC(EMProtocol):
 
     def createOutputStep(self):
         outSetAS = SetOfAtomStructs.create(self._getExtraPath())
-        n = 0
         for key, output in self.args.items():
             if key.startswith("outputStructures"):
                 outSetAS.copyItems(output, updateItemCallback=self._cleanIds)
@@ -198,3 +197,4 @@ class ProDyANMMC(EMProtocol):
 
     def _cleanIds(self, item, row=None):
         item.cleanObjId()
+        setattr(item, ENSEMBLE_WEIGHTS, Float(1))
