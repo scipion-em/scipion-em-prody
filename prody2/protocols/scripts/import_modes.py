@@ -4,7 +4,9 @@ if __name__ == '__main__':
     import os
     import prody
 
-    from prody2.protocols.protocol_import import NMD, MODES_NPZ, SCIPION
+    NMD = 0
+    MODES_NPZ = 1
+    SCIPION = 2
 
     # Input parameters
     parser = argparse.ArgumentParser()
