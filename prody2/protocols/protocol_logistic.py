@@ -121,19 +121,19 @@ class ProDyLRA(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=1, nzeros=0):
         # Insert processing steps
         labelsMap = self.createMatchDic(self.insertOrder.get())
         self.classes = list(labelsMap.values())
         numModes = len(set(self.classes)) - 1
         self.gnm = False
-        self.zeros = Integer(0)
+        self.zeros = Integer(nzeros)
 
         self._insertFunctionStep('computeModesStep')
-        self._insertFunctionStep('qualifyModesStep', numModes, 0.)
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, 0)
+        self._insertFunctionStep('qualifyModesStep', numModes, nzeros)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
         self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 0)
+                                 self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self):

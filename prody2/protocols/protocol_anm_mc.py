@@ -72,7 +72,6 @@ class ProDyANMMC(EMProtocol):
                         'depending on threads')
 
         form.addParam('startingStructure', params.PointerParam, label="Starting structure",
-                    #   important=True,
                       pointerClass='AtomStruct',
                       help='The starting structure should have just representative atoms '
                             '(e.g. CA) for efficient normal mode analysis')
