@@ -11,7 +11,7 @@ if __name__ == '__main__':
     # Input parameters
     parser = argparse.ArgumentParser()
     parser.add_argument('--importType', type=str, required=True)
-    parser.add_argument('--filesPaths', type=float, required=True)
+    parser.add_argument('--filesPaths', type=str, required=True)
     parser.add_argument('--filesPattern2', type=str, required=True)
     parser.add_argument('--protocolPath', type=str, required=True)
     parser.add_argument('--pdbFileName', type=str, required=True)
