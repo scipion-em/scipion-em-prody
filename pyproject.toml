@@ -27,11 +27,11 @@ Homepage = "https://github.com/scipion-em/scipion-em-prody"
 Issues = "https://github.com/scipion-em/scipion-em-prody/issues"
 
 [tool.setuptools.dynamic]
-version = {attr = "prody.__version__"}
+version = {attr = "prody2.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.package-data]
-"prody" = ["protocols.conf", "icon.png", "templates/*"]
+"prody2" = ["protocols.conf", "icon.png", "templates/*"]
 
 [project.entry-points."pyworkflow.plugin"]
-prody = "prody"
+prody2 = "prody2"

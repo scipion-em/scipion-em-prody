@@ -108,7 +108,7 @@ class Plugin(pwem.Plugin):
 
                 installCmd.append('git remote add upstream https://github.com/prody/ProDy.git &&')
                 installCmd.append('git fetch upstream &&')
-                installCmd.append('git checkout -t upstream/main &&')
+                installCmd.append('git checkout upstream/main &&')
                 
                 installCmd.append('git checkout scipion &&')
                 installCmd.append('git pull &&')
