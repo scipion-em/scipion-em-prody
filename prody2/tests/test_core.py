@@ -95,7 +95,8 @@ class TestProDyCore1(TestWorkflow):
         # ----------------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
+                                         pdbId="4ake",
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -185,7 +186,8 @@ class TestProDyCore1(TestWorkflow):
 
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                         pdbFile=PRODY_TEST_PDB_FILE)
+                                         pdbFile=PRODY_TEST_PDB_FILE,
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -724,7 +726,8 @@ def importSelect4ake(cls):
 def importSelect1ake(cls):
     # Import a PDB
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="1ake")
+                                         pdbId="1ake",
+                                         skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 1ake')
     cls.launchProtocol(cls.protImportPdb2)
 
@@ -738,14 +741,16 @@ def importSelect1ake(cls):
 def importAligned1akeA(cls):
     # Import the already processed PDB
     cls.protImportPdb1akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                      pdbFile=PRODY_TEST_ALG_PDB_FILE)
+                                             pdbFile=PRODY_TEST_ALG_PDB_FILE,
+                                             skipChimera=True)
     cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
     cls.launchProtocol(cls.protImportPdb1akeA)
 
 def importOnly4akeA(cls):
     # Import the already processed PDB
     cls.protImportPdb4akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                      pdbFile=PRODY_TEST_TAR_PDB_FILE)
+                                             pdbFile=PRODY_TEST_TAR_PDB_FILE,
+                                             skipChimera=True)
     cls.protImportPdb4akeA.setObjLabel('pwem import 4akeA_ca')
     cls.launchProtocol(cls.protImportPdb4akeA)
 

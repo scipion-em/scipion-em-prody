@@ -253,7 +253,7 @@ class TestProDyPCA(TestWorkflow):
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA
         # -------------------------------------------------------
         cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="2k39")
+                                             pdbId="2k39", skipChimera=True)
         cls.protImportPdb4.setObjLabel('pwem import 2k39')
         cls.launchProtocol(cls.protImportPdb4)
 
@@ -455,25 +455,25 @@ def importStructs(cls):
     
     # Import PDB 3o21
     cls.protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3o21")
+                                         pdbId="3o21", skipChimera=True)
     cls.protImportPdb1.setObjLabel('pwem import 3o21')
     cls.launchProtocol(cls.protImportPdb1)
 
     # Import PDB 6fpj
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6fpj")
+                                         pdbId="6fpj", skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 6fpj')
     cls.launchProtocol(cls.protImportPdb2)
 
     # Import PDB 6flr
     cls.protImportPdb3 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6flr")
+                                         pdbId="6flr", skipChimera=True)
     cls.protImportPdb3.setObjLabel('pwem import 6flr')
     cls.launchProtocol(cls.protImportPdb3)
 
     # Import PDB 3o21
     cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3p3w")
+                                         pdbId="3p3w", skipChimera=True)
     cls.protImportPdb4.setObjLabel('pwem import 3p3w')
     cls.launchProtocol(cls.protImportPdb4)
 

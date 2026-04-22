@@ -53,7 +53,8 @@ class TestProDyGNM(TestWorkflow):
         # ------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
+                                         pdbId="4ake",
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
