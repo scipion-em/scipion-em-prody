@@ -10,6 +10,7 @@ dependencies:
   - openmm=8.0
   - openmmtools  # helpful utilities and validation tools for GPU OpenMM
   - pdbfixer
+  - setuptools==81
   - mdtraj
   - threadpoolctl
   - requests
