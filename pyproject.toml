@@ -13,8 +13,19 @@ license = {text = "GNU General Public License v3 (GPLv3)"}
 authors = [
     {name = "James Krieger", email = "jamesmkrieger@gmail.com"},
     {name = "Ricardo Serrano Gutiérrez", email = "rserranogut@hotmail.com"},
+    {name = "Scipion Team", email = "scipion@cnb.csic.es"}
 ]
 dependencies = ["threadpoolctl==3.1.0"]
+license = {text = "GNU General Public License v3 (GPLv3)"}
+classifiers = [
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["scipion", "cryoem", "cryoet", "imageprocessing", "scipion-3.0"]
 
 [project.urls]
 Homepage = "https://github.com/scipion-em/scipion-em-prody"
