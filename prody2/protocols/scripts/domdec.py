@@ -20,8 +20,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     modesPath = args.folder
-    pdb1 = args.inputPdbFns
-    modesFn1 = args.inputModesFns
+    pdb1 = args.inputPdb
+    modesFn1 = args.inputModes
 
     modes = prody.parseScipionModes(modesFn1, pdb=pdb1)
     atoms = prody.parsePDB(pdb1)

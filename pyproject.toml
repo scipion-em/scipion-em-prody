@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Plugin to use ProDy programs within the Scipion framework."
 readme = "README.rst"
 requires-python = ">=3.8"
-keywords = ["scipion electron-microscopy cryo-em structural-biology image-processing scipion-3.0 protein dynamicss"]
+keywords = ["scipion", "electron-microscopy", "cryo-em", "structural-biology", "imageprocessing", "scipion-3.0", "protein-dynamics"]
 license = {text = "GNU General Public License v3 (GPLv3)"}
 authors = [
     {name = "James Krieger", email = "jamesmkrieger@gmail.com"},
@@ -25,7 +25,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
 ]
-keywords = ["scipion", "cryoem", "cryoet", "imageprocessing", "scipion-3.0"]
 
 [project.urls]
 Homepage = "https://github.com/scipion-em/scipion-em-prody"
@@ -33,6 +32,7 @@ Issues = "https://github.com/scipion-em/scipion-em-prody/issues"
 
 [tool.setuptools.dynamic]
 version = {file = "prody2/VERSION"}
+dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]

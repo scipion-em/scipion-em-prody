@@ -9,15 +9,15 @@ if __name__ == '__main__':
     parser.add_argument('--inputFn', type=str, required=True)
     parser.add_argument('--pH', type=float, required=True)
     parser.add_argument('--outputFn', type=str, required=True)
+    parser.add_argument('--folder', type=str, required=True)
 
     args = parser.parse_args()
-    folder = args.outputFn
 
-    filename = prody.addMissingAtoms(args.inputFn, pH=args.pH, outfile=folder,
+    filename = prody.addMissingAtoms(args.inputFn, pH=args.pH, outfile=args.outputFn,
                                      method='pdbfixer', model_residues=True)
     ag = prody.parsePDB(filename)
 
-    fo = open(join(folder, 'pdb_data.txt'), 'w')
+    fo = open(join(args.folder, 'pdb_data.txt'), 'w')
     fo.write('\t'.join([filename,
                         str(ag.numAtoms()),
                         str(ag.numResidues()),

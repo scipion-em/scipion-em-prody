@@ -73,13 +73,13 @@ class  ProDyDomainDecomp(EMProtocol):
     def computeDecompStep(self):
         modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
         modesFn = self.modesGNM.get().getFileName()
-        pdbFn = glob(modesPath+"/*atoms.pdb")
+        pdbFn = glob(modesPath+"/*atoms.pdb")[0]
 
         self.pdbFilename = self._getPath("atoms.pdb")
 
         numModes = self.modeNumber.get()
         try:
-            _ = self.modesGNM.get()[:numModes]
+            _ = list(self.modesGNM.get().iterItems())[:numModes]
         except IndexError:
             return [self.errorMessage("Invalid number of modes *%d*\n"
                                       "Display the output Normal Modes to see "

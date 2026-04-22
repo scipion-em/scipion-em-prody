@@ -80,7 +80,8 @@ class ProDyPDBFixer(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
 
-        args = '--inputFn {0} --pH {1} --outputFn {2}'.format(inputFn, self.pH.get(), self.outputFn)
+        args = '--inputFn {0} --pH {1} --outputFn {2} --folder {3}'.format(
+            inputFn, self.pH.get(), self.outputFn, self._getPath())
         self.runJob(Plugin.getProgram('fixer.py', script=True), args)
 
     def createOutputStep(self):
