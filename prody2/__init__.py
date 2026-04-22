@@ -108,7 +108,7 @@ class Plugin(pwem.Plugin):
 
         PRODY_SCIPION_INSTALLED = 'prody_scipion_installed'
         installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
-        installCmd.append('pip uninstall prody -y && pip install -Ue . &&')
+        installCmd.append('pip uninstall prody -y && cd ProDy && pip install -Ue . && cd .. &&')
         installCmd.append('touch %s' % PRODY_SCIPION_INSTALLED)
         prodyCommands.append((" ".join(installCmd.copy()), PRODY_SCIPION_INSTALLED))
 
