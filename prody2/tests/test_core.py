@@ -770,6 +770,5 @@ def importDefvec(cls):
     cls.protDefvec1.importType.set(NMD)
     cls.protDefvec1.filesPath.set(TESTDIR)
     cls.protDefvec1.filesPattern.set("defvec.nmd")
-    cls.protDefvec1.inputStructure.set(cls.protSel.outputStructure)
     cls.protDefvec1.setObjLabel('import_nmd_Defvec_CA')
     cls.launchProtocol(cls.protDefvec1)

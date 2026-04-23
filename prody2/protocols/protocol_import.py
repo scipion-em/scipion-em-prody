@@ -150,7 +150,7 @@ class ProDyImportModes(ProtImportFiles):
         fnSqlite = self._getPath('modes.sqlite')
 
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        if not (nmSet[1]._eigenval.get() <= nmSet[2]._eigenval.get()
+        if len(nmSet) > 1 and not (nmSet[1]._eigenval.get() <= nmSet[2]._eigenval.get()
             or self.outModes.getEigvals()[0] < ZERO):
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
 
@@ -161,12 +161,14 @@ class ProDyImportModes(ProtImportFiles):
         nmSet._nmdFileName = String(nmdFileName)
 
         if self.inputStructure.get() is None:
-            self.inputStructure = AtomStruct(filename=self._getExtraPath("atoms.pdb"))
-        inputPdb = self.inputStructure
-        nmSet.setPdb(inputPdb)
+            outputPdb = AtomStruct(filename=self._getExtraPath("atoms.pdb"))
+        else:
+            outputPdb = self.inputStructure.get()
+        nmSet.setPdb(outputPdb)
 
+        self._defineOutputs(outputStructure=outputPdb)
         self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
+        self._defineSourceRelation(outputPdb, nmSet)
 
 PDB = 0
 DCD = 1
