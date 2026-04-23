@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     # Input parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument('--importType', type=str, required=True)
+    parser.add_argument('--importType', type=int, required=True)
     parser.add_argument('--filesPaths', type=str, required=True)
     parser.add_argument('--filesPattern2', type=str, required=True)
     parser.add_argument('--protocolPath', type=str, required=True)
@@ -18,6 +18,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print(args.filesPaths)
     filesPaths = eval(args.filesPaths)
     pdbFilename = args.pdbFileName
     protocolPath = args.protocolPath
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         outModes = prody.parseScipionModes(filePath, pdb=pdbFilename)
 
     else:
-        pattern2 = args.filesPattern2.get()
+        pattern2 = args.filesPattern2
         outModes = prody.parseGromacsModes(folderPath, eigval_fname=filesPattern1,
                                                 eigvec_fname=pattern2, average_pdb=pdbFilename)
 
