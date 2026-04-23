@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -25,21 +25,15 @@
 # *
 # **************************************************************************
 
-import numpy as np
-from os.path import split, join
-
-from pwem.objects import SetOfNormalModes, SetOfPrincipalComponents
-from pwem.protocols import ProtImportPdb, ProtImportSetOfAtomStructs, exists
+from pwem.protocols import ProtImportSetOfAtomStructs
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
+from prody2.protocols import (ProDyBuildPDBEnsemble,
                               ProDyLRA, ProDyProject)
 
 from prody2.protocols.protocol_project import ONE, TWO
 from prody2.constants import CUSTOM
-
-import prody
 
 class TestProDyLRA(TestWorkflow):
     """ Test protocol for ProDy Ensemble and Logistic Regression Analysis"""

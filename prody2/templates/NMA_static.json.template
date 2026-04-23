@@ -11,7 +11,8 @@
         "runMode": 0,
         "inputPdbData": 0,
         "pdbId": "4ake",
-        "pdbFile": null
+        "pdbFile": null,
+        "skipChimera": true
     },
     {
         "object.className": "ProDySelect",

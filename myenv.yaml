@@ -1,0 +1,23 @@
+name: prody-github
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy=1.23.5
+  - scipy=1.9.3
+  - biopython=1.85
+  - openmm=8.0
+  - openmmtools  # helpful utilities and validation tools for GPU OpenMM
+  - pdbfixer
+  - setuptools==81
+  - mdtraj
+  - threadpoolctl
+  - requests
+  - pyparsing=3.1.1
+  - pip
+  - scikit-learn
+  - scikit-learn-extra
+  - cudatoolkit
+  - pip:
+      - biotempy

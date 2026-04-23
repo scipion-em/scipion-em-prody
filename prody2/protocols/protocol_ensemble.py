@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -100,6 +100,12 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       label="Unite chains in mmCIF segments",
                       help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
                             'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+
+        form.addParam('incrementTers', BooleanParam, default=True,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Increment serial numbers for TER lines when writing PDB files",
+                      help='Elect whether to increment serial numbers when writing PDB files. '
+                            'Default is **True** as this is the normal behaviour but the **False** option is needed for Plumed.')
 
         form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
                       condition=inputTypeCheck % INDEX,
@@ -251,6 +257,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                       label="Whether to reorder ensemble by custom match dict",
                       help='Otherwise the order matches the input')
 
+        form.addParam('keepAlignment', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Keep alignment",
+                      help="The alternative is to realign the structures over the whole structure")
+
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # actual steps
@@ -260,6 +271,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
         degeneracy = self.degeneracy.get()
+
+        if self.keepAlignment.get():
+            superpose = False
+        else:
+            superpose = 'iter'
 
         # handle reference
         self.weights = []
@@ -347,7 +363,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                           mapping=mappings,
                                           atommaps=atommaps,
                                           unmapped=unmapped,
-                                          rmsd_reject=self.rmsdReject.get())
+                                          rmsd_reject=self.rmsdReject.get(),
+                                          superpose=superpose)
             self.weights = list(np.ones(ens.numConfs()))
         else:
             if self.matchFunc.get() == BEST_MATCH:
@@ -405,7 +422,8 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                                          unmapped=unmapped,
                                          rmsd_reject=self.rmsdReject.get(),
                                          degeneracy=self.degeneracy.get(),
-                                         mapping=mappings)
+                                         mapping=mappings,
+                                         superpose=superpose)
             
             if self.delReference.get():
                 ens.delCoordset(ref)
@@ -439,9 +457,6 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                           if label in self.labels]
             ens = ens[newIndices]
 
-        msa = ens.getMSA()
-        prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
-
         if self.writePDBFiles.get():
             indices = ens.getIndices()
             amapTitles = [amap.getAtomGroup().getTitle() for amap in atommaps]
@@ -454,15 +469,20 @@ class ProDyBuildPDBEnsemble(EMProtocol):
                 amap = atommaps[i]
                 if indices is not None:
                     amap = amap[indices]
+
+                ag_title = ag.getTitle().replace(' ', '_').replace("'", "")
                 
                 amap.setTitle(amap.getTitle().split('[')[0])
-                filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
-                prody.writePDB(filename, amap)
+                filename = self._getExtraPath(
+                    '{:06d}_{:s}_amap.pdb'.format(i+1, ag_title))
+                prody.writePDB(filename, amap,
+                               increment_ter=self.incrementTers.get())
                 pdb = AtomStruct(filename)
                 setattr(pdb, ENSEMBLE_WEIGHTS, Float(self.weights[i]))
                 self.pdbs.append(pdb)
 
-        prody.writePDB(self._getPath('ensemble.pdb'), ens)
+        prody.writePDB(self._getPath('ensemble.pdb'), ens,
+                       increment_ter=self.incrementTers.get())
 
         self.npzFileName = self._getPath('ensemble.ens.npz')
         prody.saveEnsemble(ens, self.npzFileName)
@@ -476,14 +496,11 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         if self.writeDCDFile.get():
             self.pdbFilename = self._getPath('refStructure.pdb')
             prody.writeDCD(self._getPath(ENS_FILENAME), ens)
-            prody.writePDB(self.pdbFilename, ens.getAtoms())
+            prody.writePDB(self.pdbFilename, ens.getAtoms(),
+                           increment_ter=self.incrementTers.get())
 
     def createOutputStep(self):
-        outputSeqs = SetOfSequences().create(self._getExtraPath())
-        outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
-
-        outputs = {"outputNpz": self.npz,
-                   "outAlignment": outputSeqs}
+        outputs = {"outputNpz": self.npz}
         
         if self.writeDCDFile.get():
             if HAVE_CHEM:
@@ -580,5 +597,5 @@ class ProDyBuildPDBEnsemble(EMProtocol):
         return summ
     
     def _setWeights(self, item, row=None):
-            weight = Float(self.weights[item.getObjId()-1])
-            setattr(item, ENSEMBLE_WEIGHTS, weight)
+        weight = Float(self.weights[item.getObjId()-1])
+        setattr(item, ENSEMBLE_WEIGHTS, weight)

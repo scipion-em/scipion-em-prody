@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -24,18 +24,26 @@
 # *
 # **************************************************************************
 from collections import OrderedDict
+from importlib import resources
 import os
+
 import pwem
-import pyworkflow.utils as pwutils
-from pyworkflow import Config
 
 from .constants import *
 
 
-__version__ = "3.4.0"
+try:
+    __version__ = resources.read_text(__package__, "VERSION").strip()
+except Exception:
+    # Fallback for unusual environments; adjust to your needs
+    __version__ = "3.4.0"
+
 _logo = "icon.png"
 _references = ['ProDy2']
 
+
+file_path = os.path.abspath(__file__)
+dir_path = os.path.split(os.path.split(file_path)[0])[0]
 
 class Plugin(pwem.Plugin):
     _supportedVersions = VERSIONS
@@ -48,7 +56,8 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getEnviron(cls):
         """ Setup the environment variables needed to launch ProDy. """
-        environ = pwutils.Environ(os.environ)
+        from pyworkflow.utils import Environ
+        environ = Environ(os.environ)
         if 'PYTHONPATH' in environ:
             # this is required for python virtual env to work
             del environ['PYTHONPATH']
@@ -73,55 +82,35 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def addProDyPackage(cls, env, version, default=False):
+        # import numpy and Biopython to get versions to restore
+        import numpy
+        import Bio
 
         ENV_NAME = getProDyEnvName(version)
+        ENV_YAML_PATH = os.path.join(dir_path, 'myenv.yaml')
+        prodyCommands = []
 
-        installCmd = [
-            cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.9 &&',
-            f'conda activate {ENV_NAME} &&']
+        PRODY_INSTALLED = 'prody_%s_installed' % version
+        installProDyGithub = [cls.getCondaActivationCmd()]
+        installProDyGithub.append(
+            f'conda env list | grep -q "^{ENV_NAME}" '
+            f'&& conda env update -n {ENV_NAME} --file {ENV_YAML_PATH} --prune '
+            f'|| conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} -y &&'
+        )
+        installProDyGithub.append(f'conda activate {ENV_NAME} &&')
+        installProDyGithub.append('ls | grep -q "^ProDy" || git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+        installProDyGithub.append('cd ProDy &&')
+        installProDyGithub.append('git checkout scipion &&')
+        installProDyGithub.append('git pull &&')
+        installProDyGithub.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
+        installProDyGithub.append('cd .. && touch %s' % PRODY_INSTALLED)
+        prodyCommands.append((" ".join(installProDyGithub.copy()), PRODY_INSTALLED))
 
-        # Install TEMPy for ClustENM fitting, scikit-learn-extra for Kmedoids
-        # and threadpoolctl for control of thread pools for apps generally
-        TEMPY_INSTALLED = 'tempy_installed'
-        installTEMPy = installCmd.copy()
-        installTEMPy.append('pip install biotempy==2.0.0 scikit-learn-extra '
-                            'threadpoolctl requests mdtraj pyparsing==3.1.1 && touch %s' % TEMPY_INSTALLED)
-        installCmd.pop(1) # remove conda create to only do it the first time
-
-        # Install PDBFixer and OpenMM for ClustENM
-        OPENMM_INSTALLED = 'openmm_installed'
-        installOpenMM = installCmd.copy()
-        installOpenMM.append('conda install -c conda-forge openmm==7.6 pdbfixer -y && touch %s' % OPENMM_INSTALLED)
-
-        prodyCommands = [(" ".join(installTEMPy), TEMPY_INSTALLED),
-                         (" ".join(installOpenMM), OPENMM_INSTALLED)]
-
-        PRODY_INSTALLED_OWN = 'prody_%s_installed_own_env' % version
-        PRODY_INSTALLED_SCIPION = 'prody_%s_installed_scipion_env' % version
-        for i, PRODY_INSTALLED in enumerate([PRODY_INSTALLED_OWN, PRODY_INSTALLED_SCIPION]):
-            if i == 0:
-                
-                installCmd.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
-                installCmd.append('cd ProDy &&')
-                installCmd.append('git fetch &&')
-
-                installCmd.append('git remote add upstream https://github.com/prody/ProDy.git &&')
-                installCmd.append('git fetch upstream &&')
-                installCmd.append('git checkout -t upstream/main &&')
-                
-                installCmd.append('git checkout scipion &&')
-                installCmd.append('git pull &&')
-
-                installCmd.append('pip install -Ue . && python setup.py build_ext --inplace --force &&')
-            else:
-                installCmd = []
-                installCmd.append('cd ProDy &&')
-                installCmd.append('pip install -Ue . &&')
-            
-            installCmd.append('cd .. && touch %s' % PRODY_INSTALLED)
-
-            prodyCommands.append((" ".join(installCmd.copy()), PRODY_INSTALLED))
+        PRODY_SCIPION_INSTALLED = 'prody_scipion_installed'
+        installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
+        installCmd.append('pip uninstall prody -y && cd ProDy && pip install -Ue . && cd .. &&')
+        installCmd.append('touch %s' % PRODY_SCIPION_INSTALLED)
+        prodyCommands.append((" ".join(installCmd.copy()), PRODY_SCIPION_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
         envPath = os.environ.get('PATH', "")
@@ -137,12 +126,16 @@ class Plugin(pwem.Plugin):
                         vars=installEnvVars)
 
     @classmethod
-    def getProgram(cls, program, script=False):
+    def getProgram(cls, program, script=False, location=None):
         """ Create ProDy command line. """
         if script:
             fullProgram = '%s %s && python %s' % (
                 cls.getCondaActivationCmd(), cls.getEnvActivation(),
                 PRODY_SCRIPTS+'/'+program)
+        elif location is not None:
+            fullProgram = '%s %s && python %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                location+'/'+program)
         else:
             fullProgram = '%s %s && prody %s' % (
                 cls.getCondaActivationCmd(), cls.getEnvActivation(),
@@ -164,3 +157,14 @@ def parseMatchDict(cls):
         cls.matchDic = OrderedDict()
 
     cls.labels = list(cls.matchDic.keys())
+
+def copyConvertPDB(infilename, outfilename):
+    from os import path, symlink
+    import shutil
+
+    extension = path.splitext(infilename)[1]
+    if extension == ".pdb":
+        shutil.copy(infilename, outfilename)
+    elif extension == '.cif':
+        from pwem.convert.atom_struct import cifToPdb
+        cifToPdb(infilename, outfilename)

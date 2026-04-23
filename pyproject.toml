@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipion-em-prody"
+dynamic = ["version", "dependencies"]
+description = "Plugin to use ProDy programs within the Scipion framework."
+readme = "README.rst"
+requires-python = ">=3.8"
+keywords = ["scipion", "electron-microscopy", "cryo-em", "structural-biology", "imageprocessing", "scipion-3.0", "protein-dynamics"]
+license = {text = "GNU General Public License v3 (GPLv3)"}
+authors = [
+    {name = "James Krieger", email = "jamesmkrieger@gmail.com"},
+    {name = "Ricardo Serrano Gutiérrez", email = "rserranogut@hotmail.com"},
+    {name = "Scipion Team", email = "scipion@cnb.csic.es"}
+]
+classifiers = [
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/scipion-em/scipion-em-prody"
+Issues = "https://github.com/scipion-em/scipion-em-prody/issues"
+
+[tool.setuptools.dynamic]
+version = {file = "prody2/VERSION"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["prody2*"]
+
+[project.entry-points."pyworkflow.plugin"]
+prody2 = "prody2"
+
+[tool.setuptools.package-data]
+prody2 = ["VERSION", "protocols.conf", "icon.png"]

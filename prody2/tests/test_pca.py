@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -41,8 +41,7 @@ from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
 from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
 from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
-
-import prody
+from prody2.protocols.protocol_measure import ANGLE, DIHEDRAL
 
 class TestProDyPCA(TestWorkflow):
     """ Test protocol for ProDy Ensemble and Principal Component Analysis"""
@@ -78,9 +77,7 @@ class TestProDyPCA(TestWorkflow):
         # Step 3b. buildPDBEns from SetOfAtomStructs with index ref -> PCA 2
         # -------------------------------------------------------------------
 
-        ens1 = prody.loadEnsemble(protEns1._getPath("ensemble.ens.npz"))
-        idx = ens1.getLabels().index("3o21") + 1
-        
+        idx = 1
         protEns2 = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
         protEns2.structures.set([cls.protSetAS.outputAtomStructs])
@@ -162,7 +159,7 @@ class TestProDyPCA(TestWorkflow):
         protComp1.setObjLabel('Compare_A3_PCAs_same')
         cls.launchProtocol(protComp1)
 
-        compMatrix1 = prody.parseArray(protComp1._getExtraPath('matrix.txt'))
+        compMatrix1 = np.loadtxt(protComp1._getPath('matrix.txt'))
         cls.assertTrue(np.allclose(compMatrix1, np.ones(3)), "The modes aren't identical")
 
         # compare modes from different size sets
@@ -172,7 +169,7 @@ class TestProDyPCA(TestWorkflow):
         protComp2.setObjLabel('Compare_A3_PCAs_2_vs_3')
         cls.launchProtocol(protComp2)
 
-        compMatrix2 = prody.parseArray(protComp2._getExtraPath('matrix.txt'))
+        compMatrix2 = np.loadtxt(protComp2._getPath('matrix.txt'))
         cls.assertEqual(compMatrix2.shape, (3,2),
                          "Comparing 3 and 2 modes doesn't give the 3x2 matrix")
 
@@ -256,7 +253,7 @@ class TestProDyPCA(TestWorkflow):
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA
         # -------------------------------------------------------
         cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="2k39")
+                                             pdbId="2k39", skipChimera=True)
         cls.protImportPdb4.setObjLabel('pwem import 2k39')
         cls.launchProtocol(cls.protImportPdb4)
 
@@ -421,11 +418,11 @@ class TestProDyPCA(TestWorkflow):
         cls.assertTrue(exists(protMeasure1._getPath(measuresFilename)),
                        'measuring distances should create measures_1.csv')
 
-        dists = prody.parseArray(protMeasure1._getPath(measuresFilename), delimiter=',')
+        dists = np.loadtxt(protMeasure1._getPath(measuresFilename), delimiter=',')
         cls.assertEqual(np.round(dists[0], 1), 30.5,
                         '1st cleft distance should measure around 30.5 A')
         
-        protMeasure2 = cls.newProtocol(ProDyMeasure, measureType=1) # angle
+        protMeasure2 = cls.newProtocol(ProDyMeasure, measureType=ANGLE)
         protMeasure2.inputEnsemble.set([protEns5.outputNpz])
         protMeasure2.selection1.set(selstr2)
         protMeasure2.selection2.set('resnum 1 to 114 249 to 350')
@@ -433,12 +430,12 @@ class TestProDyPCA(TestWorkflow):
         protMeasure2.setObjLabel('measure LL angle')
         cls.launchProtocol(protMeasure2)
 
-        angles = prody.parseArray(protMeasure2._getPath(measuresFilename), delimiter=',')
+        angles = np.loadtxt(protMeasure2._getPath(measuresFilename), delimiter=',')
         cls.assertEqual(np.round(angles[0], 0), 58,
                         '1st LL angle should measure 58 degrees')
 
 
-        protMeasure3 = cls.newProtocol(ProDyMeasure, measureType=2) # dihedral
+        protMeasure3 = cls.newProtocol(ProDyMeasure, measureType=DIHEDRAL)
         protMeasure3.inputEnsemble.set([protEns5.outputNpz])
         protMeasure3.selection1.set(selstr2)
         protMeasure3.selection2.set(selstr1)
@@ -447,7 +444,7 @@ class TestProDyPCA(TestWorkflow):
         protMeasure3.setObjLabel('measure displacement dihedral')
         cls.launchProtocol(protMeasure3)
 
-        dihedrals = prody.parseArray(protMeasure3._getPath(measuresFilename), delimiter=',')
+        dihedrals = np.loadtxt(protMeasure3._getPath(measuresFilename), delimiter=',')
         cls.assertEqual(np.round(dihedrals[0], 0), -18,
                         '1st displacement dihedral should measure -18 degrees')
 
@@ -458,25 +455,25 @@ def importStructs(cls):
     
     # Import PDB 3o21
     cls.protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3o21")
+                                         pdbId="3o21", skipChimera=True)
     cls.protImportPdb1.setObjLabel('pwem import 3o21')
     cls.launchProtocol(cls.protImportPdb1)
 
     # Import PDB 6fpj
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6fpj")
+                                         pdbId="6fpj", skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 6fpj')
     cls.launchProtocol(cls.protImportPdb2)
 
     # Import PDB 6flr
     cls.protImportPdb3 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6flr")
+                                         pdbId="6flr", skipChimera=True)
     cls.protImportPdb3.setObjLabel('pwem import 6flr')
     cls.launchProtocol(cls.protImportPdb3)
 
     # Import PDB 3o21
     cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3p3w")
+                                         pdbId="3p3w", skipChimera=True)
     cls.protImportPdb4.setObjLabel('pwem import 3p3w')
     cls.launchProtocol(cls.protImportPdb4)
 

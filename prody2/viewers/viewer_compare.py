@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -42,7 +42,7 @@ import numpy as np
 import os
 
 import prody
-from prody.utilities.drawtools import IndexFormatter
+# from prody.utilities.drawtools import IndexFormatter
 
 class ProDyComparisonsViewer(ProtocolViewer):
     """ Visualization of results from the ProDy mode comparison protocol.    
@@ -163,8 +163,8 @@ class ProDyComparisonsViewer(ProtocolViewer):
         else:
             x_ticklabels = np.arange(1, len(self.modes2)+1) 
 
-        ax.xaxis.set_major_formatter(IndexFormatter(x_ticklabels))
-        ax.yaxis.set_major_formatter(IndexFormatter(y_ticklabels))
+        # ax.xaxis.set_major_formatter(IndexFormatter(x_ticklabels))
+        # ax.yaxis.set_major_formatter(IndexFormatter(y_ticklabels))
 
         if self.allticks.get():
             ax.xaxis.set_major_locator(ticker.IndexLocator(offset=0.5, base=1.))
@@ -264,7 +264,7 @@ class ProDyComparisonsViewer(ProtocolViewer):
             cum_overlaps = np.sqrt(np.power(row, 2).cumsum(axis=row.ndim-1))
             plotter.plotData(inds, cum_overlaps, 'r')
         
-        ax.xaxis.set_major_formatter(IndexFormatter(x_ticklabels))
+        # ax.xaxis.set_major_formatter(IndexFormatter(x_ticklabels))
 
         if self.allticks.get():
             ax.xaxis.set_major_locator(ticker.IndexLocator(offset=0.5, base=1.))

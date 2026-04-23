@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -32,12 +32,11 @@ the BioExcel CV19 database
 """
 from pwem.protocols import EMProtocol
 from pyworkflow.protocol import params
-from pyworkflow.object import Float
-
-import prody
+from pyworkflow.object import Float, Integer
 
 from prody2 import Plugin
-from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2.constants import (ENSEMBLE_WEIGHTS, N_FRAMES,
+                              N_ATOMS, N_RESIDUES, N_CHAINS)
 from prody2.objects import SetOfTrajFrames, TrajFrame
 
 from prody2.objects import HAVE_CHEM
@@ -52,10 +51,10 @@ class ProDyBioExcelCV19(EMProtocol):
     This module will provide the ProDy interface for parsing files from 
     the BioExcel CV19 database
     """
-    _label = 'BioExcelCV19'
+    _label = 'fetchBioExcelTraj'
     _possibleOutputs = {'outputTrajectory': ProDyMDSystem}
 
-    selections = [None, '_C', 'backbone', 'backbone and _C']
+    selections = ['None', '_C', 'backbone', 'backbone and _C']
     NONE = 0
     _C = 1
 
@@ -94,9 +93,8 @@ class ProDyBioExcelCV19(EMProtocol):
         args = '--accession {0} --folder {1}'.format(accession, 
                                                      self._getExtraPath())
         
-        if self.selection.get() != self.NONE:
-            selection = self.selections[self.selection.get()]
-            args += ' --selection {0}'.format(selection)
+        selection = self.selections[self.selection.get()]
+        args += ' --selection {0}'.format(selection)
 
         if self.frames.get() != self.NONE:
             args += ' --frames {0}'.format(self.frames.get())
@@ -107,21 +105,36 @@ class ProDyBioExcelCV19(EMProtocol):
         self.PSF_FILENAME = self._getExtraPath('{0}.psf'.format(accession))
         self.DCD_FILENAME = self._getExtraPath('{0}.dcd'.format(accession))
 
+        args = '{0} -n --pdb {1} > {2}'.format(self.DCD_FILENAME,
+                                               self.PDB_FILENAME,
+                                               self._getExtraPath('nframes.txt'))
+        self.runJob(Plugin.getProgram('catdcd'), args)
+
     def createOutputStep(self):
+        with open(self._getExtraPath('nframes.txt'), 'r') as fi:
+            numFrames = int(fi.readlines()[0])
+
         if self.useMDSystem:
             outputTrajectory = ProDyMDSystem(filename=self.PDB_FILENAME)
-            outputTrajectory.setTopologyFile(self.PSF_FILENAME)
-            outputTrajectory.setTrajectoryFile(self.DCD_FILENAME)
         else:
-            numFrames = prody.DCDFile(self.DCD_FILENAME).numFrames()
-
             outputTrajectory = SetOfTrajFrames().create(self._getExtraPath())
-            outputTrajectory.setTopologyFile(self.PSF_FILENAME)
-            outputTrajectory.setTrajectoryFile(self.DCD_FILENAME)
             for j in range(numFrames):
                 frame = TrajFrame((j+1, self.DCD_FILENAME), objLabel=str(j+1))
                 setattr(frame, ENSEMBLE_WEIGHTS, Float(1/numFrames))
                 outputTrajectory.append(frame)
+
+        outputTrajectory.setOriStructFile(self.PDB_FILENAME)
+        outputTrajectory.setTopologyFile(self.PSF_FILENAME)
+        outputTrajectory.setTrajectoryFile(self.DCD_FILENAME)
+
+        with open(self._getExtraPath('pdb_data.txt'), 'r') as fi:
+            line = fi.readlines()[0]
+
+        self.pdbFileName, numAtoms, numResidues, numChains = line.split('\t')
+        setattr(outputTrajectory, N_FRAMES, Integer(numFrames))
+        setattr(outputTrajectory, N_ATOMS, Integer(numAtoms))
+        setattr(outputTrajectory, N_RESIDUES, Integer(numResidues))
+        setattr(outputTrajectory, N_CHAINS, Integer(numChains))
 
         self._defineOutputs(outputTrajectory=outputTrajectory)
 
@@ -129,8 +142,8 @@ class ProDyBioExcelCV19(EMProtocol):
         if not hasattr(self, 'outputTrajectory'):
             summ = ['Output trajectory not ready yet']
         else:
-            outputAg = prody.parsePDB(self._getExtraPath(
-                '{0}.pdb'.format(self.accession.get())))
-            summ = ['Trajectory has *{0}* atoms including *{1}* protein residues'.format(
-                outputAg.numAtoms(), outputAg.ca.numAtoms())]
+            summ = ['Trajectory has *{0}* frames with *{1}* atoms including *{2}* residues'.format(
+                self.outputTrajectory.getAttributeValue(N_FRAMES),
+                self.outputTrajectory.getAttributeValue(N_ATOMS),
+                self.outputTrajectory.getAttributeValue(N_RESIDUES))]
         return summ

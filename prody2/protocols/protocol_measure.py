@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -38,17 +38,19 @@ import pyworkflow.object as pwobj
 from pyworkflow.protocol import params
 
 import prody
-from prody2.constants import MEASURES
+from prody2.constants import MEASURES, ENSEMBLE_WEIGHTS
 
-DISTANCE = 0
-ANGLE = 1
-DIHEDRAL = 2
+RMSD = 0
+DISTANCE = 1
+ANGLE = 2
+DIHEDRAL = 3
 
 selstrHelp = '''The distance, angle or dihedral will be calculated between the centers of 2, 3 or 4 selections.
 There is a rich selection engine with similarities to VMD. 
 See http://http://www.bahargroup.org/prody/tutorials/prody_tutorial/selection.html'''
 
 defaultSelstr = "protein and name CA or nucleic and name P C4' C2"
+measureTypeCheck = "measureType>%d"
 
 class ProDyMeasure(EMProtocol):
     """
@@ -70,7 +72,7 @@ class ProDyMeasure(EMProtocol):
                       'objects where all structures have the same number of atoms.')
         
         form.addParam('measureType', params.EnumParam,
-                      choices=['distance', 'angle', 'dihedral'], default=DISTANCE,
+                      choices=['rmsd', 'distance', 'angle', 'dihedral'], default=DISTANCE,
                       label='Measure type',
                       help='Select the type of measure.')
 
@@ -79,15 +81,15 @@ class ProDyMeasure(EMProtocol):
                       help=selstrHelp)
         
         form.addParam('selection2', params.StringParam, default=defaultSelstr,
-                      label="selection string 2",
+                      label="selection string 2", condition=measureTypeCheck % RMSD,
                       help=selstrHelp)
         
         form.addParam('selection3', params.StringParam, default=defaultSelstr,
-                      label="selection string 3", condition="measureType>%d" % DISTANCE,
+                      label="selection string 3", condition=measureTypeCheck % DISTANCE,
                       help=selstrHelp)
 
         form.addParam('selection4', params.StringParam, default=defaultSelstr,
-                      label="selection string 4", condition="measureType>%d" % ANGLE,
+                      label="selection string 4", condition=measureTypeCheck % ANGLE,
                       help=selstrHelp)
 
 
@@ -99,9 +101,10 @@ class ProDyMeasure(EMProtocol):
 
     def computeStep(self):
         selstr1 = self.selection1.get()
-        selstr2 = self.selection2.get()
 
         measureType = self.measureType.get()
+        if measureType > RMSD:
+            selstr2 = self.selection2.get()
         if measureType > DISTANCE:
             selstr3 = self.selection3.get()
         if measureType > ANGLE:
@@ -129,9 +132,10 @@ class ProDyMeasure(EMProtocol):
             ens.setAtoms(atomsCopy.select(selstr1))
             centers1 = prody.calcCenter(ens.getCoordsets())
 
-            ens.setAtoms(atomsCopy)
-            ens.setAtoms(atomsCopy.select(selstr2))
-            centers2 = prody.calcCenter(ens.getCoordsets())
+            if measureType != RMSD:
+                ens.setAtoms(atomsCopy)
+                ens.setAtoms(atomsCopy.select(selstr2))
+                centers2 = prody.calcCenter(ens.getCoordsets())
 
             if measureType > DISTANCE:
                 ens.setAtoms(atomsCopy)
@@ -145,7 +149,9 @@ class ProDyMeasure(EMProtocol):
 
             ens.setAtoms(atomsCopy)
 
-            if measureType == DISTANCE:
+            if measureType == RMSD:
+                measures = ens.getRMSDs() # from start
+            elif measureType == DISTANCE:
                 measures = prody.calcDistance(centers1, centers2)
             elif measureType == ANGLE:
                 measures = prody.measure.getAngle(centers1, centers2, centers3)
@@ -184,6 +190,8 @@ class ProDyMeasure(EMProtocol):
         # We provide data directly so don't need a row
         measure = pwobj.Float(self.measures[self.ensId][item.getObjId()])
         setattr(item, MEASURES, measure)
+        if not hasattr(item, ENSEMBLE_WEIGHTS):
+            setattr(item, ENSEMBLE_WEIGHTS, pwobj.Float(1.))
 
     def _summary(self):
         if not hasattr(self, 'outputEns1'):

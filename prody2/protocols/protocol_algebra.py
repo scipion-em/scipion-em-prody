@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -32,14 +32,13 @@ This module will provide ProDy mode algebra tools (linear combinations).
 import os
 import numpy as np
 
-from pwem.objects import SetOfNormalModes, String, Integer, CsvList
+from pwem.objects import SetOfNormalModes, String, CsvList
 
-from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, IntParam,
-                                        StringParam, LEVEL_ADVANCED)
+                                        StringParam)
 
-import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2 import Plugin
 
 COEFF_POINTER = 0
 COEFF_STRING = 1
@@ -94,14 +93,10 @@ class ProDyAlgebra(ProDyModesBase):
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
     def _insertAllSteps(self, n=1, nzeros=0):
-        self.prodyModes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.atoms = prody.parsePDB(self.modes.get().getPdb().getFileName())
         self.nzero = nzeros
-
         super(ProDyAlgebra, self)._insertAllSteps(n=n, nzeros=nzeros)
 
     def computeModesStep(self):
-
         if self.coeffSource == COEFF_STRING:
             sep = ''
             coeffsString = self.coeffString.get()
@@ -110,38 +105,36 @@ class ProDyAlgebra(ProDyModesBase):
             if ' ' in coeffsString:
                 sep += ' '
 
-            coeffs = np.array(coeffsString.split(sep),
-                                   dtype=float)
-
+            coeffs = np.array(coeffsString.split(sep), dtype=float)
+            coeffsFn = self._getExtraPath('coeffs.txt')
+            np.savetxt(coeffsFn, coeffs)
         else:
-            coeffs = np.loadtxt(self.coeffPointer.get().getFileName())
+            coeffsFn = self.coeffPointer.get().getFileName()
+            coeffs = np.loadtxt(coeffsFn)
 
-        numCoeffs = self.numCoeffs.get()
+        self.modesFn = self.modes.get().getFileName()
+        self.atomsFn = self.modes.get().getPdb().getFileName()
+
+        numCoeffs = min(self.numCoeffs.get(), len(coeffs))
         if numCoeffs == -1:
             numCoeffs = len(coeffs)
 
-        vector = self.prodyModes[0] * coeffs[0]
-        numCoeffs = min(numCoeffs, len(coeffs))
-        for i in range(1, numCoeffs):
-            vector += self.prodyModes[i] * coeffs[i]
+        args = '--modesFn {0} --atomsFn {1} --coeffsFn {2} --numCoeffs {3} ' \
+            '--folder {4} --nmdFileName {5} --npzFileName {6}'.format(
+                self.modesFn, self.atomsFn, coeffsFn, numCoeffs,
+                self._getPath(), self.getNmdFileName(), self.getNpzFileName())
 
+        self.runJob(Plugin.getProgram('algebra.py', script=True), args)
+
+        self.outModesFn = self._getPath("modes.sqlite")
         self.coeffs = CsvList()
         self.coeffs._convertValue(["{:18.15f}".format(x) for x in coeffs[:numCoeffs]])
-
-        self.outModes = prody.NMA()
-        self.outModes.setEigens(vector.getArray().reshape(-1,1))
-
-        prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-
-        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
-        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
-        prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
 
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self.nmdFileName)
+        nmSet._nmdFileName = String(self.getNmdFileName())
 
         pdb = self.modes.get().getPdb()
         nmSet.setPdb(pdb)
@@ -160,3 +153,9 @@ class ProDyAlgebra(ProDyModesBase):
             summ = ['*{0}* modes added with coefficients *{1}*'.format(
                     len(self.coeffs), self.coeffs)]
         return summ
+
+    def getNmdFileName(self):
+        return self._getPath('modes.nmd')
+    
+    def getNpzFileName(self):
+        return self._getPath('modes.nma.npz')

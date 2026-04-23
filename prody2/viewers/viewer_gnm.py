@@ -2,7 +2,7 @@
 # *
 # * Authors:     J.M. De la Rosa Trevin (jmdelarosa@cnb.csic.es)
 # *              Slavica Jonic  (slavica.jonic@upmc.fr)
-# *              James Krieger (jmkrieger@cnb.csic.es)
+# *              James Krieger (jamesmkrieger@gmail.com)
 # *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)  
 # *
 # * This program is free software; you can redistribute it and/or modify
@@ -25,8 +25,7 @@
 # *
 # **************************************************************************
 """
-This module implement the wrappers around ProDy GNM 
-visualization programs.
+This module implements wrappers around ProDy GNM visualization programs.
 """
 
 from pyworkflow.utils import glob
@@ -41,6 +40,7 @@ from pwem.objects import SetOfNormalModes
 from pwem.emlib import MetaData, MDL_NMA_ATOMSHIFT
 
 from prody2.protocols import ProDyGNM
+from prody2.constants import ZERO
 
 import os
 
@@ -77,7 +77,7 @@ class ProDyGNMViewer(ProtocolViewer):
         self.modes = prody.parseScipionModes(self.modesObj.getFileName(), 
                                              pdb=pdbFileName)
 
-        if self.modes.getEigvals()[0] < prody.utilities.ZERO:
+        if self.modes.getEigvals()[0] < ZERO:
             self.startMode = 1
         else:
             self.startMode = 0

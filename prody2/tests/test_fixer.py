@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -29,7 +29,7 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyPDBFixer)
-import prody
+from prody2.constants import N_ATOMS
 
 class TestProDyFixer(TestWorkflow):
     @classmethod
@@ -44,10 +44,10 @@ class TestProDyFixer(TestWorkflow):
         protFix.setObjLabel('fix_3hsyB')
         cls.launchProtocol(protFix)
 
-        ag = prody.parsePDB(protFix.outputStructure.getFileName())
-        cls.assertTrue(ag.numAtoms() == 5956,
-                       "After fixing, 3hsy B should have 5956 atoms, not {0}".format(ag.numAtoms()))
-
+        struct1 = protFix.outputStructure
+        numAtoms = struct1.getAttributeValue(N_ATOMS)
+        cls.assertTrue(numAtoms == 5956,
+                       "After fixing, 3hsy B should have 5956 atoms, not {0}".format(numAtoms))
 
 def importSelect(cls):
     cls.protSel = cls.newProtocol(ProDySelect, selection="protein and chain B",

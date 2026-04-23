@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -27,18 +27,16 @@
 
 
 """
-This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
+This module will provide ProDy normal mode comparison tools.
 """
 import os
-import numpy as np
+from prody2 import Plugin
 
 from pwem.objects import AtomStruct, EMFile, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import glob
 from pyworkflow.protocol.params import PointerParam, EnumParam, BooleanParam
-
-import prody
 
 NMA_METRIC_OVERLAP = 0
 NMA_METRIC_COV_OVERLAP = 1
@@ -86,7 +84,7 @@ class ProDyCompare(EMProtocol):
                       'or in sets using either covariance overlap (Hess, Phys Rev E 2002; aka spectral overlap) '
                       'or the root weighted square inner product (RWSIP; Carnevale et al., J Phys Condens Matter 2007). \n'
                       'Covariance overlaps and RWSIPs are calculated over growing mode sets.\n'
-                      'The six zero modes are excluded from covariance overlap and RWSIP calculations.')
+                      'Zero eigenvalue modes are excluded from all calculations.')
 
         form.addParam('diag', BooleanParam, default=False, 
                       condition='metric==%d' % NMA_METRIC_OVERLAP,
@@ -114,87 +112,71 @@ class ProDyCompare(EMProtocol):
             self.modes1.get()._getMapper().selectFirst().getModeFile()))
 
         pdb1 = glob(modesPath1+"/*atoms.pdb")
-        if len(pdb1) == 0:
-            pdb1 = None
+        if len(pdb1) != 0:
+            pdb1 = pdb1[0]
+        elif self.modes1.get().getPdb().getFileName() is not None:
+            pdb1 = self.modes1.get().getPdb().getFileName()
+        else:
+            pdb1 = "None"
 
-        modes1 = prody.parseScipionModes(self.modes1.get().getFileName(), pdb=pdb1)
+        modesFn1 = self.modes1.get().getFileName()
 
         modesPath2 = os.path.dirname(os.path.dirname(
             self.modes2.get()._getMapper().selectFirst().getModeFile()))
             
         pdb2 = glob(modesPath2+"/*atoms.pdb")
-        if len(pdb2) == 0:
-            pdb2 = None
-
-        modes2 = prody.parseScipionModes(self.modes2.get().getFileName(), pdb=pdb2)
-
-        nModes = np.max([modes1.numModes(), modes2.numModes()])
-        nModesMin = np.min([modes1.numModes(), modes2.numModes()])
-
-        if nModesMin != 1 and self.match:
-            modeEns = prody.ModeEnsemble()
-            modeEns.addModeSet(modes1)
-            modeEns.addModeSet(modes2)
-            modeEns.match()
-
-            matchInds = prody.matchModes(modes1, modes2, index=True)
-
-            self.matchIndsFileName = prody.writeArray(self._getExtraPath('matchInds.txt'),
-                                                      np.array(matchInds, dtype=int)[1]+1,
-                                                      format='%3d')
-
-            pdb = self.modes1.get().getPdb()
-            if pdb is not None:
-                atoms = prody.parsePDB(pdb.getFileName())
-            else:
-                atoms = prody.parsePDB(pdb1)
-
-            typeStr = str(type(modes2)).lower().split('.')[-1].split("'")[0]
-            self.nmdFileName = self._getPath('matched_modes.{0}.nmd'.format(typeStr))
-
-            prody.writeNMD(self.nmdFileName, modeEns[1], atoms)
-            prody.writeScipionModes(self._getPath(), modeEns[1], write_star=True)
+        if len(pdb2) != 0:
+            pdb2 = pdb2[0]
+        elif self.modes2.get().getPdb().getFileName() is not None:
+            pdb2 = self.modes2.get().getPdb().getFileName()
         else:
-            modeEns = [modes1, modes2]
-        
-        if self.metric == NMA_METRIC_OVERLAP:
-            if self.norm:
-                self.matrix = prody.calcOverlap(modeEns[0], modeEns[1], diag=self.diag)
-            else:
-                # Calculate direct dot product without vector normalisation found in calcOverlap
-                self.matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
+            pdb2 = "None"
 
-            if self.matrix.ndim == 1:
-                self.matrix.reshape(-1, 1)
+        modesFn2 = self.modes2.get().getFileName()
 
-        else:
-            self.matrix = np.empty((nModes-6, 1))
-            for i in range(6, nModes):
-                if self.metric == NMA_METRIC_COV_OVERLAP:
-                    self.matrix[i-6, 0] = prody.calcEnsembleSpectralOverlaps(modeEns[:, 6:i+1])[0, 1]
-                else:
-                    self.matrix[i-6, 0] = prody.calcRWSIP(modeEns[0, 6:i+1], modeEns[1, 6:i+1])
+        args = '--inputPdbFns "{0}" --inputModesFns "{1}" --folder {2} '.format(
+            ' '.join([pdb1, pdb2]),
+            ' '.join([modesFn1, modesFn2]),
+            self._getPath()
+        )
 
-        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix,
-                         format='%' + str(max([len(str(int(np.max(self.matrix)))),
-                                               len(str(int(np.min(self.matrix))))]) + 4) + '.2f')
+        args += '--metric {0} '.format(self.metric.get())
+
+        if self.match:
+            args += '--match True '
+
+        if self.diag:
+            args += '--diag True '
+
+        if self.norm:
+            args += '--norm True '
+
+        self.runJob(Plugin.getProgram('compare_modes.py', script=True), args)
 
     def createOutputStep(self):
-        outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
+        outputMatrix = EMFile(filename=self._getPath('matrix.txt'))
 
         if self.match:
             fnSqlite = self._getPath('modes.sqlite')
             inputClass = type(self.modes1.get())
             nmSet = inputClass(filename=fnSqlite)
-            nmSet._nmdFileName = String(self.nmdFileName)
+            nmSet._nmdFileName = String(self.getNmdFileName)
 
             outputPdb = AtomStruct()
             outputPdb.setFileName(self._getPath('atoms.pdb'))
             nmSet.setPdb(outputPdb.get())
 
-            outputMatch = EMFile(filename=self.matchIndsFileName)
-            nmSet._indsFileName = String(self.matchIndsFileName)
+            outputMatch = EMFile(filename=self.getMatchIndsFn)
+            nmSet._indsFileName = String(self.getMatchIndsFn)
 
-            self._defineOutputs(matrixFile=outputMatrix, matchFile=outputMatch, outputModes=nmSet)
+            self._defineOutputs(matrixFile=outputMatrix,
+                                matchFile=outputMatch,
+                                outputModes=nmSet)
         else:
             self._defineOutputs(matrixFile=outputMatrix)
+
+    def getMatchIndsFn(self):
+        return self._getPath('matchInds.txt')
+
+    def getNmdFileName(self):
+        return glob(self._getPath() + '/matched_modes.*.nmd')

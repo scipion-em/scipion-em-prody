@@ -108,6 +108,7 @@ class SetOfTrajFrames(EMSet):
 
     def __init__(self, **kwargs):
         EMSet.__init__(self, **kwargs)
+        self._oriStructFile = String(kwargs.get('oriStructFile', None))
         self._topoFile = String(kwargs.get('topoFile', None))
         self._trjFile = String(kwargs.get('trjFile', None))
 
@@ -159,6 +160,12 @@ class SetOfTrajFrames(EMSet):
         for frame in framesSet:
             if frame.isEnabled():
                 self.append(frame)
+
+    def getOriStructFile(self):
+        return self._oriStructFile.get()
+
+    def setOriStructFile(self, value):
+        self._oriStructFile.set(value)
 
     def getTopologyFile(self):
         return self._topoFile.get()
@@ -263,9 +270,11 @@ def replaceCoordsets(oldNpzEns, coordsets, suffix='',
     return newNpzEns
 
 
+# Kept here for back-compatibility but not used anywhere else
 class SetOfGnmModes(SetOfNormalModes):
     pass
 
+# Kept here for back-compatibility but not used anywhere else
 class SetOfLogisticModes(SetOfNormalModes):
     pass
 
@@ -448,7 +457,7 @@ class SetOfClassesTraj(SetOfClasses3D):
     REP_TYPE = AtomStruct
     REP_SET_TYPE = SetOfAtomStructs
 
-def loadAndWriteEnsemble(cls):
+def loadAndWriteEnsemble(cls, write=True, iterpose=False):
     """Handle inputs to load ensemble into ProDy and write outputs"""
 
     weights = []
@@ -481,8 +490,10 @@ def loadAndWriteEnsemble(cls):
             cls.ens += ens
 
     cls.ens.select(cls.selstr.get())
+    if iterpose:
+        cls.ens.iterpose()
 
-    if os.path.exists(cls._getPath()):
+    if os.path.exists(cls._getPath()) and write:
         avgStruct = cls.ens.getAtoms()
         avgStruct.setCoords(cls.ens.getCoords())
 
