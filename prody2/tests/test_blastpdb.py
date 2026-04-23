@@ -86,5 +86,6 @@ def importSelectSeq(cls):
     cls.protSeq.inputProteinSequence.set(cls.protSeq.IMPORT_FROM_STRUCTURE)
     cls.protSeq.inputStructureSequence.set(cls.protSeq.IMPORT_STRUCTURE_FROM_AS)
     cls.protSeq.inputAS.set(cls.protSel.outputStructure)
+    cls.protSeq.inputStructureChain.set('{"model": 0, "chain": "B", "residues": 376}')
     cls.protSeq.setObjLabel('seq_3hsyB')
     cls.launchProtocol(cls.protSeq)
