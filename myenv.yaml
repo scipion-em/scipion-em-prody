@@ -10,10 +10,14 @@ dependencies:
   - openmm=8.0
   - openmmtools  # helpful utilities and validation tools for GPU OpenMM
   - pdbfixer
+  - setuptools==81
   - mdtraj
   - threadpoolctl
   - requests
   - pyparsing=3.1.1
   - pip
+  - scikit-learn
+  - scikit-learn-extra
+  - cudatoolkit
   - pip:
       - biotempy

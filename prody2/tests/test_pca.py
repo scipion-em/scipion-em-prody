@@ -36,7 +36,7 @@ from pyworkflow.tests import setupTestProject
 from prody2.protocols import (ProDySelect, ProDyBuildPDBEnsemble,
                               ProDyImportEnsemble, ProDyPCA, ProDyCompare,
                               ProDyProject, ProDyANM, ProDyImportModes, ProDyEdit,
-                              ProDyMeasure)
+                              ProDyMeasure, ProDyRmsd)
 
 from prody2.protocols.protocol_edit import NMA_SLICE
 from prody2.protocols.protocol_project import ONE, TWO, THREE
@@ -252,13 +252,9 @@ class TestProDyPCA(TestWorkflow):
         # -------------------------------------------------------
         # Step 6. Import 2k39 NMR ensemble -> select N+CA -> PCA
         # -------------------------------------------------------
-        cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="2k39")
-        cls.protImportPdb4.setObjLabel('pwem import 2k39')
-        cls.launchProtocol(cls.protImportPdb4)
 
         cls.protSel5 = cls.newProtocol(ProDySelect, selection="name N CA")
-        cls.protSel5.inputStructure.set(cls.protImportPdb4.outputPdb)
+        cls.protSel5.inputStructure.set(cls.protImportPdb5.outputPdb)
         cls.protSel5.setObjLabel('Sel 2k39_n_ca')
         cls.launchProtocol(cls.protSel5)
 
@@ -392,7 +388,7 @@ class TestProDyPCA(TestWorkflow):
                        'slicing a SetOfPrincipalComponents should create distance profiles')
 
     def testProDyPCA_4(cls):
-        """ Test measures."""        
+        """ Test measures."""
         # ------------------------------------------------
         # Step 9. Test measures
         # ------------------------------------------------
@@ -448,6 +444,296 @@ class TestProDyPCA(TestWorkflow):
         cls.assertEqual(np.round(dihedrals[0], 0), -18,
                         '1st displacement dihedral should measure -18 degrees')
 
+    def testProDyRmsdCluster(cls):
+        """ Test RMSD clustering protocols to test that all options work."""
+
+        cls.protRmsdClustSet1 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustSet1.inputEnsemble.set(cls.protSetAS.outputAtomStructs)
+        cls.protRmsdClustSet1.setObjLabel('rmsd clust - SetAS defaults')
+        cls.launchProtocol(cls.protRmsdClustSet1)
+
+        cls.assertSetSize(cls.protRmsdClustSet1.outputClasses, 3,
+                           "wrong size SetOfClassesTraj ({0} not 3) with "
+                           "hierarchical UPGMA RMSD clustering from unaligned SetOfAtomStructs "
+                           "with RMSD 1 (default)".format(
+                               len(cls.protRmsdClustSet1.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustSet2 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustSet2.inputEnsemble.set(cls.protSetAS.outputAtomStructs)
+        cls.protRmsdClustSet2.rmsdThreshold.set(45) # without alignment, lowest RMSD pair is 42 A
+        cls.protRmsdClustSet2.setObjLabel('rmsd clust - SetAS rmsd 45')
+        cls.launchProtocol(cls.protRmsdClustSet2)
+
+        cls.assertSetSize(cls.protRmsdClustSet2.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical UPGMA RMSD clustering from unaligned SetOfAtomStructs "
+                           "(default) with RMSD 45".format(
+                               len(cls.protRmsdClustSet2.outputClasses)
+                            )
+                         )
+
+        idx = 1
+        cls.protEns2b = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
+                                    matchFunc=0)
+        cls.protEns2b.structures.set([cls.protSetAS2.outputAtomStructs])
+        cls.protEns2b.refIndex.set(idx)
+        cls.protEns2b.setObjLabel('buildPDBEns_2b_set_ref_idx_{0}'.format(idx))
+        cls.launchProtocol(cls.protEns2b)
+
+        cls.protRmsdClustEns1 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEns1.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEns1.setObjLabel('rmsd clust - ens defaults')
+        cls.launchProtocol(cls.protRmsdClustEns1)
+
+        cls.assertSetSize(cls.protRmsdClustEns1.outputClasses, 4,
+                           "wrong size SetOfClassesTraj ({0} not 4) with "
+                           "hierarchical UPGMA RMSD clustering from unaligned SetOfAtomStructs "
+                           "with RMSD 1 (default)".format(
+                               len(cls.protRmsdClustEns1.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustEns2 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEns2.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEns2.rmsdThreshold.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustEns2.setObjLabel('rmsd clust - ens rmsd 3')
+        cls.launchProtocol(cls.protRmsdClustEns2)
+
+        cls.assertSetSize(cls.protRmsdClustEns2.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical UPGMA RMSD clustering from aligned ProDyNpzEnsemble "
+                           "(default) with RMSD 3".format(
+                               len(cls.protRmsdClustEns2.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustEns3 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEns3.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEns3.rmsdThreshold.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustEns3.treeMethod.set(1)
+        cls.protRmsdClustEns3.setObjLabel('rmsd clust - ens rmsd 3 nj')
+        cls.launchProtocol(cls.protRmsdClustEns3)
+
+        cls.assertSetSize(cls.protRmsdClustEns3.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical NJ RMSD clustering from aligned ProDyNpzEnsemble "
+                           "with RMSD 3".format(
+                               len(cls.protRmsdClustEns3.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustEns4 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEns4.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEns4.rmsdThreshold.set(4) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustEns4.treeMethod.set(2)
+        cls.protRmsdClustEns4.setObjLabel('rmsd clust - ens rmsd 4 single')
+        cls.launchProtocol(cls.protRmsdClustEns4)
+
+        cls.assertSetSize(cls.protRmsdClustEns4.outputClasses, 3,
+                           "wrong size SetOfClassesTraj ({0} not 3) with "
+                           "hierarchical single linkage RMSD clustering from aligned ProDyNpzEnsemble "
+                           "with RMSD 4".format(
+                               len(cls.protRmsdClustEns4.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustReorEns0 = cls.newProtocol(ProDyRmsd, doReorder=True)
+        cls.protRmsdClustReorEns0.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustReorEns0.rmsdThreshold.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustReorEns0.setObjLabel('rmsd clust reor - ens 3')
+        cls.launchProtocol(cls.protRmsdClustReorEns0)
+
+        cls.assertSetSize(cls.protRmsdClustReorEns0.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical UPGMA RMSD clustering "
+                           "(0; default) with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns0.outputClasses)
+                            )
+                         )
+
+        cls.assertSetSize(cls.protRmsdClustReorEns0.outputEnsemble, 4,
+                           "wrong size ProDyNpzEnsemble ({0} not 4) with "
+                           "hierarchical UPGMA RMSD clustering "
+                           "(0; default) with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns0.outputEnsemble)
+                            )
+                         )
+
+        labels = [item.getObjLabel() for item in cls.protRmsdClustReorEns0.outputEnsemble]
+        upgma_reord_labels = ["3o21", "6flr", "3p3w", "6fpj"]
+        cls.assertEqual(labels, upgma_reord_labels,
+                           "wrong order of labels in ProDyNpzEnsemble ({0} not {1}) with "
+                           "hierarchical UPGMA RMSD clustering "
+                           "(0; default) with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               labels, upgma_reord_labels
+                            )
+                        )
+
+        cls.protRmsdClustReorEns1 = cls.newProtocol(ProDyRmsd, doReorder=True)
+        cls.protRmsdClustReorEns1.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustReorEns1.rmsdThreshold.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustReorEns1.treeMethod.set(1)
+        cls.protRmsdClustReorEns1.setObjLabel('rmsd clust reor - ens 3 nj')
+        cls.launchProtocol(cls.protRmsdClustReorEns1)
+
+        cls.assertSetSize(cls.protRmsdClustReorEns1.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical NJ RMSD clustering "
+                           "with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns1.outputClasses)
+                            )
+                         )
+
+        cls.assertSetSize(cls.protRmsdClustReorEns1.outputEnsemble, 4,
+                           "wrong size ProDyNpzEnsemble ({0} not 4) with "
+                           "hierarchical NJ RMSD clustering "
+                           "with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns1.outputEnsemble)
+                            )
+                         )
+
+        labels = [item.getObjLabel() for item in cls.protRmsdClustReorEns1.outputEnsemble]
+        nj_reord_labels = ["3p3w", "6fpj", "6flr", "3o21"]
+        cls.assertEqual(labels, nj_reord_labels,
+                           "wrong order of labels in ProDyNpzEnsemble ({0} not {1}) with "
+                           "hierarchical NJ RMSD clustering "
+                           "with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               labels, nj_reord_labels
+                            )
+                        )
+
+        cls.protRmsdClustReorEns2 = cls.newProtocol(ProDyRmsd, doReorder=True)
+        cls.protRmsdClustReorEns2.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustReorEns2.rmsdThreshold.set(4) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustReorEns2.treeMethod.set(2) # single linkage
+        cls.protRmsdClustReorEns2.setObjLabel('rmsd clust reor - ens 4 single')
+        cls.launchProtocol(cls.protRmsdClustReorEns2)
+
+        cls.assertSetSize(cls.protRmsdClustReorEns1.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical NJ RMSD clustering "
+                           "with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns1.outputClasses)
+                            )
+                         )
+
+        cls.assertSetSize(cls.protRmsdClustReorEns2.outputEnsemble, 4,
+                           "wrong size ProDyNpzEnsemble ({0} not 4) with "
+                           "hierarchical single linkage RMSD clustering "
+                           "with RMSD 4 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustReorEns2.outputEnsemble)
+                            )
+                         )
+
+        labels = [item.getObjLabel() for item in cls.protRmsdClustReorEns2.outputEnsemble]
+        single_reord_labels = ["6fpj", "3p3w", "6flr", "3o21"]
+        cls.assertEqual(labels, single_reord_labels,
+                           "wrong order of labels in ProDyNpzEnsemble ({0} not {1}) with "
+                           "hierarchical UPGMA RMSD clustering "
+                           "(default) with RMSD 3 with reordering"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               labels, single_reord_labels
+                            )
+                        )
+
+        cls.protRmsdReorEns1 = cls.newProtocol(ProDyRmsd, doReorder=True, doCluster=False)
+        cls.protRmsdReorEns1.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdReorEns1.rmsdThreshold.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdReorEns1.treeMethod.set(2)
+        cls.protRmsdReorEns1.setObjLabel('rmsd reor - ens 3 single')
+        cls.launchProtocol(cls.protRmsdReorEns1)
+
+        cls.assertSetSize(cls.protRmsdClustEns1.outputClasses, 4,
+                           "wrong size SetOfClassesTraj ({0} not 4) with "
+                           "hierarchical single linkage RMSD reordering "
+                           "with RMSD 4 without clustering "
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustEns1.outputClasses)
+                            )
+                         )
+
+        cls.assertSetSize(cls.protRmsdReorEns1.outputEnsemble, 4,
+                           "wrong size ProDyNpzEnsemble ({0} not 4) with "
+                           "hierarchical single linkage RMSD reordering "
+                           "with RMSD 4 without clustering "
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdReorEns1.outputEnsemble)
+                            )
+                         )
+
+        labels = [item.getObjLabel() for item in cls.protRmsdReorEns1.outputEnsemble]
+        single_reord_labels = ["6fpj", "3p3w", "6flr", "3o21"]
+        cls.assertEqual(labels, single_reord_labels,
+                           "wrong order of labels in ProDyNpzEnsemble ({0} not {1}) with "
+                           "hierarchical single linkage RMSD reordering "
+                           "with RMSD 4 without clustering "
+                           "from aligned ProDyNpzEnsemble ".format(
+                               labels, single_reord_labels
+                            )
+                        )
+
+        cls.protRmsdClustEnsKm1 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEnsKm1.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEnsKm1.clusteringMethod.set(1) # kmedoid
+        cls.protRmsdClustEnsKm1.setObjLabel('rmsd clust - ens kmed defaults 2')
+        cls.launchProtocol(cls.protRmsdClustEnsKm1)
+
+        cls.assertSetSize(cls.protRmsdClustEnsKm1.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "K-medoids RMSD clustering with K=2 (default)"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustEnsKm1.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustEnsKm2 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEnsKm2.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEnsKm2.clusteringMethod.set(1) # kmedoid
+        cls.protRmsdClustEnsKm2.nClusters.set(3) # with alignment, lowest RMSD pair is 2.47 A
+        cls.protRmsdClustEnsKm2.setObjLabel('rmsd clust - ens kmed 3')
+        cls.launchProtocol(cls.protRmsdClustEnsKm2)
+
+        cls.assertSetSize(cls.protRmsdClustEnsKm2.outputClasses, 3,
+                           "wrong size SetOfClassesTraj ({0} not 3) with "
+                           "K-medoids RMSD clustering with K=3 "
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustEnsKm2.outputClasses)
+                            )
+                         )
+
+        cls.protRmsdClustEnsKm3 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustEnsKm3.inputEnsemble.set(cls.protEns2b.outputNpz)
+        cls.protRmsdClustEnsKm3.clusteringMethod.set(1) # kmedoid
+        cls.protRmsdClustEnsKm3.writePDBFiles.set(True)
+        cls.protRmsdClustEnsKm3.setObjLabel('rmsd clust - ens kmed 2 pdbs')
+        cls.launchProtocol(cls.protRmsdClustEnsKm3)
+
+        cls.assertSetSize(cls.protRmsdClustEnsKm3.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "K-medoids RMSD clustering with K=2 (default)"
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustEnsKm3.outputClasses)
+                            )
+                         )
+
+        cls.assertSetSize(cls.protRmsdClustEnsKm3.outputStructures, 2,
+                           "wrong size SetOfAtomStructs ({0} not 2) with "
+                           "K-medoids RMSD clustering with K=2 with writePDB "
+                           "from aligned ProDyNpzEnsemble ".format(
+                               len(cls.protRmsdClustEnsKm3.outputStructures)
+                            )
+                         )
+
 def importStructs(cls):
     # ---------------------------------------------------------------
     # Step 1. Import some structures -> Select CA from all but one
@@ -455,27 +741,33 @@ def importStructs(cls):
     
     # Import PDB 3o21
     cls.protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3o21")
+                                         pdbId="3o21", skipChimera=True)
     cls.protImportPdb1.setObjLabel('pwem import 3o21')
     cls.launchProtocol(cls.protImportPdb1)
 
     # Import PDB 6fpj
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6fpj")
+                                         pdbId="6fpj", skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 6fpj')
     cls.launchProtocol(cls.protImportPdb2)
 
     # Import PDB 6flr
     cls.protImportPdb3 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="6flr")
+                                         pdbId="6flr", skipChimera=True)
     cls.protImportPdb3.setObjLabel('pwem import 6flr')
     cls.launchProtocol(cls.protImportPdb3)
 
     # Import PDB 3o21
     cls.protImportPdb4 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="3p3w")
+                                         pdbId="3p3w", skipChimera=True)
     cls.protImportPdb4.setObjLabel('pwem import 3p3w')
     cls.launchProtocol(cls.protImportPdb4)
+
+    # Import PDB 2k39
+    cls.protImportPdb5 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
+                                            pdbId="2k39", skipChimera=True)
+    cls.protImportPdb5.setObjLabel('pwem import 2k39')
+    cls.launchProtocol(cls.protImportPdb5)
 
     # Select dimer and CA
     cls.protSel1 = cls.newProtocol(ProDySelect, selection="chain B D and name CA")
@@ -499,7 +791,7 @@ def importStructs(cls):
     cls.protSetAS = cls.newProtocol(ProtImportSetOfAtomStructs, inputPdbData=1)
     cls.protSetAS.filesPath.set("Runs")
     cls.protSetAS.filesPattern.set('*Select/*atoms.pdb')
-    cls.protSetAS.setObjLabel('pwem import SetOfAS')
+    cls.protSetAS.setObjLabel('pwem import SetOfAS 3-str')
     cls.launchProtocol(cls.protSetAS)
 
     # -------------------------------------------------------------------------
@@ -511,3 +803,12 @@ def importStructs(cls):
     cls.protSel4.inputStructure.set(cls.protImportPdb1.outputPdb)
     cls.protSel4.setObjLabel('Sel 3o21_CD_ca') # intermediate
     cls.launchProtocol(cls.protSel4)
+
+    # -----------------------------------------------------------
+    # Step 2. Import set of atom structs from existing selections
+    # -----------------------------------------------------------
+    cls.protSetAS2 = cls.newProtocol(ProtImportSetOfAtomStructs, inputPdbData=1)
+    cls.protSetAS2.filesPath.set("Runs")
+    cls.protSetAS2.filesPattern.set('*Select/*atoms.pdb')
+    cls.protSetAS2.setObjLabel('pwem import SetOfAS 4-str')
+    cls.launchProtocol(cls.protSetAS2)

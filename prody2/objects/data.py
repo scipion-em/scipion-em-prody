@@ -270,9 +270,11 @@ def replaceCoordsets(oldNpzEns, coordsets, suffix='',
     return newNpzEns
 
 
+# Kept here for back-compatibility but not used anywhere else
 class SetOfGnmModes(SetOfNormalModes):
     pass
 
+# Kept here for back-compatibility but not used anywhere else
 class SetOfLogisticModes(SetOfNormalModes):
     pass
 

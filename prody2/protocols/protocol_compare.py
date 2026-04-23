@@ -27,7 +27,7 @@
 
 
 """
-This module will provide ProDy normal mode analysis using the anisotropic network model (ANM).
+This module will provide ProDy normal mode comparison tools.
 """
 import os
 from prody2 import Plugin

@@ -98,7 +98,7 @@ class Plugin(pwem.Plugin):
             f'|| conda env create -f {ENV_YAML_PATH} -n {ENV_NAME} -y &&'
         )
         installProDyGithub.append(f'conda activate {ENV_NAME} &&')
-        installProDyGithub.append('git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
+        installProDyGithub.append('ls | grep -q "^ProDy" || git clone https://github.com/jamesmkrieger/ProDy.git ProDy &&')
         installProDyGithub.append('cd ProDy &&')
         installProDyGithub.append('git checkout scipion &&')
         installProDyGithub.append('git pull &&')
@@ -108,9 +108,8 @@ class Plugin(pwem.Plugin):
 
         PRODY_SCIPION_INSTALLED = 'prody_scipion_installed'
         installCmd = [cls.getCondaActivationCmd(), f'conda activate {pwem.Config.getEnvName()} &&']
-        installCmd.append('cd ProDy &&')
-        installCmd.append('pip install -Ue . &&')
-        installCmd.append('cd .. && touch %s' % PRODY_SCIPION_INSTALLED)
+        installCmd.append('pip uninstall prody -y && cd ProDy && pip install -Ue . && cd .. &&')
+        installCmd.append('touch %s' % PRODY_SCIPION_INSTALLED)
         prodyCommands.append((" ".join(installCmd.copy()), PRODY_SCIPION_INSTALLED))
 
         envHome = os.environ.get('HOME', "")
@@ -127,12 +126,16 @@ class Plugin(pwem.Plugin):
                         vars=installEnvVars)
 
     @classmethod
-    def getProgram(cls, program, script=False):
+    def getProgram(cls, program, script=False, location=None):
         """ Create ProDy command line. """
         if script:
             fullProgram = '%s %s && python %s' % (
                 cls.getCondaActivationCmd(), cls.getEnvActivation(),
                 PRODY_SCRIPTS+'/'+program)
+        elif location is not None:
+            fullProgram = '%s %s && python %s' % (
+                cls.getCondaActivationCmd(), cls.getEnvActivation(),
+                location+'/'+program)
         else:
             fullProgram = '%s %s && prody %s' % (
                 cls.getCondaActivationCmd(), cls.getEnvActivation(),
