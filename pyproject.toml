@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scipion-em-prody"
-dynamic = ["version", "dependencies"]
+dynamic = ["version"]
 description = "Plugin to use ProDy programs within the Scipion framework."
 readme = "README.rst"
 requires-python = ">=3.8"
@@ -15,6 +15,8 @@ authors = [
     {name = "Ricardo Serrano Gutiérrez", email = "rserranogut@hotmail.com"},
     {name = "Scipion Team", email = "scipion@cnb.csic.es"}
 ]
+dependencies = ["threadpoolctl==3.1.0"]
+license = {text = "GNU General Public License v3 (GPLv3)"}
 classifiers = [
     #   3 - Alpha
     #   4 - Beta
