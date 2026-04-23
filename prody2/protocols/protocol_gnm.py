@@ -165,7 +165,7 @@ class ProDyGNM(ProDyModesBase):
 
     def getPrefix(self):
         if self.membrane.get():
-            return 'modes.exgnm'
+            return 'modes.exgnm.gnm'
         else:
             return 'modes.gnm'
 
