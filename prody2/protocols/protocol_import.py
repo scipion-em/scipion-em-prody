@@ -142,7 +142,7 @@ class ProDyImportModes(ProtImportFiles):
 
         args = f'--importType {self.importType} --filesPaths {self.getMatchFiles()}' \
             f' --filesPattern2 {self.filesPattern2} --protocolPath {self._getPath()}' \
-            f'--pdbFileName {pdbFileName}'
+            f' --pdbFileName {pdbFileName}'
 
         self.runJob(Plugin.getProgram('import_modes.py', script=True), args)
 
