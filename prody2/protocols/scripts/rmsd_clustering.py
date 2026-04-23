@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--inputEns', type=str, required=True)
     parser.add_argument('--rmsdThreshold', type=int, required=True)
     parser.add_argument('--outputDir', type=str, required=True)
+    parser.add_argument('--treeMethod', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -17,7 +18,7 @@ if __name__ == '__main__':
 
     matrix = ens.getRMSDs(pairwise=True)
     labels = ens.getLabels()
-    tree = prody.calcTree(labels, matrix)
+    tree = prody.calcTree(labels, matrix, method=args.treeMethod)
     subgroups = prody.findSubgroups(tree, args.rmsdThreshold)
 
     counts = [len(sg) for sg in subgroups]

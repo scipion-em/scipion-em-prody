@@ -10,6 +10,7 @@ from .protocol_defvec import ProDyDefvec
 from .protocol_algebra import ProDyAlgebra
 from .protocol_pca import ProDyPCA
 from .protocol_logistic import ProDyLRA
+from .protocol_anm_mc import ProDyANMMC
 
 from .protocol_edit import ProDyEdit
 from .protocol_import import ProDyImportModes

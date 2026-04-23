@@ -120,7 +120,8 @@ def importSelect1akeA(cls):
 def importPdbVol(cls):
     # Import starting structure
     cls.protPdb4ake = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                      pdbFile=PRODY_TEST_PDB_FILE)
+                                      pdbFile=PRODY_TEST_PDB_FILE,
+                                      skipChimera=True)
     cls.protPdb4ake.setObjLabel('Input PDB')
     cls.launchProtocol(cls.protPdb4ake)
 

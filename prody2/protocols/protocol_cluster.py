@@ -46,8 +46,12 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2 import Plugin
 
 import prody
-import matplotlib.pyplot as plt
 
+TREE_METHODS = [
+    'upgma', 'nj',
+    'single', 'average',
+    'ward', 'other'
+]
 
 class ProDyRmsd(EMProtocol):
     """
@@ -90,9 +94,7 @@ class ProDyRmsd(EMProtocol):
                       condition='clusteringMethod==0',
                       help='Whether to reorder ensemble based on RMSD tree')
         
-        form.addParam('treeMethod', EnumParam, choices=['upgma', 'nj',
-                                                        'single', 'average',
-                                                        'ward', 'other'],
+        form.addParam('treeMethod', EnumParam, choices=TREE_METHODS,
                       condition='clusteringMethod==0',
                       label="RMSD tree method", default=0,
                       display=EnumParam.DISPLAY_HLIST,
@@ -145,12 +147,14 @@ class ProDyRmsd(EMProtocol):
         if allWeights is None:
             allWeights = np.ones(self.ens.numConfs(), dtype=float)
         
-        if not self.doCluster.get():
-            repIdx = range(len(inputEnsemble))
-        elif self.clusteringMethod.get() == 0:
-            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2}'.format(ensFn, 
-                                                                               self.rmsdThreshold.get(),
-                                                                               self._getExtraPath())
+        if self.clusteringMethod.get() == 0:
+            method = TREE_METHODS[self.treeMethod.get()]
+            if method == 'other':
+                method = self.otherMethod.get()
+
+            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2} --treeMethod "{3}"'.format(
+                 ensFn, self.rmsdThreshold.get(), self._getExtraPath(), method
+            )
             self.runJob(Plugin.getProgram('rmsd_clustering.py', script=True), args)
             reordIndices = np.loadtxt(self._getExtraPath("reordering_indices.txt"))
         else:
@@ -258,3 +262,10 @@ class ProDyRmsd(EMProtocol):
         pwutils.cleanPath(setFn)
         setObj = SetClass(filename=setFn, **kwargs)
         return setObj
+
+    def _validate(self):
+        errors = []
+        if not (self.doCluster or self.doReorder):
+            errors.append('You need to do at least one operation from cluster and reorder to run this protocol')
+
+        return errors

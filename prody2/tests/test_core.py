@@ -95,7 +95,8 @@ class TestProDyCore1(TestWorkflow):
         # ----------------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
+                                         pdbId="4ake",
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -185,7 +186,8 @@ class TestProDyCore1(TestWorkflow):
 
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                         pdbFile=PRODY_TEST_PDB_FILE)
+                                         pdbFile=PRODY_TEST_PDB_FILE,
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -348,8 +350,8 @@ class TestProDyCore1(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         cls.launchProtocol(protComp5)
 
-        compMatrix5 = np.loadtxt(protComp5._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison didn't normalise")
+        compMatrix5 = np.loadtxt(protComp5._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison is normalised")
 
         # Compare original CA NMA to defvec with raw overlaps
         protComp6 = cls.newProtocol(ProDyCompare)
@@ -359,8 +361,8 @@ class TestProDyCore1(TestWorkflow):
         protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
         cls.launchProtocol(protComp6)
 
-        compMatrix6 = np.loadtxt(protComp6._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison didn't generate large numbers")
+        compMatrix6 = np.loadtxt(protComp6._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison generated larger numbers")
 
         # ------------------------------------------------
         # Step 8. Import ANM & compare scipion vs prody npz
@@ -724,7 +726,8 @@ def importSelect4ake(cls):
 def importSelect1ake(cls):
     # Import a PDB
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="1ake")
+                                         pdbId="1ake",
+                                         skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 1ake')
     cls.launchProtocol(cls.protImportPdb2)
 
@@ -738,14 +741,16 @@ def importSelect1ake(cls):
 def importAligned1akeA(cls):
     # Import the already processed PDB
     cls.protImportPdb1akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                      pdbFile=PRODY_TEST_ALG_PDB_FILE)
+                                             pdbFile=PRODY_TEST_ALG_PDB_FILE,
+                                             skipChimera=True)
     cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
     cls.launchProtocol(cls.protImportPdb1akeA)
 
 def importOnly4akeA(cls):
     # Import the already processed PDB
     cls.protImportPdb4akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                      pdbFile=PRODY_TEST_TAR_PDB_FILE)
+                                             pdbFile=PRODY_TEST_TAR_PDB_FILE,
+                                             skipChimera=True)
     cls.protImportPdb4akeA.setObjLabel('pwem import 4akeA_ca')
     cls.launchProtocol(cls.protImportPdb4akeA)
 
@@ -765,6 +770,5 @@ def importDefvec(cls):
     cls.protDefvec1.importType.set(NMD)
     cls.protDefvec1.filesPath.set(TESTDIR)
     cls.protDefvec1.filesPattern.set("defvec.nmd")
-    cls.protDefvec1.inputStructure.set(cls.protSel.outputStructure)
     cls.protDefvec1.setObjLabel('import_nmd_Defvec_CA')
     cls.launchProtocol(cls.protDefvec1)

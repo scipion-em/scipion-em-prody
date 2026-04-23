@@ -30,12 +30,11 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the Gaussian network model (GNM).
 """
-from pwem.objects import String, EMFile
+from pwem.objects import String, EMFile, SetOfNormalModes
 
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
-from prody2.objects import SetOfGnmModes
 from prody2.protocols.protocol_modes_base import ProDyModesBase
 from prody2 import Plugin, copyConvertPDB
 
@@ -148,47 +147,12 @@ class ProDyGNM(ProDyModesBase):
 
         self.runJob(Plugin.getProgram('gnm'), args)
 
-    # def computeAtomShiftsStep(self, numberOfModes):
-    #     fnOutDir = self._getExtraPath("distanceProfiles")
-    #     makePath(fnOutDir)
-    #     maxShift=[]
-    #     maxShiftMode=[]
-    #     vecStr = "vec.%d"
-    #     for n in range(self.startMode+1, numberOfModes+1):
-    #         fnVec = self._getPath("modes", vecStr % n)
-    #         if exists(fnVec):
-    #             fhIn = open(fnVec)
-    #             md = MetaData()
-    #             atomCounter = 0
-    #             for line in fhIn:
-    #                 d = abs(float(line))
-    #                 if n==self.startMode+1:
-    #                     maxShift.append(d)
-    #                     maxShiftMode.append(self.startMode+1)
-    #                 else:
-    #                     if d>maxShift[atomCounter]:
-    #                         maxShift[atomCounter]=d
-    #                         maxShiftMode[atomCounter]=n
-    #                 atomCounter+=1
-    #                 md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-    #             md.write(join(fnOutDir,"vec%d.xmd" % n))
-    #             fhIn.close()
-                
-    #     md = MetaData()
-    #     for i, _ in enumerate(maxShift):
-    #         fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
-    #         if exists(fnVec):
-    #             objId = md.addObject()
-    #             md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-    #             md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-    #     md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
     def createOutputStep(self):
         outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
         outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_cross-correlations.txt'))
 
         fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfGnmModes(filename=fnSqlite)
+        nmSet = SetOfNormalModes(filename=fnSqlite)
         nmSet._nmdFileName = String(self._getPath(self.getPrefix() + '.nmd'))
 
         inputPdb = self.inputStructure.get()
@@ -201,7 +165,7 @@ class ProDyGNM(ProDyModesBase):
 
     def getPrefix(self):
         if self.membrane.get():
-            return 'modes.exgnm'
+            return 'modes.exgnm.gnm'
         else:
             return 'modes.gnm'
 

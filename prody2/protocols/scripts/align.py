@@ -125,7 +125,7 @@ if __name__ == '__main__':
                     transformationMatrix = np.loadtxt(args.transformationFn)
                     T = prody.Transformation(transformationMatrix)
 
-                keepMismatching = bool(args.keepMismatching)
+                keepMismatching = bool(eval(args.keepMismatching))
                 if keepMismatching:
                     alg = prody.applyTransformation(T, mob)
                     tarSel = tar
