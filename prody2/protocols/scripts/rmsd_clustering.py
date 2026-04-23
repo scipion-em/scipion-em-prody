@@ -8,7 +8,7 @@ if __name__ == '__main__':
     # Input parameters
     parser = argparse.ArgumentParser()
     parser.add_argument('--inputEns', type=str, required=True)
-    parser.add_argument('--rmsdThreshold', type=int, required=True)
+    parser.add_argument('--rmsdThreshold', type=float, required=True)
     parser.add_argument('--outputDir', type=str, required=True)
     parser.add_argument('--treeMethod', type=str, required=True)
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     reordMatrix, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
     np.savetxt(os.path.join(args.outputDir, "cluster_labels.txt"), 
-               labels, fmt="%d")           # save cluster labels for each frame
+               labels, fmt="%s")           # save cluster labels for each frame
     np.savetxt(os.path.join(args.outputDir, "cluster_reps.txt"), 
                repIdx, fmt="%d")           # save the representatives as frame numbers
     np.savetxt(os.path.join(args.outputDir, "cluster_counts.txt"), 
