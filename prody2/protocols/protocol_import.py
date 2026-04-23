@@ -140,7 +140,7 @@ class ProDyImportModes(ProtImportFiles):
             self.inputStructure = AtomStruct(filename=self._getExtraPath("atoms.pdb"))
             pdbFileName = "None"
 
-        args = f'--importType {self.importType} --filesPaths {self.getMatchFiles()}' \
+        args = f'--importType {self.importType} --filesPaths "{self.getMatchFiles()}"' \
             f' --filesPattern2 {self.filesPattern2} --protocolPath {self._getPath()}' \
             f' --pdbFileName {pdbFileName}'
 
