@@ -151,7 +151,7 @@ class ProDyImportModes(ProtImportFiles):
 
         nmSet = SetOfNormalModes(filename=fnSqlite)
         if len(nmSet) > 1 and not (nmSet[1]._eigenval.get() <= nmSet[2]._eigenval.get()
-            or self.outModes.getEigvals()[0] < ZERO):
+            or nmSet[1]._eigenval.get() < ZERO):
             nmSet = SetOfPrincipalComponents(filename=fnSqlite)
 
         if self.importType != NMD:
