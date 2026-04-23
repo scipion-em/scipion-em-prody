@@ -474,6 +474,21 @@ class TestProDyPCA(TestWorkflow):
                             )
                          )
 
+        cls.protRmsdClustSet3 = cls.newProtocol(ProDyRmsd)
+        cls.protRmsdClustSet3.inputEnsemble.set(cls.protSetAS.outputAtomStructs)
+        cls.protRmsdClustSet3.rmsdThreshold.set(3)
+        cls.protRmsdClustSet3.doSuperpose.set(True)
+        cls.protRmsdClustSet3.setObjLabel('rmsd clust - SetAS rmsd 3 super')
+        cls.launchProtocol(cls.protRmsdClustSet3)
+
+        cls.assertSetSize(cls.protRmsdClustSet3.outputClasses, 2,
+                           "wrong size SetOfClassesTraj ({0} not 2) with "
+                           "hierarchical UPGMA RMSD clustering (default) from SetOfAtomStructs "
+                           "with superpose and RMSD 3".format(
+                               len(cls.protRmsdClustSet3.outputClasses)
+                            )
+                         )
+
         idx = 1
         cls.protEns2b = cls.newProtocol(ProDyBuildPDBEnsemble, refType=1,
                                     matchFunc=0)
