@@ -72,7 +72,7 @@ Protocols
 
 * ProDyClustENM for ClustENM and ClustENMD hybrid Simulations
 
-* ProDyRMSD for RMSD clustering and reordering
+* ProDyRmsd for RMSD clustering and reordering
 
 Viewers
 ----------

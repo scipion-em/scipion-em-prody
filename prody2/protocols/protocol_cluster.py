@@ -46,8 +46,12 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2 import Plugin
 
 import prody
-import matplotlib.pyplot as plt
 
+TREE_METHODS = [
+    'upgma', 'nj',
+    'single', 'average',
+    'ward', 'other'
+]
 
 class ProDyRmsd(EMProtocol):
     """
@@ -86,9 +90,7 @@ class ProDyRmsd(EMProtocol):
                       condition='clusteringMethod==0',
                       help='Whether to reorder ensemble based on RMSD tree')
         
-        form.addParam('treeMethod', EnumParam, choices=['upgma', 'nj',
-                                                        'single', 'average',
-                                                        'ward', 'other'],
+        form.addParam('treeMethod', EnumParam, choices=TREE_METHODS,
                       condition='clusteringMethod==0',
                       label="RMSD tree method", default=0,
                       display=EnumParam.DISPLAY_HLIST,
@@ -139,13 +141,15 @@ class ProDyRmsd(EMProtocol):
         if allWeights is None:
             allWeights = np.ones(self.ens.numConfs(), dtype=float)
         
-        if not self.doCluster.get():
-            repIdx = range(self.ens.numConfs())
-        elif self.clusteringMethod.get() == 0:
+        if self.clusteringMethod.get() == 0 or self.doReorder.get():
             matrix = self.ens.getRMSDs(pairwise=True)
             labels = self.ens.getLabels()
 
-            tree = prody.calcTree(labels, matrix)
+            method = TREE_METHODS[self.treeMethod.get()]
+            if method == 'other':
+                method = self.otherMethod.get()
+
+            tree = prody.calcTree(labels, matrix, method=method)
             _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
             classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
@@ -162,7 +166,8 @@ class ProDyRmsd(EMProtocol):
                 self.weights[i] = allWeights[repIdx[i]] * weight
                 allWeights[sgIdx[i]] *= weight
                 classLabels[sgIdx[i]] = i
-        else:
+
+        if self.clusteringMethod.get() == 1:
             args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
                                                                             self._getExtraPath())
             self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
@@ -267,3 +272,10 @@ class ProDyRmsd(EMProtocol):
         pwutils.cleanPath(setFn)
         setObj = SetClass(filename=setFn, **kwargs)
         return setObj
+
+    def _validate(self):
+        errors = []
+        if not (self.doCluster or self.doReorder):
+            errors.append('You need to do at least one operation from cluster and reorder to run this protocol')
+
+        return errors
