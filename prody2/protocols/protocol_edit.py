@@ -118,7 +118,7 @@ class ProDyEdit(ProDyModesBase):
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
         modes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.numberOfModes = len(self.modes.get())
+        self.numberOfModes = Integer(len(self.modes.get()))
         self.zeros = Integer(len(np.nonzero(modes.getEigvals() < ZERO)[0]))
 
         super(ProDyEdit, self)._insertAllSteps()

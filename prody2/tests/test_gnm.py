@@ -31,7 +31,8 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyGNM, ProDyEdit, ProDyCompare,
-                              ProDyDomainDecomp, ProDyImportModes)
+                              ProDyDomainDecomp, ProDyImportModes,
+                              ProDyAlgebra)
 from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
@@ -165,6 +166,9 @@ class TestProDyGNM(TestWorkflow):
         protDomDec1.setObjLabel('DomainDecomp_CA')
         cls.launchProtocol(protDomDec1)
 
+        # ------------------------------------------------
+        # Step 7. Confirm Imports work
+        # ------------------------------------------------
         # Import scipion GNM modes
         protImportModes2 = cls.newProtocol(ProDyImportModes)
         protImportModes2.importType.set(SCIPION)
@@ -190,3 +194,12 @@ class TestProDyGNM(TestWorkflow):
         protImportModes4.inputStructure.set(protSel2.outputStructure)
         protImportModes4.setObjLabel('import_GNM_NPZ_n_ca')
         cls.launchProtocol(protImportModes4)
+
+        # ------------------------------------------------
+        # Step 8. Confirm mode algebra works for GNM
+        # ------------------------------------------------
+        protAlgebra = cls.newProtocol(ProDyAlgebra)
+        protAlgebra.modes.set(protGNM1.outputModes)
+        protAlgebra.coeffString.set("1,2")
+        protAlgebra.setObjLabel('mode algebra')
+        cls.launchProtocol(protAlgebra)

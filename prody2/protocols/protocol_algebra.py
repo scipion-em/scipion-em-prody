@@ -66,10 +66,10 @@ class ProDyAlgebra(ProDyModesBase):
                            'or a SetOfPrincipalComponents.')
 
         form.addParam('coeffSource', EnumParam, choices=['Pointer', 'String'],
-                    default=COEFF_STRING,
-                    label='Type of edit',
-                    help='Modes will be added together with these coefficients. If there are more modes '
-                         'than coefficients then the remaining modes will be ignored.')
+                      default=COEFF_STRING,
+                      label='Type of edit',
+                      help='Modes will be added together with these coefficients. If there are more modes '
+                           'than coefficients then the remaining modes will be ignored.')
 
         form.addParam('coeffPointer', PointerParam,
                       label='Coefficients',

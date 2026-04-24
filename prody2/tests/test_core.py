@@ -35,7 +35,7 @@ from prody2.protocols import (ProDySelect, ProDyAlign,
                               ProDyBiomol, ProDyRenumber, ProDyAddPDBs,
                               ProDyANM, ProDyRTB, ProDyDefvec,
                               ProDyEdit, ProDyCompare,
-                              ProDyImportModes)
+                              ProDyImportModes, ProDyAlgebra)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
@@ -396,6 +396,15 @@ class TestProDyCore1(TestWorkflow):
         protComp6.modes2.set(protImportModes2.outputModes)
         protComp6.setObjLabel('Compare_imported_ANMs')
         cls.launchProtocol(protComp6)
+
+        # ------------------------------------------------
+        # Step 9. Confirm mode algebra works for ANM
+        # ------------------------------------------------
+        protAlgebra = cls.newProtocol(ProDyAlgebra)
+        protAlgebra.modes.set(protANM1.outputModes)
+        protAlgebra.coeffString.set("1,2")
+        protAlgebra.setObjLabel('mode algebra')
+        cls.launchProtocol(protAlgebra)
 
 class TestProDyRTB(TestWorkflow):
     """ Test protocol for ProDy Rotating and Translating Blocks (RTB) Normal Mode Analysis (NMA)"""
