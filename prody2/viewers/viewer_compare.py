@@ -214,9 +214,6 @@ class ProDyComparisonsViewer(ProtocolViewer):
             cumulOverlap = self.cumulOverlapSet2.get()
 
         else:
-            modes_sets = [self.modes1, self.modes2]
-            modes = modes_sets[np.argmax([len(nmset) for nmset in modes_sets])]
-
             row = matrix
             cumulOverlap = self.cumulOverlapMain.get()
 
