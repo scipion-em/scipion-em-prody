@@ -193,11 +193,6 @@ class ProDyComparisonsViewer(ProtocolViewer):
             row = matrix[modeNumber-1]
             cumulOverlap = self.cumulOverlapSet1.get()
 
-            if os.path.isfile(self.protocol._getExtraPath('match_inds.txt')) and self.matchedModeNum.get():
-                x_ticklabels = prody.parseArray(self.protocol._getExtraPath('match_inds.txt'), dtype=int)
-            else:
-                x_ticklabels = np.arange(1, len(self.modes2)+1) 
-
         elif paramName == 'displayBarsSet2':
             modes =  self.modes2
             
