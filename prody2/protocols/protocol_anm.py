@@ -143,7 +143,7 @@ class ProDyANM(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=20, nzeros=6):
+    def _insertAllSteps(self):
         # Insert processing steps
 
         # Link the input

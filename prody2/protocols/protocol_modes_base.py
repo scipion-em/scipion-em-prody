@@ -150,7 +150,12 @@ class ProDyModesBase(EMProtocol):
                       help='Elect whether to register multi-state pdbs from animations as outputs.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n, nzeros):
+    def _insertAllSteps(self, n=None, nzeros=None):
+        if n is None:
+            n = self.numberOfModes.get()
+        if nzeros is None:
+            nzeros = 6 if self.zeros.get() else 0
+
         # Insert processing steps
         self._insertFunctionStep('computeModesStep')
         self._insertFunctionStep('qualifyModesStep', n, 0.15, '')

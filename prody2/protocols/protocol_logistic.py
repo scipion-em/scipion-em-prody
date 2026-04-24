@@ -121,7 +121,9 @@ class ProDyLRA(ProDyModesBase):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=1, nzeros=0):
+    def _insertAllSteps(self):
+        nzeros = 0
+
         # Insert processing steps
         labelsMap = self.createMatchDic(self.insertOrder.get())
         self.classes = list(labelsMap.values())

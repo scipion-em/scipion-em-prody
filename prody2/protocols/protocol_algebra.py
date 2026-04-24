@@ -92,9 +92,8 @@ class ProDyAlgebra(ProDyModesBase):
 
     # --------------------------- STEPS functions ------------------------------
     # This is inherited from modes base protocol
-    def _insertAllSteps(self, n=1, nzeros=0):
-        self.nzero = nzeros
-        super(ProDyAlgebra, self)._insertAllSteps(n=n, nzeros=nzeros)
+    def _insertAllSteps(self):
+        super(ProDyAlgebra, self)._insertAllSteps()
 
     def computeModesStep(self):
         if self.coeffSource == COEFF_STRING:

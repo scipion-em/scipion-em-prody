@@ -45,7 +45,7 @@ class ProDyGNM(ProDyModesBase):
     _label = 'GNM analysis'
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -121,7 +121,7 @@ class ProDyGNM(ProDyModesBase):
         self._insertFunctionStep(self.computeAtomShiftsStep, n, nzeros)
         self._insertFunctionStep(self.createOutputStep)
 
-    def computeModesStep(self, inputFn, n):
+    def computeModesStep(self, inputFn=None, n=None):
 
         if self.structureEM:
             self.pdbFileName = self._getPath('pseudoatoms.pdb')

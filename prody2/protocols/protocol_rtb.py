@@ -173,7 +173,7 @@ class ProDyRTB(ProDyModesBase):
                       help='Elect whether to register multi-state pdbs from animations as outputs.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=20, nzeros=6):
+    def _insertAllSteps(self):
         # Insert processing steps
 
         # Link the input
