@@ -131,45 +131,8 @@ class ProDyProject(EMProtocol):
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
             idSet = ensGot.getIdSet()
-            if isinstance(ensGot, SetOfAtomStructs):
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
-                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
-                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-            elif isinstance(ensGot, SetOfClassesTraj):
-                firstItems = [class_.getFirstItem() for class_ in ensGot]
-                ensFiles = list(set([item.getFileName() for item in firstItems]))
-                ensembles = [prody.loadEnsemble(filename) for filename in ensFiles]
 
-                ens = prody.PDBEnsemble()
-                for j, item in enumerate(firstItems):
-                    ensemble = ensembles[ensFiles.index(item.getFileName())]
-                    labels = ensemble.getLabels()
-
-                    if j == 0:
-                        ens.setAtoms(ensemble.getAtoms())
-                        ens.setCoords(ensemble.getCoords())
-
-                    ens.addCoordset(ensemble[
-                            labels.index(item.getNameId())
-                        ].getCoords())
-
-                weights = np.array([np.array(item._size, dtype=float) for item in ensGot])
-                weights /= sum(weights)
-
-                newFilename = self._getExtraPath('ensemble_{0}.ens.npz'.format(i))
-                prody.saveEnsemble(ens, newFilename)
-
-                self.newNpzEns = ProDyNpzEnsemble().create(os.path.split(newFilename)[0])
-                frames = [frame.clone() for frame in firstItems]
-                for j, frame in enumerate(frames):
-                    frame.setLocation((j+1, newFilename))
-                    frame.setWeight(pwobj.Float(weights[j]))
-                    frame.setObjId(j+1)
-                    self.newNpzEns.append(frame)
-            else:
-                ens = ensGot.loadEnsemble()
-                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            ens, weights = self.parseEnsemble(ensGot)
 
             projection = prody.calcProjection(ens, modes[:self.numModes.get()+1], rmsd=self.rmsd.get(),
                                               norm=self.norm.get())
@@ -222,3 +185,47 @@ class ProDyProject(EMProtocol):
             summ = ['Projected structures onto *{0}* components'.format(self.numModes.get()+1)]
         return summ
         
+    def parseEnsemble(self, ensGot):
+        """Parse ensemble from SetOfAtomStructs, SetOfClassesTraj or ProDyNpzEnsemble"""
+
+        if isinstance(ensGot, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
+            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        elif isinstance(ensGot, SetOfClassesTraj):
+            firstItems = [class_.getFirstItem() for class_ in ensGot]
+            ensFiles = list(set([item.getFileName() for item in firstItems]))
+            ensembles = [prody.loadEnsemble(filename) for filename in ensFiles]
+
+            ens = prody.PDBEnsemble()
+            for j, item in enumerate(firstItems):
+                ensemble = ensembles[ensFiles.index(item.getFileName())]
+                labels = ensemble.getLabels()
+
+                if j == 0:
+                    ens.setAtoms(ensemble.getAtoms())
+                    ens.setCoords(ensemble.getCoords())
+
+                ens.addCoordset(ensemble[
+                        labels.index(item.getNameId())
+                    ].getCoords())
+
+            weights = np.array([np.array(item._size, dtype=float) for item in ensGot])
+            weights /= sum(weights)
+
+            newFilename = self._getExtraPath('ensemble_{0}.ens.npz'.format(i))
+            prody.saveEnsemble(ens, newFilename)
+
+            self.newNpzEns = ProDyNpzEnsemble().create(os.path.split(newFilename)[0])
+            frames = [frame.clone() for frame in firstItems]
+            for j, frame in enumerate(frames):
+                frame.setLocation((j+1, newFilename))
+                frame.setWeight(pwobj.Float(weights[j]))
+                frame.setObjId(j+1)
+                self.newNpzEns.append(frame)
+        else:
+            ens = ensGot.loadEnsemble()
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+
+        return ens, weights
