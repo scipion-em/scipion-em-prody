@@ -46,6 +46,8 @@ from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue map
                               N_ATOMS, N_RESIDUES, N_CHAINS,
                               FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM, MIN_RESNUM)
 
+PDB_DATA_FILE = 'pdb_data.txt'
+
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
 
@@ -438,7 +440,7 @@ class ProDyBiomol(ProDyAtomicBase):
         args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
             self.inputFn, self.uniteChains.get(), self._getPath())
         self.runJob(Plugin.getProgram('biomol.py', script=True), args)
-        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
             lines = fi.readlines()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
@@ -513,7 +515,7 @@ class ProDyAddPDBs(EMProtocol):
         self.runJob(Plugin.getProgram('add_pdbs.py', script=True), args)
 
     def createOutputStep(self):
-        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
             line = fi.readlines()[0]
 
         self.pdbFileName, numAtoms, numResidues, numChains = line.split('\t')
@@ -588,7 +590,7 @@ class ProDyRenumber(ProDyAtomicBase):
         self.runJob(Plugin.getProgram('renumber_pdbs.py', script=True), args)
 
     def createOutputStep(self):
-        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
             line = fi.readlines()[0]
 
         (self.pdbFileName, numAtoms, numResidues, numChains,
