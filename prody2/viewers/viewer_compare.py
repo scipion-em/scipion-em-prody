@@ -213,19 +213,12 @@ class ProDyComparisonsViewer(ProtocolViewer):
             row = matrix[:, modeNumber-1]
             cumulOverlap = self.cumulOverlapSet2.get()
 
-            x_ticklabels = np.arange(1, len(self.modes1)+1) 
-
         else:
             modes_sets = [self.modes1, self.modes2]
             modes = modes_sets[np.argmax([len(nmset) for nmset in modes_sets])]
 
             row = matrix
             cumulOverlap = self.cumulOverlapMain.get()
-
-            if os.path.isfile(self.protocol._getExtraPath('match_inds.txt')) and modes == self.modes2 and self.matchedModeNum.get():
-                x_ticklabels = prody.parseArray(self.protocol._getExtraPath('match_inds.txt'))
-            else:
-                x_ticklabels = np.arange(1, len(modes)+1) 
 
         inds = np.arange(len(row))
 
