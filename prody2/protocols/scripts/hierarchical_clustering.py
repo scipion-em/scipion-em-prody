@@ -34,7 +34,7 @@ if __name__ == '__main__':
     reordMatrix, reordIndices = prody.reorderMatrix(labels, matrix, tree)
 
     np.savetxt(os.path.join(args.outputDir, "cluster_labels.txt"), 
-               labels, fmt="%s")           # save cluster labels for each frame
+               classLabels, fmt="%s")      # save cluster labels for each frame
     np.savetxt(os.path.join(args.outputDir, "cluster_reps.txt"), 
                repIdx, fmt="%d")           # save the representatives as frame numbers
     np.savetxt(os.path.join(args.outputDir, "cluster_counts.txt"), 

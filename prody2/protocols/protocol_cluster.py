@@ -152,11 +152,11 @@ class ProDyRmsd(EMProtocol):
             if method == 'other':
                 method = self.otherMethod.get()
 
-            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2} --treeMethod "{3}"'.format(
+            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2} --treeMethod {3}'.format(
                  ensFn, self.rmsdThreshold.get(), self._getExtraPath(), method
             )
-            self.runJob(Plugin.getProgram('rmsd_clustering.py', script=True), args)
-            reordIndices = np.loadtxt(self._getExtraPath("reordering_indices.txt"))
+            self.runJob(Plugin.getProgram('hierarchical_clustering.py', script=True), args)
+            reordIndices = list(np.loadtxt(self._getExtraPath("reordering_indices.txt"), dtype=int))
         else:
             args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(),
                                                                            self._getExtraPath())
