@@ -121,7 +121,7 @@ class ProDyEdit(ProDyModesBase):
         self.numberOfModes = len(self.modes.get())
         self.zeros = Integer(len(np.nonzero(modes.getEigvals() < ZERO)[0]))
 
-        super(ProDyEdit, self)._insertAllSteps(self.numberOfModes, self.zeros.get())
+        super(ProDyEdit, self)._insertAllSteps()
 
     def computeModesStep(self):
         self.inputStructure = self.modes.get().getPdb()
