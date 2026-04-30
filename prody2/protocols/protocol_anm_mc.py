@@ -78,7 +78,8 @@ class ProDyANMMC(EMProtocol):
 
         form.addParam('useTarget', params.BooleanParam, default=False,
                       label='Whether to use a target structure.',
-                      help='If using a target, steps will be accepted depending on approaching it') 
+                      help='If using a target, steps will be accepted depending on approaching it')
+
         form.addParam('targetStructure', params.PointerParam,
                       label="Target structure (optional)",
                       allowsNull=True,
@@ -114,6 +115,10 @@ class ProDyANMMC(EMProtocol):
                       expertLevel=params.LEVEL_ADVANCED,
                       label="ANM cut-off distance (A)",
                       help='Atoms beyond this distance will not interact')
+
+        form.addParam('useAllAtoms', params.BooleanParam, default=True,
+                      label='Whether to use all atoms.',
+                      help='Otherwise, CA atoms are selected')
 
 
     # --------------------------- STEPS functions ------------------------------
@@ -153,7 +158,7 @@ class ProDyANMMC(EMProtocol):
         args += f"{self.cutoff.get()} 1000000 " # enough steps that RMSD dominates 
 
         args += f"{os.path.join(direc, f'run_{i+1}_final_structure.dcd')} "
-        args += "0 1 1"  # these numbers are 0 for not selecting backbone and 1 for saving all coordinates and writing pdbs
+        args += f"{int(self.useAllAtoms.get())} 1 1"  # these numbers 1 are for saving all coordinate sets and writing pdbs
 
         self.runJob(
             Plugin.getProgram(
