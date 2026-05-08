@@ -49,8 +49,139 @@ else:
 
 class ProDyBioExcelCV19(EMProtocol):
     """
-    This module will provide the ProDy interface for parsing files from 
-    the BioExcel CV19 database
+    Downloads and parses molecular dynamics trajectories from the
+    BioExcel COVID-19 database.
+
+    AI Generated:
+
+    BioExcel CV19 Parser (ProDyBioExcelCV19) — User Manual
+        Overview
+
+        The ProDyBioExcelCV19 protocol provides an interface to access
+        molecular dynamics simulations deposited in the BioExcel
+        COVID-19 database.
+
+        Its main purpose is to automatically retrieve a selected
+        simulation, extract topology and trajectory files, and convert
+        them into Scipion-compatible trajectory objects for downstream
+        structural analysis.
+
+        For structural biology users, this protocol is especially
+        useful when working with publicly available molecular dynamics
+        simulations of biologically relevant systems such as viral
+        proteins, protein-ligand complexes, or conformational
+        ensembles.
+
+        Inputs and General Workflow
+
+        The protocol requires a simulation accession identifier,
+        corresponding to a BioExcel CV19 simulation entry.
+
+        During execution, the protocol:
+
+            1. Downloads the selected simulation data
+            2. Extracts topology and trajectory files
+            3. Applies optional atom selection
+            4. Applies optional frame selection
+            5. Creates an output trajectory object
+
+        The downloaded files include:
+
+            - PDB coordinate file
+            - PSF topology file
+            - DCD trajectory file
+
+        Atom Selection
+
+        Users may optionally reduce the trajectory to specific subsets
+        of atoms.
+
+        Available selections include:
+
+            - Full structure
+            - Carbon atoms only
+            - Backbone atoms
+            - Backbone carbon atoms only
+
+        Biological Interpretation
+
+        This option is useful when users want to reduce trajectory
+        size, focus on protein backbone motions, or simplify
+        conformational analysis.
+
+        Frame Selection
+
+        The protocol allows selecting only specific trajectory frames.
+
+        Frame ranges can be defined using expressions such as:
+
+            - 1-5
+            - 10:20:2
+            - 1-5,11-15
+
+        Practical Use
+
+        This is especially useful for:
+
+            - Sampling representative conformations
+            - Reducing computational cost
+            - Focusing analysis on specific simulation intervals
+
+        Output Options
+
+        The protocol supports two output formats.
+
+        MDSystem Output
+
+        When enabled, the protocol generates a ProDyMDSystem object
+        containing:
+
+            - Coordinate file
+            - Topology file
+            - Trajectory file
+
+        This output is most appropriate for workflows requiring
+        direct molecular dynamics handling.
+
+        Frame-Based Output
+
+        Alternatively, the protocol can create a SetOfTrajFrames.
+
+        In this mode:
+
+            - Each frame is stored as an individual trajectory entry
+            - Equal statistical weight is assigned to every frame
+
+        This representation is useful for workflows where individual
+        conformations are processed independently.
+
+        Summary Information
+
+        After execution, the protocol reports:
+
+            - Total number of atoms in the trajectory
+            - Number of protein residues
+
+        Biological Perspective
+
+        The BioExcel CV19 database contains valuable conformational
+        ensembles that often capture biologically meaningful motions
+        inaccessible to single static structures.
+
+        Using atom and frame selection carefully allows users to focus
+        on the most relevant structural regions while keeping
+        downstream analyses computationally efficient.
+
+        Final Perspective
+
+        For most molecular dynamics workflows, this protocol serves as
+        a convenient bridge between public BioExcel simulation
+        repositories and Scipion structural analysis pipelines.
+
+        It allows users to rapidly transform external simulation data
+        into analysis-ready trajectory objects suitable for
+        conformational exploration, ensemble comparison, and
+        biologically meaningful dynamic interpretation.
     """
     _label = 'BioExcelCV19'
     _possibleOutputs = {'outputTrajectory': ProDyMDSystem}

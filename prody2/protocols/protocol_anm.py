@@ -49,7 +49,250 @@ vecStr = "vec.%d"
 
 class ProDyANM(ProDyModesBase):
     """
-    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
+    This protocol performs normal mode analysis (NMA) using the
+    anisotropic network model (ANM).
+
+    AI Generated:
+
+    ANM NMA (ProDyANM) — User Manual
+        Overview
+
+        The ANM NMA protocol computes collective motions of a molecular
+        structure using the Anisotropic Network Model (ANM). ANM is one of the
+        most widely used coarse-grained approaches for studying large-scale
+        structural dynamics in proteins, nucleic acids, and macromolecular
+        assemblies.
+
+        Rather than simulating atomic trajectories over time, ANM estimates the
+        intrinsic directions in which a structure can move most easily around
+        its equilibrium conformation. These motions often correspond to
+        biologically meaningful conformational changes such as domain closure,
+        hinge bending, subunit rearrangements, breathing motions, or ligand
+        gating.
+
+        For cryo-EM and structural biology users, ANM is especially useful when
+        exploring functional flexibility, interpreting structural variability,
+        generating candidate motions for flexible fitting, or selecting
+        collective deformation coordinates for downstream analysis.
+
+        Inputs and General Workflow
+
+        The protocol requires a single input structure.
+
+        This structure can be a conventional atomic model (for example a PDB
+        file) or a pseudoatomic model derived from an EM density map.
+
+        The protocol constructs an elastic network where nodes correspond to
+        atoms or pseudoatoms, and springs connect nearby nodes. From this
+        network, the Hessian matrix is built and diagonalized to obtain the
+        normal modes.
+
+        The resulting modes describe preferred directions of collective motion.
+
+        Biological Interpretation of ANM
+
+        ANM is best viewed as a model of intrinsic structural mechanics.
+
+        Low-frequency non-zero modes often describe collective motions that are
+        most relevant biologically. These are typically the modes associated
+        with functional conformational changes.
+
+        High-frequency modes generally represent more localized fluctuations and
+        are often less informative when studying large-scale biological motion.
+
+        Six zero modes correspond to rigid-body translations and rotations.
+        These do not describe internal flexibility.
+
+        In practice, biological interpretation usually focuses on the first few
+        low-frequency non-zero modes.
+
+        Number of Modes
+
+        The Number of modes parameter controls how many modes are computed.
+
+        For exploratory analysis, values around 10 to 20 are often sufficient.
+
+        If the goal is to characterize broader conformational variability or to
+        provide a richer basis for downstream flexible fitting, larger values
+        may be useful.
+
+        The theoretical maximum number of modes is three times the number of
+        nodes.
+
+        In most biological applications, computing very large numbers of modes
+        rarely provides major practical benefit unless downstream dimensionality
+        reduction or clustering is planned.
+
+        Cutoff Distance
+
+        The cutoff distance is one of the most important parameters in ANM.
+
+        It determines which nodes interact through springs.
+
+        Biologically, this defines the effective mechanical connectivity of the
+        structure.
+
+        For C-alpha models, the default value of 15 Å usually works well.
+
+        Slightly larger values such as 18 Å may improve robustness in some
+        proteins, especially elongated or multi-domain systems.
+
+        For all-atom models, much smaller cutoffs such as 5–7 Å are generally
+        more appropriate.
+
+        For pseudoatomic models, the optimal value depends on the level of
+        coarse-graining and particle density.
+
+        If the cutoff is too small, the network may become poorly connected and
+        modes may become unstable or fragmented.
+
+        If the cutoff is too large, the model becomes overly rigid and may lose
+        biologically meaningful flexibility.
+
+        A practical biological strategy is to begin with the default and adjust
+        only if the computed modes appear unphysical or overly localized.
+
+        Spring Constant (Gamma)
+
+        Gamma controls the stiffness of the elastic springs.
+
+        In many biological applications, the default value of 1 is entirely
+        sufficient because relative mode shapes matter more than absolute
+        frequencies.
+
+        More advanced users may introduce structure-dependent gamma functions
+        when modeling specific physical hypotheses, but this is usually not
+        necessary for standard exploratory structural analysis.
+
+        Collectivity Threshold
+
+        Collectivity is a particularly useful biological descriptor.
+
+        It measures how broadly distributed a motion is across the structure.
+
+        Modes with high collectivity involve large fractions of the molecule and
+        often correspond to biologically relevant collective rearrangements.
+
+        Modes with low collectivity tend to be more localized and may reflect
+        local flexibility rather than global conformational change.
+
+        The collectivity threshold allows automatic deselection of poorly
+        collective modes.
+
+        For many biological analyses, the default value provides a useful first
+        filter.
+
+        Setting the threshold to zero disables deselection entirely.
+
+        Zero Modes
+
+        The protocol can optionally retain zero eigenvalue modes.
+
+        These correspond to rigid-body motions and generally do not provide
+        information about internal structural flexibility.
+
+        In most biological analyses, these are not of primary interest.
+
+        However, keeping them may be useful for technical completeness or
+        specialized downstream workflows.
+
+        Sparse, KDTree, and Turbo Options
+
+        These parameters mainly affect computational performance rather than
+        biological interpretation.
+
+        Sparse matrices reduce memory usage at the cost of speed.
+
+        KDTree changes how neighbors are identified during network
+        construction.
+
+        Turbo mode uses a faster but more memory-intensive diagonalization
+        strategy.
+
+        For most users, the default settings are appropriate.
+
+        Explicit Membrane Model
+
+        For membrane proteins, an explicit membrane elastic network can be
+        included.
+
+        This is particularly relevant when the mechanical environment of the
+        lipid bilayer strongly influences the dominant motions.
+
+        Biologically, this can improve interpretation of channels,
+        transporters, and membrane-associated assemblies.
+
+        This option should only be used when the structure has already been
+        properly oriented relative to the membrane.
+
+        Animation and Visual Interpretation
+
+        The protocol automatically generates animations of the computed modes.
+
+        These animations are extremely useful for biological interpretation.
+
+        They help reveal whether a mode corresponds to hinge closure, domain
+        rotation, interface breathing, gate opening, or other collective
+        rearrangements.
+
+        RMSD amplitude controls the visual excursion along the mode.
+
+        Larger amplitudes make motions easier to inspect but can exaggerate
+        structural changes beyond realistic physical scales.
+
+        Number of frames determines smoothness of the animation.
+
+        Positive and negative directions simply explore both directions along
+        the same mode vector.
+
+        Outputs and Their Interpretation
+
+        The main output is a SetOfNormalModes object.
+
+        Each mode includes:
+
+        - an eigenvector describing the direction of motion
+        - an eigenvalue related to stiffness
+        - collectivity information
+        - metadata indicating whether the mode passed collectivity filtering
+
+        The protocol also produces visualization files compatible with ProDy
+        and ContinuousFlex viewers.
+
+        These outputs can be used directly in downstream analyses such as mode
+        comparison, deformation fitting, image analysis, or structural
+        interpretation.
+
+        Practical Recommendations
+
+        For most biological systems, a good starting point is:
+
+        - 10 to 20 modes
+        - cutoff near 15 Å for C-alpha models
+        - default collectivity filtering
+
+        If modes appear fragmented or excessively localized, increasing the
+        cutoff is often the first parameter worth testing.
+
+        If the structure is a membrane protein, consider the membrane option
+        only if the orientation is biologically meaningful.
+
+        In practice, visual inspection of the first few non-zero collective
+        modes usually provides the most biologically useful information.
+
+        Final Perspective
+
+        ANM does not attempt to reproduce exact physical trajectories.
+
+        Instead, it identifies the easiest collective deformations allowed by
+        the architecture of the structure.
+
+        For structural biology users, this makes ANM especially powerful for
+        understanding how molecular architecture constrains biological motion.
+
+        The most reliable biological conclusions usually come from combining
+        ANM with structural knowledge, biochemical context, and direct visual
+        inspection of the dominant collective modes.
     """
     _label = 'ANM NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}

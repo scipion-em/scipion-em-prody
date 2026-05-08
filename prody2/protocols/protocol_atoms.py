@@ -60,9 +60,358 @@ SUMMARY_NO_OUTPUT = 'Output structure not ready yet'
 NOT_DUMMY_SELSTR = "not dummy"
 
 
-class ProDyAtomicBase(EMProtocol):
+class ProDyAtomicProtocols(EMProtocol):
     """
-    This protocol will perform atom selection
+    Collection of ProDy-based protocols for atomic structure selection,
+    alignment, biomolecular assembly extraction, structure merging,
+    metadata conversion, and residue renumbering.
+
+    AI Generated:
+
+    ProDy Atomic Protocols — User Manual
+        Overview
+
+        This collection of protocols provides several structure-level
+        operations for atomic models such as PDB or mmCIF files. These
+        protocols are intended for structural biology workflows where
+        users need to manipulate, compare, transform, or extract
+        biologically relevant subsets of atomic coordinates.
+
+        The main operations covered are:
+
+            - Atom selection
+            - Structure alignment and superposition
+            - Biomolecular assembly extraction
+            - Merging multiple structures
+            - Conversion of structures into atom-level metadata
+            - Residue renumbering and chain reassignment
+
+        All protocols are designed to work with standard atomic models
+        as well as pseudoatomic models derived from EM volumes.
+
+        General Input Strategy
+
+        Most protocols accept atomic structures through one of three
+        mechanisms:
+
+            1. Import by PDB identifier
+            2. Import from a local PDB/mmCIF file
+            3. Import from an existing AtomStruct object
+
+        This flexibility allows seamless integration with both external
+        structural databases and existing Scipion workflows.
+
+        ------------------------------------------------------------------
+        ProDyAtomicBase — Shared Atomic Input Definition
+        ------------------------------------------------------------------
+
+        This base protocol defines the common atomic input parameters
+        shared by several derived protocols.
+
+        It provides:
+
+            - Atomic structure import options
+            - Optional atom selection strings
+            - Optional chain unification
+
+        The selection syntax follows the ProDy selection language,
+        allowing users to define subsets of atoms based on residue type,
+        atom names, chains, and many other structural attributes.
+
+        In practical biological workflows, this makes it possible to
+        isolate:
+
+            - Protein alpha carbons
+            - Nucleic acid backbone atoms
+            - Specific chains
+            - Domain-specific regions
+
+        ------------------------------------------------------------------
+        ProDySelect — Atom Selection
+        ------------------------------------------------------------------
+
+        The ProDySelect protocol extracts a subset of atoms from an
+        input atomic structure according to a user-defined selection
+        string.
+
+        Workflow
+
+            1. Load the input structure
+            2. Apply the selection expression
+            3. Write the selected atoms into a new PDB file
+
+        Biological Interpretation
+
+        This protocol is especially useful when users want to isolate
+        biologically meaningful subsets such as:
+
+            - Protein backbone atoms
+            - Ligand-free protein regions
+            - Nucleic acid atoms only
+            - Domain-specific structural fragments
+
+        Outputs
+
+            - A new atomic structure containing only the selected atoms
+
+        Summary Information
+
+        The protocol reports:
+
+            - Number of selected atoms
+            - Number of original atoms
+            - Number of protein residues retained
+
+        Practical Note
+
+        If no atoms satisfy the selection criteria, no output structure
+        is generated.
+
+        ------------------------------------------------------------------
+        ProDyAlign — Atomic Structure Mapping and Superposition
+        ------------------------------------------------------------------
+
+        The ProDyAlign protocol performs structural correspondence
+        mapping and rigid-body superposition between a mobile structure
+        and a target structure.
+
+        Biological Purpose
+
+        This protocol is useful for:
+
+            - Comparing homologous proteins
+            - Mapping conformational states
+            - Evaluating structural similarity
+            - Preparing structures for direct comparison
+
+        Main Workflow
+
+            1. Parse mobile and target structures
+            2. Match chains using one of several strategies
+            3. Map residues between structures
+            4. Compute optimal rigid transformation
+            5. Apply transformation to the mobile structure
+            6. Save aligned structures and transformation matrix
+
+        Chain Matching Strategies
+
+            - bestMatch:
+              explores chain combinations and chooses the best match
+
+            - sameChid:
+              matches chains with identical chain identifiers
+
+            - sameChainPos:
+              matches chains according to chain order
+
+            - custom:
+              user-defined chain correspondence
+
+        Residue Mapping Options
+
+            - Sequence alignment
+            - Structural alignment
+            - Automatic hybrid mapping
+            - No mapping
+
+        Outputs
+
+            - Aligned mobile structure
+            - Target structure
+            - Transformation matrix
+
+        RMSD Evaluation
+
+        The protocol computes RMSD after alignment, providing an
+        immediate structural similarity measure.
+
+        Biological Considerations
+
+        High RMSD values may indicate:
+
+            - Low structural similarity
+            - Incorrect chain mapping
+            - Flexible domain differences
+            - Large conformational rearrangements
+
+        Advanced Option
+
+        Users may optionally keep mismatching atoms, which can be useful
+        when analyzing insertions, flexible regions, or incomplete
+        structural correspondence.
+
+        ------------------------------------------------------------------
+        ProDyBiomol — Biomolecular Assembly Extraction
+        ------------------------------------------------------------------
+
+        This protocol extracts biologically relevant biomolecular
+        assemblies from atomic structure files.
+
+        Biological Relevance
+
+        Structures deposited in the PDB often contain only the
+        asymmetric unit. This protocol reconstructs biologically
+        meaningful assemblies such as:
+
+            - Homodimers
+            - Multimeric complexes
+            - Biological oligomers
+
+        Optional OPM Support
+
+        When importing from a PDB identifier, users may also request
+        membrane placement models from the OPM database.
+
+        Workflow
+
+            1. Load the input structure
+            2. Expand biomolecular assemblies
+            3. Write each assembly as a separate structure
+
+        Outputs
+
+            - A set of atomic structures, one per biological assembly
+
+        Summary Information
+
+        For each extracted assembly, the protocol reports:
+
+            - Number of residues
+            - Number of chains
+
+        Practical Importance
+
+        This protocol is especially useful for membrane proteins,
+        oligomeric enzymes, and complexes where the deposited asymmetric
+        unit does not correspond to the functional biological state.
+
+        ------------------------------------------------------------------
+        ProDyAddPDBs — Merge Atomic Structures
+        ------------------------------------------------------------------
+
+        This protocol merges multiple atomic structures into a single
+        output structure.
+
+        Workflow
+
+            1. Read all input structures
+            2. Concatenate atom groups
+            3. Write the merged structure
+
+        Biological Applications
+
+        Useful for:
+
+            - Building composite assemblies
+            - Combining chains from separate files
+            - Preparing multicomponent models
+
+        Output
+
+            - A single merged atomic structure
+
+        Summary Information
+
+        The protocol reports:
+
+            - Number of protein residues
+            - Total number of atoms
+            - Total number of chains
+
+        Important Consideration
+
+        The protocol concatenates structures directly and does not
+        perform collision detection or spatial optimization.
+
+        ------------------------------------------------------------------
+        ProDyToBiopythonMetadata — Convert Structure to Atom Metadata
+        ------------------------------------------------------------------
+
+        This protocol converts an atomic structure into a metadata-like
+        collection of atom objects.
+
+        Workflow
+
+            1. Parse the input structure
+            2. Create one metadata atom entry per atomic coordinate
+            3. Store the resulting SetOfAtoms
+
+        Biological Use
+
+        This protocol is useful when downstream operations require
+        atom-level indexing or metadata representation rather than a
+        coordinate-only atomic model.
+
+        Output
+
+            - SetOfAtoms metadata object
+
+        Summary Information
+
+        The protocol reports the total number of atoms converted.
+
+        ------------------------------------------------------------------
+        ProDyRenumber — Residue Renumbering and Chain Reassignment
+        ------------------------------------------------------------------
+
+        The ProDyRenumber protocol modifies residue numbering and
+        optionally replaces chain identifiers for a selected subset of
+        atoms.
+
+        Workflow
+
+            1. Load input structure
+            2. Apply atom selection
+            3. Add an integer offset to residue numbers
+            4. Optionally assign a new chain identifier
+            5. Write modified structure
+
+        Biological Applications
+
+        This protocol is particularly useful when:
+
+            - Matching numbering between homologous structures
+            - Standardizing residue indices before modeling
+            - Preparing structures for comparative analysis
+            - Resolving chain naming inconsistencies
+
+        Important Practical Note
+
+        Only atoms satisfying the selection string are modified.
+
+        Outputs
+
+            - A renumbered atomic structure
+
+        Summary Information
+
+        The protocol reports:
+
+            - Number of selected atoms
+            - Number of original atoms
+            - Number of retained protein residues
+
+        ------------------------------------------------------------------
+        Final Perspective
+        ------------------------------------------------------------------
+
+        These ProDy atomic protocols provide a compact but highly useful
+        toolbox for atomic-level structural manipulation.
+
+        In practical structural biology workflows, they allow users to:
+
+            - isolate relevant structural regions,
+            - compare homologous models,
+            - reconstruct biological assemblies,
+            - merge independent structural components,
+            - transform coordinate models into metadata representations,
+            - standardize residue numbering.
+
+        Although computationally straightforward, these operations often
+        have strong biological consequences. Careful selection of chains,
+        residues, mapping strategies, and biological assemblies is
+        essential for obtaining meaningful downstream structural
+        interpretation.
     """
     _label = 'Select'
     IMPORT_FROM_ID = 0

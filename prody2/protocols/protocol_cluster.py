@@ -51,7 +51,183 @@ import matplotlib.pyplot as plt
 
 class ProDyRmsd(EMProtocol):
     """
-    This protocol will perform ProDy principal component analysis (PCA) using atomic structures
+    Performs RMSD-based clustering and optional reordering of a structural
+    ensemble using pairwise conformational similarity.
+
+    AI Generated:
+
+    ProDy RMSD (ProDyRmsd) — User Manual
+        Overview
+
+        The ProDy RMSD protocol analyzes a structural ensemble by measuring
+        pairwise root mean square deviations (RMSD) between conformations.
+        Its main purpose is to identify structurally similar groups of models,
+        select representative conformations, and optionally reorder the
+        ensemble according to structural relationships.
+
+        In structural biology, this protocol is particularly useful when
+        working with molecular dynamics trajectories, conformational
+        ensembles, flexible fitting results, or collections of related
+        atomic models. Rather than inspecting each structure individually,
+        RMSD clustering helps reveal dominant conformational states and
+        organize structural variability in a biologically meaningful way.
+
+        Inputs and General Workflow
+
+        The protocol accepts either:
+
+        - A SetOfAtomStructs containing atomic structures
+        - A previously generated ProDy ensemble
+
+        When atomic structures are provided, the protocol first builds a
+        ProDy ensemble while preserving all conformations. No structures
+        are rejected during this step, which is important when the user
+        wants a complete representation of the original ensemble.
+
+        All structures should contain the same number of atoms and should
+        represent comparable molecular states. Large differences in atom
+        composition or topology can invalidate RMSD comparisons.
+
+        Clustering the Ensemble
+
+        The protocol can either leave the ensemble unchanged or divide it
+        into structurally related clusters.
+
+        If clustering is disabled, every conformation is treated as its
+        own representative.
+
+        If clustering is enabled, two alternative strategies are available.
+
+        Hierarchical Clustering
+
+        In hierarchical mode, the protocol computes the full pairwise RMSD
+        matrix and constructs an RMSD tree.
+
+        Several tree-building methods are available, including:
+
+        - UPGMA
+        - Neighbor joining
+        - Single linkage
+        - Average linkage
+        - Ward linkage
+        - Other scipy-supported methods
+
+        The resulting tree is then cut using an RMSD threshold. Structures
+        whose mutual RMSD falls below that threshold are grouped into the
+        same conformational class.
+
+        Biologically, this approach is useful when the number of states is
+        not known in advance and the user prefers the data itself to define
+        conformational separation.
+
+        K-medoids Clustering
+
+        In k-medoids mode, the user specifies the number of desired clusters.
+
+        Unlike hierarchical clustering, this method explicitly partitions
+        the ensemble into a fixed number of groups. For each group, a
+        medoid is selected as the most representative conformation.
+
+        This option is often preferred when prior biological knowledge
+        suggests how many major conformational states are expected.
+
+        Representative Structures
+
+        For every cluster, the protocol identifies a representative
+        conformation.
+
+        In hierarchical clustering, the representative is selected as the
+        structure whose average RMSD to the rest of the cluster is minimal.
+
+        In k-medoids clustering, the medoid itself acts as the representative.
+
+        These representatives often correspond to the most central
+        conformations of each structural state and can be especially useful
+        for visualization, downstream modeling, or biological interpretation.
+
+        Ensemble Weights
+
+        The protocol propagates statistical weights to both individual
+        conformations and representative structures.
+
+        Cluster weights are proportional to cluster population. This means
+        that highly populated conformational states contribute more strongly
+        to downstream analyses than rare states.
+
+        From a biological perspective, this is important because abundant
+        conformations may correspond to dominant functional states, while
+        sparsely populated ones may represent transient intermediates.
+
+        Optional Reordering
+
+        When hierarchical clustering is used, the protocol can reorder the
+        ensemble according to the RMSD tree.
+
+        This does not modify the structures themselves. Instead, it changes
+        their ordering so that structurally similar conformations appear
+        next to one another.
+
+        Reordering is especially useful for visualization, dendrogram
+        interpretation, and trajectory-like inspection of conformational
+        landscapes.
+
+        Representative PDB Files
+
+        Optionally, the protocol can write representative PDB files for
+        each cluster.
+
+        These files are often useful for:
+
+        - Visual inspection of dominant conformational states
+        - Structural comparison between clusters
+        - Further molecular modeling or docking studies
+        - Preparation of figures for publications
+
+        Outputs and Their Interpretation
+
+        Depending on the selected options, the protocol may generate:
+
+        - A set of conformational classes
+        - Representative structures for each class
+        - A reordered ensemble
+        - Cluster weights
+
+        Each output class contains one representative frame together with
+        all ensemble members assigned to that cluster.
+
+        Biologically, these classes can often be interpreted as candidate
+        structural substates, although RMSD similarity alone does not
+        guarantee functional equivalence.
+
+        Practical Recommendations
+
+        In exploratory work, hierarchical clustering with a moderate RMSD
+        threshold is often the best starting point because it lets the
+        structural data define the conformational organization.
+
+        If the expected number of states is known beforehand, k-medoids
+        provides a more controlled partition.
+
+        A very small RMSD threshold can fragment the ensemble into many
+        tiny clusters, while a very large threshold can merge distinct
+        conformations into a single class. The best threshold therefore
+        depends on the molecular system and expected structural variability.
+
+        When representative PDB files are requested, it is good practice
+        to visually inspect them because cluster representatives often
+        reveal biologically meaningful motions such as hinge bending,
+        loop rearrangements, or domain reorientation.
+
+        Final Perspective
+
+        For biological interpretation, ProDy RMSD should be viewed as a
+        structural organization tool rather than a direct functional
+        classifier.
+
+        Its main value lies in reducing complex conformational ensembles
+        into representative structural states that can be explored,
+        compared, and interpreted more easily in the context of molecular
+        flexibility and functional dynamics.
     """
     _label = 'RMSD Cluster'
     _possibleOutputs = {'outputEnsemble': ProDyNpzEnsemble}

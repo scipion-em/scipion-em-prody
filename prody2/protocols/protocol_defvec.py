@@ -42,7 +42,183 @@ import math
 
 class ProDyDefvec(EMProtocol):
     """
-    This protocol will perform deformation vector analysis
+    Deformation Vector Analysis (ProDyDefvec) — User Manual
+
+    Overview
+
+    The ProDyDefvec protocol computes a deformation vector between two
+    structures. It describes the coordinate displacement required to move
+    a mobile structure toward a target structure.
+
+    In structural biology, this protocol is useful when comparing two
+    conformational states of the same macromolecule. Rather than describing
+    motion through multiple normal modes, it directly captures the observed
+    structural transition as a single deformation vector.
+
+    This makes the protocol particularly valuable for studying domain
+    rearrangements, hinge motions, ligand-induced changes, or conformational
+    differences between experimentally determined structures.
+
+    Inputs and General Workflow
+
+    The protocol requires two structures:
+
+    - A mobile structure, which serves as the starting conformation.
+    - A target structure, which defines the destination conformation.
+
+    Both structures may be true atomic models (PDB files) or pseudoatomic
+    models derived from EM maps.
+
+    A critical requirement is that both structures contain the same number
+    of nodes in corresponding order. The protocol assumes a one-to-one
+    positional correspondence between atoms or pseudoatoms.
+
+    During execution, the protocol:
+
+    1. Loads both structures.
+    2. Computes the RMSD between them (unless the user explicitly provides
+       a different amplitude for animation).
+    3. Calculates the deformation vector connecting the mobile and target
+       conformations.
+    4. Stores the result as a single-mode NMA object.
+    5. Generates animations and atom-shift profiles.
+
+    Biological Interpretation
+
+    Unlike classical normal mode analysis, where motion is predicted from
+    intrinsic flexibility, this protocol measures an actual structural
+    displacement observed between two conformations.
+
+    Biologically, this allows direct interpretation of:
+
+    - Which regions move the most
+    - Whether motion is localized or distributed
+    - Which domains behave as rigid bodies
+    - Whether structural change is collective or highly local
+
+    Large coherent displacements often indicate biologically meaningful
+    transitions such as domain closure, subunit rotation, or large-scale
+    functional rearrangements.
+
+    RMSD Amplitude and Animation
+
+    The RMSD parameter controls the amplitude used for animation.
+
+    If RMSD is set to zero, the protocol automatically uses the true RMSD
+    measured between the mobile and target structures.
+
+    This is usually the most biologically meaningful setting because the
+    animation then reflects the experimentally observed displacement.
+
+    Alternatively, the user may provide a custom RMSD amplitude.
+
+    This is useful when:
+
+    - Exaggerating subtle motions for visualization
+    - Normalizing amplitudes across multiple comparisons
+    - Producing presentation-quality animations
+
+    Animation Parameters
+
+    The protocol generates an animation along the deformation vector.
+
+    Important parameters include:
+
+    - Number of frames:
+      Controls smoothness of the animation. Higher values produce smoother
+      transitions but require more storage.
+
+    - Positive direction:
+      Animates the motion from the mobile structure toward the target.
+
+    - Negative direction:
+      Extrapolates motion beyond the mobile structure, effectively extending
+      the deformation past the starting conformation.
+
+    For most biological applications, the positive direction is the most
+    relevant because it represents the actual observed conformational change.
+
+    The negative direction can be useful for exploratory analysis, especially
+    when investigating whether the detected motion belongs to a larger
+    structural trajectory.
+
+    Structural Representation in Visualization
+
+    The protocol automatically writes VMD visualization commands.
+
+    It adapts the display style depending on the type of atoms detected:
+
+    - If the structure mainly contains CA atoms or phosphate atoms,
+      a bead representation is used.
+
+    - Otherwise, ribbon-like representations are generated.
+
+    This provides immediate qualitative visualization of the conformational
+    transition without additional manual setup.
+
+    Atom Shift Profiles
+
+    A particularly informative output is the per-atom displacement profile.
+
+    For every atom (or pseudoatom), the protocol computes the magnitude of
+    displacement induced by the deformation vector.
+
+    Biologically, this helps identify:
+
+    - Flexible loops
+    - Hinge regions
+    - Stable structural cores
+    - Domains undergoing the largest displacement
+
+    These profiles are often more informative than global RMSD values,
+    because they reveal where structural change is concentrated.
+
+    Outputs and Their Interpretation
+
+    The protocol produces:
+
+    - A SetOfNormalModes object containing a single deformation mode
+    - An NMD file for visualization
+    - Animated PDB trajectories
+    - Per-atom shift metadata
+    - Maximum displacement profiles
+
+    The resulting deformation mode can be interpreted exactly like a
+    normal mode in downstream ProDy workflows, although biologically
+    it represents an observed transition rather than a predicted intrinsic
+    fluctuation.
+
+    Practical Recommendations
+
+    For best results:
+
+    - Ensure both structures are already aligned before running the protocol.
+      Misalignment will strongly distort the deformation vector.
+
+    - Use structures with identical atom correspondence.
+      Missing residues or inconsistent atom ordering can invalidate results.
+
+    - When comparing different conformational states, inspect atom-shift
+      profiles rather than relying only on RMSD.
+
+    - Use the automatically estimated RMSD for biologically realistic
+      animations.
+
+    In practice, this protocol is especially useful when studying
+    experimentally observed structural transitions where direct geometric
+    interpretation is more important than harmonic flexibility analysis.
+
+    Final Perspective
+
+    For structural biologists, ProDyDefvec provides a direct way to
+    characterize conformational transitions.
+
+    Rather than asking how a molecule could move, this protocol asks how
+    it did move between two experimentally observed states.
+
+    That distinction makes it particularly powerful for mechanistic
+    interpretation, visualization of functional transitions, and the
+    identification of structurally important moving regions.
     """
     _label = 'Deformation'
 

@@ -46,8 +46,134 @@ COEFF_STRING = 1
 
 class ProDyAlgebra(ProDyModesBase):
     """
-    This protocol will add together components from a SetOfNormalModes object 
-    with coefficients based on overlaps or user input
+    Combines several normal modes into a single collective mode by applying
+    user-defined coefficients.
+
+    AI Generated:
+
+    ProDy Algebra (ProDyAlgebra) — User Manual
+        Overview
+
+        The ProDy Algebra protocol creates a new motion mode by linearly
+        combining modes from an existing set of normal modes or principal
+        components. Instead of analyzing each mode independently, this
+        protocol allows the user to build a custom collective deformation
+        by assigning coefficients to selected components.
+
+        In structural biology, this is useful when several modes contribute
+        jointly to a biologically relevant conformational change. For example,
+        a transition between open and closed states may not be explained by
+        a single low-frequency mode, but rather by a weighted combination of
+        several motions.
+
+        Inputs and General Workflow
+
+        The protocol requires a SetOfNormalModes as input. These modes may
+        originate from:
+
+        - A normal mode analysis of an atomic structure (PDB-based model)
+        - A pseudoatomic model derived from an EM volume
+        - A set of principal components obtained from previous analyses
+
+        The protocol first reads both the normal modes and the associated
+        atomic coordinates. These coordinates are necessary because the final
+        output must remain associated with a structural model.
+
+        Coefficient Definition
+
+        The key operation is the assignment of coefficients that determine
+        how strongly each mode contributes to the final combined vector.
+
+        Two coefficient input methods are available:
+
+        1. Pointer input
+           Coefficients are read from an external file. This is useful when
+           coefficients have been generated automatically, for example from
+           overlap analysis or external numerical processing.
+
+        2. String input
+           Coefficients are typed manually by the user as a list of numeric
+           values separated by commas or spaces.
+
+        The order of coefficients follows the order of the modes in the input
+        set. If more modes are available than coefficients, only the modes
+        with assigned coefficients are used.
+
+        Number of Components
+
+        The parameter "Number of components" controls how many modes are
+        included in the linear combination.
+
+        - If set to -1, all provided coefficients are used.
+        - If a positive value is given, only the first N modes are included.
+
+        This is useful when the user wants to restrict the combination to
+        only the most relevant low-frequency modes, which are often the most
+        biologically meaningful.
+
+        Mathematical Operation
+
+        The protocol performs a simple weighted sum:
+
+            combined_mode = c1*m1 + c2*m2 + ... + cn*mn
+
+        where each coefficient c multiplies its corresponding mode m.
+
+        The resulting vector is stored as a new normal mode containing a
+        single eigendirection.
+
+        Biological Interpretation
+
+        The generated output should not be interpreted as a new independent
+        normal mode in the strict physical sense. Instead, it represents a
+        synthetic collective motion built from existing components.
+
+        This makes the protocol especially valuable for:
+
+        - Reconstructing experimentally observed conformational transitions
+        - Building custom trajectories for visualization
+        - Exploring hypotheses about coupled domain motions
+        - Combining principal components into interpretable structural changes
+
+        In practice, this protocol is often used to generate motions that
+        better match experimental observations than any individual mode alone.
+
+        Output Files
+
+        After execution, the protocol produces:
+
+        - A new SetOfNormalModes object containing the combined mode
+        - A list of the coefficients that were actually used
+        - A ProDy NMD file for visualization of the resulting motion
+
+        The original atomic model is linked to the output so the combined
+        motion can be visualized directly in molecular viewers.
+
+        Practical Recommendations
+
+        In most biological applications, low-frequency modes should be
+        prioritized because they usually describe large-scale collective
+        motions such as hinge bending, domain rearrangements, or breathing
+        motions.
+
+        Large coefficients can amplify unrealistic distortions, especially
+        when many modes are combined. It is therefore good practice to begin
+        with small coefficients and visually inspect the resulting motion.
+
+        If the goal is to reproduce a known conformational change, overlap-
+        derived coefficients are often more reliable than arbitrary manual
+        values.
+
+        Final Perspective
+
+        For structural interpretation, ProDy Algebra is best understood as
+        a flexible mode-combination tool rather than a strict physical
+        normal mode calculation.
+
+        Its strength lies in allowing users to construct biologically
+        meaningful collective motions from existing dynamical components,
+        making it especially useful for hypothesis-driven conformational
+        analysis and visualization.
     """
     _label = 'Vector alegebra'
 

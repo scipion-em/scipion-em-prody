@@ -50,7 +50,236 @@ from prody2 import Plugin
 
 class ProDyGNM(EMProtocol):
     """
-    This protocol will perform normal mode analysis (NMA) using the Gaussian network model (GNM)
+    Performs Gaussian Network Model (GNM) normal mode analysis on an atomic
+    structure or pseudoatomic model.
+
+    AI Generated:
+
+    GNM Analysis (ProDyGNM) — User Manual
+        Overview
+
+        The GNM Analysis protocol performs normal mode analysis using the
+        Gaussian Network Model (GNM), a coarse-grained elastic network
+        approach widely used to characterize collective motions in proteins
+        and other macromolecular assemblies.
+
+        In structural biology, GNM is commonly used to identify intrinsic
+        flexibility patterns encoded by the native structure. Rather than
+        simulating explicit time evolution, the method analyzes how the
+        topology of interatomic contacts gives rise to preferred collective
+        fluctuations.
+
+        For biological users, this protocol is particularly useful when
+        studying domain motions, flexible regions, hinge behavior, or
+        identifying collective motions that may be functionally relevant.
+
+        Inputs and General Workflow
+
+        The protocol requires a single input structure.
+
+        The input may be either:
+
+            - a standard atomic structure (for example, a PDB model)
+            - a pseudoatomic representation derived from volumetric data
+
+        The workflow follows these steps:
+
+            1. Read the input structure.
+            2. Build the GNM elastic network.
+            3. Compute normal modes.
+            4. Evaluate collectivity and eigenvalues.
+            5. Generate covariance and cross-correlation matrices.
+            6. Estimate atom-wise displacement profiles.
+
+        This produces both mode metadata and auxiliary outputs useful for
+        interpretation and downstream analysis.
+
+        Number of Modes
+
+        The number of modes defines how many normal modes are computed.
+
+        In GNM, low-frequency modes usually capture large-scale collective
+        motions that are often biologically meaningful.
+
+        In practical biological interpretation:
+
+            - low-order modes often correspond to global collective motions
+            - higher-order modes often describe more localized fluctuations
+
+        Computing too many modes is not always necessary. In many practical
+        analyses, a moderate number of modes is sufficient to characterize
+        dominant structural flexibility.
+
+        Cutoff Distance
+
+        The cutoff defines which atoms or pseudoatoms interact in the elastic
+        network.
+
+        This parameter is biologically important because it controls network
+        connectivity.
+
+            - shorter cutoffs produce more local interactions
+            - larger cutoffs produce more global connectivity
+
+        For Cα-based protein models, values around the default range usually
+        work well. For pseudoatomic models or sparse systems, somewhat larger
+        cutoffs may be needed to maintain meaningful connectivity.
+
+        If the cutoff is too small, the network may become fragmented or may
+        produce fewer usable modes than expected.
+
+        Spring Constant
+
+        The spring constant controls interaction strength between connected
+        nodes.
+
+        In most biological applications, the absolute value is less important
+        than the relative fluctuation patterns between residues.
+
+        Therefore, the default value is generally sufficient for exploratory
+        analyses unless a specific calibrated elastic network model is being
+        used.
+
+        Membrane-Aware GNM
+
+        The protocol optionally supports an explicit membrane elastic network.
+
+        This mode is intended for membrane proteins that have already been
+        oriented consistently relative to the membrane, for example using OPM
+        or PPM orientations.
+
+        Biologically, this can improve the realism of the fluctuation model
+        because membrane constraints often strongly affect collective motions
+        of transmembrane assemblies.
+
+        This option should generally be used only when membrane orientation
+        is structurally meaningful.
+
+        Zero Eigenvalue Modes
+
+        The protocol can optionally keep modes with zero eigenvalues.
+
+        In elastic network analysis, zero modes usually correspond to
+        trivial rigid-body motions rather than internal conformational
+        flexibility.
+
+        For most biological interpretation, users are typically more
+        interested in non-zero internal modes.
+
+        However, retaining zero modes may still be useful for technical
+        inspection or advanced downstream analyses.
+
+        Mode Collectivity
+
+        One of the most biologically useful outputs is mode collectivity.
+
+        Collectivity measures how broadly motion is distributed across the
+        structure.
+
+            - high collectivity:
+              many atoms participate in the motion
+
+            - low collectivity:
+              motion is localized to fewer atoms
+
+        The collectivity threshold allows automatic deselection of highly
+        localized modes.
+
+        In practice, this is useful because biologically relevant global
+        motions are often more collective than highly localized fluctuations.
+
+        The protocol records collectivity values for all modes and uses them
+        to rank and annotate the resulting mode metadata.
+
+        Covariance and Cross-Correlation Matrices
+
+        After mode calculation, the protocol computes:
+
+            - covariance matrix
+            - normalized cross-correlation matrix
+
+        These matrices are extremely valuable for biological interpretation.
+
+        Covariance reflects the magnitude of coupled fluctuations.
+
+        Cross-correlation reveals whether regions move:
+
+            - together (positive correlation)
+            - oppositely (negative correlation)
+            - independently (near zero correlation)
+
+        In proteins, correlated motions often help identify dynamic domains,
+        communication pathways, or long-range allosteric coupling.
+
+        Atom Shift Profiles
+
+        The protocol also computes atom-wise displacement amplitudes across
+        modes.
+
+        For each atom or pseudoatom, it records:
+
+            - the largest observed displacement
+            - the mode where that displacement occurs
+
+        Biologically, this provides a simple way to identify:
+
+            - highly mobile regions
+            - flexible loops
+            - hinge zones
+            - localized hotspots of structural motion
+
+        Outputs and Their Interpretation
+
+        The protocol generates several outputs.
+
+        outputModes
+
+            A structured set of GNM normal modes including metadata such as:
+
+                - eigenvalues
+                - collectivity
+                - ranking score
+                - enable/disable flags
+
+        matrixFileCC
+
+            Cross-correlation matrix between nodes.
+
+        matrixFileCV
+
+            Covariance matrix of structural fluctuations.
+
+        Additional metadata files are also generated for atom shift
+        distributions and per-mode displacement profiles.
+
+        Practical Recommendations
+
+        For routine protein flexibility analysis:
+
+            - start with moderate mode numbers
+            - use default spring constant
+            - choose a reasonable cutoff based on model granularity
+
+        If too few modes are obtained, increasing the cutoff is often the
+        most useful first adjustment.
+
+        For membrane proteins, use the membrane option only when the input
+        structure has biologically meaningful membrane orientation.
+
+        When selecting modes for downstream interpretation, collectivity is
+        often one of the most informative criteria.
+
+        Final Perspective
+
+        GNM does not simulate atomistic trajectories.
+
+        Instead, it provides a physically intuitive description of intrinsic
+        structural flexibility encoded by the contact topology.
+
+        For structural biologists, its main strength lies in rapidly
+        identifying collective motions that may underlie biological
+        function, conformational change, or long-range communication
+        within macromolecular assemblies.
     """
     _label = 'GNM analysis'
 
