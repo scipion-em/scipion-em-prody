@@ -49,7 +49,225 @@ import prody
 
 class ProDyLRA(ProDyModesBase):
     """
-    This protocol will perform ProDy logistic regression analysis (LRA) using atomic structures
+    Performs ProDy Logistic Regression Analysis (LRA) on ensembles of atomic
+    structures in order to identify structural variations that best separate
+    two predefined classes.
+
+    AI Generated:
+
+    ProDy Logistic Regression Analysis (ProDyLRA) — User Manual
+        Overview
+
+        The ProDyLRA protocol applies logistic regression analysis (LRA)
+        to a structural ensemble. Its main purpose is to detect collective
+        structural changes that discriminate between two classes of
+        conformations.
+
+        In practical structural biology workflows, this protocol is useful
+        when comparing two functional states of the same macromolecule,
+        such as open versus closed conformations, ligand-bound versus
+        ligand-free states, or wild-type versus mutant ensembles.
+
+        Unlike classical normal mode analysis, LRA does not describe the
+        dominant fluctuations of the ensemble alone. Instead, it finds the
+        directions in conformational space that maximize separation between
+        two user-defined groups.
+
+        Input Data
+
+        The protocol accepts structural ensembles provided as:
+
+            - SetOfAtomStructs
+            - ProDy NPZ ensembles
+            - DCD molecular dynamics systems
+
+        These ensembles must represent comparable conformations of the same
+        molecular system.
+
+        If atomic structures contain multiple coordinate sets, the user may
+        optionally keep only the first conformation from each structure.
+        This can be useful when each structure should contribute only one
+        representative conformation.
+
+        Atom Selection
+
+        A selection string defines which atoms are included in the analysis.
+
+        By default, the protocol uses:
+
+            "name CA"
+
+        This selects alpha carbons only, which is generally recommended for
+        protein structural analyses because it reduces noise while preserving
+        large-scale collective motions.
+
+        More detailed selections are possible, but overly large selections
+        may increase noise and computational cost.
+
+        Class Labels
+
+        Logistic regression requires exactly two classes.
+
+        The protocol allows the user to assign custom class labels to the
+        ensemble entries. Labels can represent any biologically meaningful
+        grouping, for example:
+
+            - state A vs state B
+            - bound vs unbound
+            - mutant vs wild type
+
+        Labels are internally stored in an ordered dictionary that maps each
+        ensemble element to a class.
+
+        The protocol validates this step before execution. If the number of
+        unique class labels is not exactly two, execution stops.
+
+        This restriction is important because the underlying implementation
+        performs binary logistic regression.
+
+        Random Shuffling
+
+        The parameter:
+
+            numberOfShuffles
+
+        controls how many random permutations of the class labels are
+        generated.
+
+        These shuffles estimate how much class separation could arise by
+        chance alone.
+
+        Biologically, this provides a simple way to assess whether the
+        observed discriminative mode reflects meaningful structural
+        differences rather than random variation in the ensemble.
+
+        Workflow
+
+        The protocol follows these main steps:
+
+            1. Load and preprocess the structural ensemble.
+            2. Generate the class label mapping.
+            3. Compute the number of logistic modes.
+
+        The number of modes is determined as:
+
+            number of unique classes - 1
+
+        Since LRA requires two classes, this normally produces one
+        discriminative mode.
+
+        Mode Computation
+
+        During execution, the protocol creates a ProDy LRA object and
+        computes logistic regression modes from the ensemble and the
+        associated class labels.
+
+        The analysis uses the specified number of shuffled label trials.
+
+        The resulting model is written to disk in several formats:
+
+            - Scipion modes format
+            - NMD format for visualization
+            - NPZ model file including matrices
+
+        These outputs allow later visualization and downstream analysis.
+
+        Output Generation
+
+        After mode calculation, the protocol creates a
+        SetOfLogisticModes object.
+
+        Each generated mode is assigned a fractional variance value.
+
+        In this implementation, every mode receives:
+
+            fractional variance = 1
+
+        This reflects that logistic regression modes are discriminative
+        directions rather than conventional variance-explaining PCA modes.
+
+        The output includes:
+
+            - outputModes
+            - outputEnsemble
+
+        The resulting mode set is linked to the reference average structure,
+        allowing direct structural interpretation.
+
+        Animation
+
+        The protocol also supports mode animation.
+
+        Animation parameters include:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        These animations provide a visual representation of the structural
+        displacement associated with the discriminative logistic mode.
+
+        From a biological perspective, animation helps interpret which
+        regions of the molecule contribute most strongly to class
+        separation.
+
+        Summary Information
+
+        Once finished, the protocol reports a summary describing:
+
+            - number of LRA modes
+            - number of conformations analyzed
+            - number of atoms included
+
+        This provides a quick overview of the scale of the calculation.
+
+        Practical Interpretation
+
+        The most important biological meaning of ProDyLRA is that it
+        identifies motions associated with class discrimination rather than
+        simply structural variability.
+
+        Therefore, large-amplitude motions found by LRA may not be the most
+        frequent motions in the ensemble. Instead, they are the motions most
+        strongly associated with the biological difference encoded in the
+        labels.
+
+        This makes the protocol particularly useful for studying:
+
+            - conformational transitions
+            - functional state changes
+            - mutation-induced structural shifts
+            - ligand-dependent rearrangements
+
+        Practical Recommendations
+
+        For most protein applications, using alpha carbons only is usually
+        sufficient.
+
+        The biological relevance of the results depends strongly on the
+        quality of the class definition. Poorly defined classes may produce
+        discriminative modes that are mathematically valid but biologically
+        difficult to interpret.
+
+        It is also important that both classes contain representative and
+        sufficiently sampled conformations.
+
+        Final Perspective
+
+        ProDyLRA is best understood as a supervised structural analysis
+        method.
+
+        Rather than asking:
+
+            "What motions dominate the ensemble?"
+
+        it asks:
+
+            "What motions best distinguish the two biological states?"
+
+        This makes it especially powerful when the scientific question is
+        focused on structural determinants of functional differences.
     """
     _label = 'LRA'
     _possibleOutputs = {'outputModes': SetOfLogisticModes}

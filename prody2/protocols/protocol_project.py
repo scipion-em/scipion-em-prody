@@ -49,7 +49,260 @@ THREE = 2
 
 class ProDyProject(EMProtocol):
     """
-    This module will provide ProDy projection of structural ensembles on principal component or normal modes
+    Projects structural ensembles onto normal modes or principal
+    components computed previously with ProDy.
+
+    The protocol converts high-dimensional structural variability into a
+    reduced coordinate representation.
+
+    AI Generated:
+
+    ProDy Projection (ProDyProject) — User Manual
+        Overview
+
+        The ProDyProject protocol projects structural ensembles onto a
+        selected set of normal modes or principal components.
+
+        Its main purpose is to describe each conformation of an ensemble
+        in terms of coordinates along a reduced number of collective
+        structural directions.
+
+        Instead of analyzing every atomic coordinate directly, the
+        protocol asks:
+
+            "How much does each conformation move along these selected
+            collective modes?"
+
+        This is especially useful for simplifying structural variability
+        and revealing dominant conformational trends.
+
+        Input Data
+
+        The protocol requires two kinds of input.
+
+        Structural Ensembles
+
+        One or more structural ensembles can be provided as:
+
+            - SetOfAtomStructs
+            - ProDyNpzEnsemble
+
+        All conformations within an ensemble must contain equivalent
+        atoms so that projections remain structurally meaningful.
+
+        Input Modes
+
+        The protocol also requires a previously computed set of modes.
+
+        These can come from:
+
+            - ProDy normal mode analysis
+            - ProDy principal component analysis
+            - Continuous-Flex NMA
+
+        Only the selected modes are used for projection.
+
+        Mode Selection
+
+        The parameter:
+
+            modeList
+
+        allows the user to choose which modes are included.
+
+        If left empty, the protocol uses all available modes starting
+        from the first one.
+
+        The user may also provide ranges or explicit lists of mode
+        numbers.
+
+        Examples include:
+
+            - 7,8-10
+            - 8,10,12
+            - 8-12
+
+        This is biologically important because different modes may
+        capture different structural phenomena.
+
+        Number of Projection Dimensions
+
+        The parameter:
+
+            numModes
+
+        determines whether projection is performed onto:
+
+            - 1 mode
+            - 2 modes
+            - 3 modes
+
+        This effectively defines the dimensionality of the reduced
+        conformational space.
+
+        In practical structural analysis:
+
+            - 1D projection reveals a single dominant structural trend
+            - 2D projection often reveals conformational landscapes
+            - 3D projection allows richer exploration of structural
+              heterogeneity
+
+        Projection Scaling
+
+        Normalize
+
+        The parameter:
+
+            norm
+
+        determines whether projections are normalized.
+
+        Normalization is useful when comparing relative positions along
+        the selected collective coordinates.
+
+        RMSD Scaling
+
+        The parameter:
+
+            rmsd
+
+        determines whether projection amplitudes are scaled to RMSD-like
+        units.
+
+        This often makes the projected coordinates easier to interpret in
+        structural terms.
+
+        Computational Workflow
+
+        The protocol performs the following steps.
+
+        Mode Preparation
+
+        First, the selected input modes are loaded and optionally
+        filtered according to the requested mode list.
+
+        A new reduced mode set is then written to disk.
+
+        The selected modes are also exported in NMD format for
+        visualization.
+
+        Ensemble Loading
+
+        For each input ensemble, the protocol loads the conformations.
+
+        If the input consists of atomic structures, it builds a ProDy
+        ensemble directly from the structures.
+
+        If the input is already a ProDy ensemble, it is loaded directly.
+
+        Projection Calculation
+
+        Each conformation is projected onto the selected modes.
+
+        The result is a low-dimensional vector describing that
+        conformation in the chosen collective coordinate system.
+
+        For each structure, projection coefficients are associated with
+        the original object identifier.
+
+        Output Files
+
+        For each input ensemble, the protocol writes a CSV file
+        containing the projection coordinates.
+
+        Each row corresponds to one conformation.
+
+        The protocol also exports the weights associated with the
+        ensemble entries.
+
+        These additional files can be useful for downstream numerical
+        analysis, plotting, or statistical interpretation.
+
+        Output Ensembles
+
+        For every input ensemble, the protocol creates an output
+        ensemble.
+
+        Each structure in the output receives a new attribute containing
+        its projection coefficients.
+
+        This preserves the identity of each conformation while enriching
+        it with reduced-dimensional structural descriptors.
+
+        Output Modes
+
+        The protocol also creates an output mode set corresponding only
+        to the modes used in the projection.
+
+        This ensures that the reduced coordinates remain directly linked
+        to the structural directions that define them.
+
+        Biological Interpretation
+
+        Projection is one of the most useful tools for understanding
+        conformational landscapes.
+
+        Biologically, projection allows the user to see whether
+        conformations cluster, separate into states, or populate
+        continuous transitions.
+
+        Typical biological applications include:
+
+            - detecting conformational substates
+            - comparing functional structural states
+            - mapping molecular dynamics trajectories
+            - identifying transition pathways
+
+        A projection does not define new motions.
+
+        Instead, it quantifies how much each conformation expresses
+        already defined collective motions.
+
+        Practical Recommendations
+
+        In most structural biology applications, projecting onto the
+        first two or three most informative modes provides the clearest
+        interpretation.
+
+        Projection becomes especially powerful when combined with:
+
+            - PCA
+            - normal mode analysis
+            - clustering
+            - structural visualization
+
+        Interpreting projections together with the original modes often
+        reveals whether conformational variability corresponds to:
+
+            - domain closure
+            - hinge bending
+            - twisting motions
+            - continuous structural transitions
+
+        Summary Information
+
+        Once execution is complete, the protocol reports how many
+        components were used for projection.
+
+        If output is not yet available, the summary indicates that the
+        projection is still pending.
+
+        Final Perspective
+
+        ProDyProject is best understood as a structural dimensionality
+        reduction tool.
+
+        Rather than asking:
+
+            "What collective motions exist?"
+
+        it asks:
+
+            "Where does each conformation lie within the space defined
+            by those collective motions?"
+
+        This makes it especially useful for interpreting structural
+        ensembles in a compact and biologically meaningful way.
     """
     _label = 'Projection'
 

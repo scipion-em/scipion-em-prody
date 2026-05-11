@@ -58,7 +58,285 @@ else:
 
 class ProDyPCA(ProDyModesBase):
     """
-    This protocol will perform ProDy principal component analysis (PCA) using atomic structures
+    Performs Principal Component Analysis (PCA) on structural ensembles
+    using ProDy.
+
+    The protocol identifies the dominant collective structural variations
+    present across an ensemble of conformations.
+
+    AI Generated:
+
+    ProDy Principal Component Analysis (ProDyPCA) — User Manual
+        Overview
+
+        The ProDyPCA protocol performs principal component analysis on
+        structural ensembles.
+
+        Its main purpose is to identify the dominant directions of
+        structural variability present in a collection of conformations.
+
+        In structural biology, PCA is commonly used to detect collective
+        motions that naturally emerge from experimental ensembles,
+        molecular dynamics trajectories, or collections of related
+        structures.
+
+        Unlike supervised methods such as logistic regression, PCA does
+        not use predefined classes.
+
+        Instead, it asks:
+
+            "What are the dominant structural fluctuations sampled by
+            the ensemble?"
+
+        Input Data
+
+        The protocol accepts structural ensembles provided as:
+
+            - SetOfAtomStructs
+            - ProDy ensemble objects
+            - molecular dynamics trajectory systems (DcdMDSystem)
+
+        All conformations must represent the same molecular system and
+        contain equivalent atoms.
+
+        If the input is a molecular dynamics trajectory, the protocol
+        extracts:
+
+            - the trajectory file
+            - the associated reference structure
+
+        If the input is a structural ensemble, it is first converted into
+        the internal ProDy representation.
+
+        Atom Selection
+
+        The parameter:
+
+            selstr
+
+        determines which atoms are included in the PCA calculation.
+
+        Recommended common choices are:
+
+            - "all"
+            - "name CA"
+
+        Using alpha carbons often provides a robust description of
+        large-scale collective protein motions while reducing noise.
+
+        Number of Components
+
+        The user specifies how many principal components to compute.
+
+        The theoretical maximum is:
+
+            number of conformations - 1
+
+        This differs from normal mode analysis, where the upper limit is
+        determined by the number of structural nodes.
+
+        In practice, the first few principal components usually capture
+        most biologically meaningful structural variability.
+
+        Structural Alignment
+
+        PCA is highly sensitive to structural alignment.
+
+        The protocol provides two options:
+
+            - keep the input alignment
+            - realign the conformations before analysis
+
+        Keep Alignment
+
+        When alignment is preserved, the protocol assumes the input
+        conformations are already in a common structural frame.
+
+        This is appropriate when the ensemble has been carefully prepared
+        beforehand.
+
+        Realignment
+
+        If alignment is not preserved, the protocol realigns the
+        structures after trajectory generation.
+
+        This is particularly important when translational or rotational
+        differences would otherwise dominate the covariance matrix.
+
+        Biologically, proper alignment is critical because PCA should
+        capture internal conformational variability rather than rigid-body
+        displacement.
+
+        Covariance Analysis
+
+        PCA is based on the covariance matrix of atomic displacements.
+
+        During execution, the protocol computes this covariance matrix and
+        derives the principal components from it.
+
+        Each component represents an independent direction of structural
+        variance.
+
+        The associated eigenvalues quantify the amount of variance
+        captured by each component.
+
+        Fractional Variance
+
+        For every principal component, the protocol computes the
+        fractional variance.
+
+        This indicates how much of the total structural variance is
+        explained by each mode.
+
+        Biologically, this helps identify which components dominate the
+        ensemble dynamics.
+
+        A few large fractional variances often indicate a relatively
+        simple collective motion landscape.
+
+        Cross-Correlation Matrix
+
+        The protocol also computes a cross-correlation matrix between
+        atomic displacements.
+
+        This matrix describes how atomic motions are correlated across
+        the ensemble.
+
+        Positive correlations indicate atoms moving together.
+
+        Negative correlations indicate atoms moving in opposite
+        directions.
+
+        This information is particularly useful for studying:
+
+            - long-range coupling
+            - domain communication
+            - allosteric behavior
+
+        Workflow
+
+        The protocol performs the following steps:
+
+            1. Load the ensemble or trajectory.
+            2. Select the requested atoms.
+            3. Compute the PCA model.
+            4. Parse the generated principal components.
+            5. Compute fractional variances.
+            6. Compute cross-correlation matrices.
+            7. Rank and qualify the resulting modes.
+            8. Generate animations.
+            9. Export outputs.
+
+        Mode Qualification
+
+        Each principal component is evaluated using:
+
+            - collectivity
+            - eigenvalue
+            - ranking score
+            - enable/disable flag
+
+        Unlike elastic network normal mode analysis, PCA does not
+        automatically exclude rigid-body modes.
+
+        Components may optionally be filtered according to a
+        collectivity threshold.
+
+        By default, the threshold is zero because biologically important
+        PCA modes may not always be highly collective.
+
+        Animation
+
+        The protocol automatically generates animations for the computed
+        principal components.
+
+        Animation parameters include:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        These animations provide a visual representation of the structural
+        displacement associated with each principal component.
+
+        This is often the most intuitive way to interpret the biological
+        meaning of a component.
+
+        Output Data
+
+        The protocol generates a set of principal components together
+        with several associated outputs.
+
+        Main outputs include:
+
+            - outputModes
+            - optional aligned outputEnsemble
+            - covariance matrix file
+            - cross-correlation matrix file
+
+        Each principal component is linked to:
+
+            - eigenvalue
+            - collectivity
+            - score
+            - fractional variance
+
+        The components are also associated with the average reference
+        structure.
+
+        Biological Interpretation
+
+        The biological meaning of PCA is fundamentally different from
+        energy-based normal mode analysis.
+
+        PCA does not predict possible motions.
+
+        Instead, it describes motions that are actually sampled in the
+        structural ensemble.
+
+        This makes PCA especially powerful for studying:
+
+            - experimentally observed heterogeneity
+            - molecular dynamics trajectories
+            - conformational continua
+            - dominant collective fluctuations
+
+        Practical Recommendations
+
+        In most structural biology applications, the first few principal
+        components contain the most interpretable motions.
+
+        It is generally useful to inspect together:
+
+            - fractional variance
+            - cross-correlation
+            - animations
+
+        This combined interpretation often reveals whether structural
+        variability reflects:
+
+            - domain motion
+            - hinge bending
+            - flexible loops
+            - collective rearrangements
+
+        Final Perspective
+
+        ProDyPCA is best understood as an unsupervised structural
+        dimensionality reduction method.
+
+        Rather than asking:
+
+            "Which motions are theoretically accessible?"
+
+        it asks:
+
+            "Which motions are actually sampled by the ensemble?"
+
+        This makes it especially useful when the scientific goal is to
+        characterize experimentally observed or simulated structural
+        variability.
     """
     _label = 'PCA'
     _possibleOutputs = {'outputModes': SetOfPrincipalComponents}

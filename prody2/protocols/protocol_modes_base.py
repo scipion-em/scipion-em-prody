@@ -48,9 +48,292 @@ import prody
 
 class ProDyModesBase(EMProtocol):
     """
-    This protocol acts as a base class for various kinds of mode analysis,
-    providing easier access to the qualify and animate steps.
-    Currently, the only child class is ProDyEdit.
+    Base protocol for normal mode analysis workflows in ProDy.
+
+    It provides shared functionality for computing, qualifying,
+    animating, and exporting structural modes.
+
+    AI Generated:
+
+    ProDy Modes Base (ProDyModesBase) — User Manual
+        Overview
+
+        The ProDyModesBase protocol is a foundational class used by
+        several ProDy-based mode analysis protocols.
+
+        Its purpose is not to perform a specific mode calculation by
+        itself, but to provide the common infrastructure needed by
+        protocols that generate normal modes or related collective
+        motions.
+
+        In practical terms, it defines how modes are:
+
+            - parameterized
+            - qualified
+            - animated
+            - analyzed
+            - exported
+
+        This makes it the central framework for structural mode-based
+        analyses.
+
+        Input Structure
+
+        The protocol expects one atomic structure as input.
+
+        The input can be either:
+
+            - a true atomic model (for example, a PDB structure)
+            - a pseudoatomic model derived from an EM volume
+
+        This structure defines the nodes on which collective motions are
+        computed.
+
+        In biological applications, these nodes often represent:
+
+            - alpha carbons in proteins
+            - pseudoatoms in coarse-grained EM models
+            - all atoms in more detailed analyses
+
+        Mode Calculation Parameters
+
+        Although the actual mode computation is implemented in child
+        protocols, this base class defines the parameters that control
+        that process.
+
+        Number of Modes
+
+        The user specifies the number of modes to compute.
+
+        The theoretical upper limit is:
+
+            3 × number of nodes
+
+        In practice, only a subset of low-frequency modes is usually
+        biologically relevant because those often describe collective
+        functional motions.
+
+        Cutoff Distance
+
+        The cutoff distance defines which nodes interact.
+
+        Nodes farther apart than this threshold are considered
+        disconnected.
+
+        Biological interpretation depends strongly on the granularity of
+        the model:
+
+            - around 15 Å is typically appropriate for alpha carbons
+            - shorter distances are often better for all-atom models
+            - pseudoatomic models may require system-dependent tuning
+
+        Spring Constant
+
+        The spring constant defines interaction strength between nodes.
+
+        In elastic network models, this parameter influences the
+        stiffness of the network.
+
+        Although the default constant is usually sufficient for many
+        applications, advanced users may adjust it depending on the
+        biological system.
+
+        Zero Eigenvalues
+
+        The protocol allows the user to decide whether modes with zero
+        eigenvalues should be retained.
+
+        These zero modes usually correspond to rigid-body motions.
+
+        In most structural interpretations, such modes are not
+        biologically informative and are typically excluded.
+
+        Collectivity Threshold
+
+        Collectivity quantifies how broadly a mode is distributed across
+        the structure.
+
+        Values range between:
+
+            0 and 1
+
+        A highly collective mode involves many atoms moving together,
+        whereas a low-collectivity mode tends to reflect localized
+        fluctuations.
+
+        The collectivity threshold is used to automatically deselect
+        modes that are insufficiently collective.
+
+        This is biologically useful because highly collective modes are
+        often more relevant to functional conformational changes.
+
+        Workflow
+
+        The protocol organizes the mode analysis workflow into several
+        sequential steps.
+
+        Mode Computation
+
+        The actual computation is delegated to child protocols through
+        the method:
+
+            computeModesStep()
+
+        This method is intentionally left undefined in the base class.
+
+        Mode Qualification
+
+        After computation, the protocol evaluates all generated modes.
+
+        For each mode, it calculates:
+
+            - collectivity
+            - eigenvalue
+            - enable/disable status
+            - ranking score
+
+        Modes associated with rigid-body motion are automatically
+        disabled.
+
+        Modes with collectivity below the selected threshold are also
+        deselected.
+
+        This produces a metadata table describing the structural
+        relevance of all computed modes.
+
+        Mode Ranking
+
+        Modes are additionally ranked according to their relative
+        collectivity.
+
+        A score is assigned to each mode and stored in the output
+        metadata.
+
+        This ranking helps users identify which modes are more likely to
+        represent meaningful collective structural motions.
+
+        Animation
+
+        The protocol optionally generates animations of the computed
+        modes.
+
+        Animation is controlled by the following parameters:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        For each selected mode, the protocol generates:
+
+            - a PDB trajectory
+            - a VMD visualization script
+
+        These animations provide an intuitive visual representation of
+        collective structural motion.
+
+        From a biological perspective, animation is often one of the
+        most useful ways to interpret a normal mode.
+
+        It allows users to identify:
+
+            - hinge regions
+            - domain motions
+            - flexible loops
+            - collective rearrangements
+
+        Representation Choice
+
+        During animation generation, the protocol automatically chooses
+        a visual representation.
+
+        If the structure consists only of alpha carbons or phosphorus
+        atoms, it uses bead representation.
+
+        Otherwise, ribbon representation is used.
+
+        This helps preserve biologically meaningful visualization
+        without requiring manual intervention.
+
+        Atom Shift Analysis
+
+        The protocol also computes atom displacement profiles.
+
+        For each mode, it calculates the displacement magnitude of every
+        atom.
+
+        These profiles are written as metadata files.
+
+        In addition, the protocol identifies for each atom the mode that
+        produces the largest displacement.
+
+        This produces a global map of structural mobility.
+
+        Biologically, this analysis helps identify:
+
+            - highly flexible regions
+            - residues strongly involved in collective motion
+            - structural hotspots of deformation
+
+        Output
+
+        At the end of execution, the protocol creates a
+        SetOfNormalModes object.
+
+        This output contains:
+
+            - mode vectors
+            - collectivity values
+            - scores
+            - eigenvalues
+            - associated structure reference
+
+        The generated normal modes remain linked to the original input
+        structure, which allows downstream structural interpretation and
+        further analysis.
+
+        Practical Interpretation
+
+        The biological meaning of normal mode analysis is not simply the
+        presence of motion, but the identification of preferred
+        low-energy collective directions accessible to the structure.
+
+        These modes often approximate motions associated with:
+
+            - ligand binding
+            - domain closure
+            - allosteric communication
+            - functional conformational transitions
+
+        Practical Recommendations
+
+        In most biological applications, the most informative modes are
+        low-frequency, highly collective modes.
+
+        Users should generally inspect:
+
+            - collectivity
+            - atom shift profiles
+            - animations
+
+        together rather than relying on a single numerical descriptor.
+
+        Modes with low collectivity are often less biologically
+        interpretable.
+
+        Final Perspective
+
+        ProDyModesBase provides the structural framework for normal mode
+        workflows.
+
+        Rather than defining a specific analysis method, it establishes
+        the shared biological logic behind mode-based structural
+        interpretation.
+
+        It answers the question:
+
+            "How should collective structural motions be evaluated,
+            visualized, and interpreted once they have been computed?"
     """
     _label = 'Modes base'
 

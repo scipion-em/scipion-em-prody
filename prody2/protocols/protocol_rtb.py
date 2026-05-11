@@ -46,7 +46,302 @@ BLOCKS_FROM_SECSTR = 1
 
 class ProDyRTB(ProDyModesBase):
     """
-    This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
+    Performs normal mode analysis using the Rotation Translation of
+    Blocks (RTB) framework.
+
+    The protocol approximates collective structural motions by grouping
+    atoms into blocks and computing their coupled rigid-body motions.
+
+    AI Generated:
+
+    ProDy RTB Normal Mode Analysis (ProDyRTB) — User Manual
+        Overview
+
+        The ProDyRTB protocol performs normal mode analysis using the
+        Rotation Translation of Blocks (RTB) formalism.
+
+        Its main purpose is to reduce the computational cost of normal
+        mode analysis while preserving the biologically meaningful
+        collective motions of large macromolecular systems.
+
+        Instead of treating every atom independently, RTB groups atoms
+        into blocks and models the motion of those blocks as rigid-body
+        translations and rotations.
+
+        This makes the protocol especially useful for:
+
+            - large proteins
+            - multi-domain complexes
+            - coarse-grained structural models
+            - pseudoatomic EM models
+
+        Biological Motivation
+
+        In many biological systems, large-scale functional motions often
+        involve coordinated movement of structural regions rather than
+        isolated atomic fluctuations.
+
+        RTB exploits this idea by representing groups of residues as
+        collective moving units.
+
+        This allows efficient approximation of motions such as:
+
+            - domain rearrangements
+            - hinge bending
+            - subunit displacement
+            - collective conformational transitions
+
+        Input Structure
+
+        The protocol requires one input atomic structure.
+
+        The input can be:
+
+            - a standard atomic model
+            - a pseudoatomic model
+
+        The structure is loaded with secondary structure information
+        whenever available.
+
+        Block Definition
+
+        A key feature of RTB is how the structural blocks are defined.
+
+        The protocol supports two strategies.
+
+        Residue-Based Blocks
+
+        Blocks can be defined by assigning a fixed number of residues to
+        each block.
+
+        The parameter:
+
+            res_per_block
+
+        controls the target number of residues per block.
+
+        This is a simple and robust option when the user wants uniform
+        coarse-graining.
+
+        Secondary Structure Blocks
+
+        Blocks can also be defined using secondary structure
+        information.
+
+        In this case, blocks tend to follow biologically meaningful
+        structural elements such as:
+
+            - helices
+            - beta strands
+            - compact structural segments
+
+        This can often provide more interpretable collective motions.
+
+        Block Refinement
+
+        Several parameters control block refinement.
+
+        Shortest Block
+
+        Very small blocks can be unstable.
+
+        Blocks shorter than the selected threshold are merged with the
+        previous block.
+
+        Longest Block
+
+        Very large blocks may be overly rigid.
+
+        Blocks longer than the threshold are split.
+
+        Distance-Based Splitting
+
+        The parameter:
+
+            min_dist_cutoff
+
+        allows block subdivision based on internal structural distance.
+
+        Residues that are too far apart are not forced into the same
+        block.
+
+        Biologically, this helps avoid grouping disconnected structural
+        regions into one rigid body.
+
+        Elastic Network Parameters
+
+        Cutoff Distance
+
+        The cutoff defines which block interactions are included in the
+        elastic network.
+
+        For most alpha-carbon models, the default value of 15 Å is often
+        appropriate.
+
+        Shorter values may be preferable for denser atomic models.
+
+        Spring Constant
+
+        The spring constant controls the strength of inter-block
+        coupling.
+
+        This defines the stiffness of the RTB elastic network.
+
+        Computational Workflow
+
+        The protocol performs the following main steps.
+
+        Structure Preparation
+
+        The input structure is loaded and converted into a block-mapped
+        representation.
+
+        The resulting block assignment is stored together with an atom
+        mapping structure.
+
+        Hessian Construction
+
+        The RTB Hessian matrix is constructed using the selected blocks
+        and elastic network parameters.
+
+        If memory limitations occur, the protocol automatically switches
+        to sparse matrix representation.
+
+        Mode Calculation
+
+        Normal modes are computed from the RTB Hessian.
+
+        The user specifies the desired number of modes.
+
+        Two additional options control this stage.
+
+        Zero Eigenvalues
+
+        The user may decide whether zero-eigenvalue modes are retained.
+
+        When enabled, the first six rigid-body modes are preserved.
+
+        Turbo Mode
+
+        Turbo mode uses a faster but more memory-intensive matrix
+        decomposition.
+
+        If memory becomes limiting, the protocol automatically falls back
+        to a non-turbo calculation.
+
+        Output Files
+
+        The protocol exports the computed RTB modes in several formats:
+
+            - Scipion mode files
+            - NMD visualization file
+            - NPZ model file including matrices
+
+        These outputs allow visualization and downstream structural
+        analysis.
+
+        Mode Qualification
+
+        Each computed mode is evaluated according to:
+
+            - collectivity
+            - eigenvalue
+            - ranking score
+            - enabled/disabled state
+
+        If zero modes are included, the first six rigid-body modes are
+        automatically disabled for interpretation.
+
+        Modes below the selected collectivity threshold are also
+        deselected.
+
+        This filtering helps focus on biologically meaningful collective
+        motions.
+
+        Animation
+
+        The protocol automatically generates animations of the computed
+        RTB modes.
+
+        Animation parameters include:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        These animations are especially useful because RTB often captures
+        large-amplitude domain-scale rearrangements that are easy to
+        interpret visually.
+
+        Atom Shift Profiles
+
+        The protocol also computes atom displacement profiles for the
+        selected modes.
+
+        This identifies which regions of the structure undergo the
+        largest displacements.
+
+        Biologically, this helps detect:
+
+            - flexible hinges
+            - moving domains
+            - collective deformation hotspots
+
+        Output
+
+        The final output is a:
+
+            - SetOfNormalModes
+
+        The output modes remain linked to the original input structure.
+
+        This allows downstream interpretation in structural and
+        conformational analyses.
+
+        Biological Interpretation
+
+        RTB should be understood as a coarse-grained approximation of
+        normal mode analysis.
+
+        It is particularly useful when the biological question concerns
+        large-scale collective motion rather than local atomic detail.
+
+        Compared with fully atomistic normal mode analysis, RTB often
+        provides:
+
+            - faster computation
+            - better scalability
+            - clearer interpretation of domain-level motion
+
+        Practical Recommendations
+
+        Residue-based blocks are usually a good starting point for
+        exploratory analyses.
+
+        Secondary-structure-based blocks may be preferable when the user
+        wants motions that align more closely with biologically defined
+        structural elements.
+
+        For very large systems, RTB is often much more practical than
+        full atomistic normal mode analysis.
+
+        Final Perspective
+
+        ProDyRTB is best understood as a scalable collective-motion
+        approximation.
+
+        Rather than asking:
+
+            "How does every atom fluctuate?"
+
+        it asks:
+
+            "How do coherent structural blocks move relative to one
+            another?"
+
+        This makes it especially powerful for studying large
+        macromolecular rearrangements.
     """
     _label = 'RTB NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}
