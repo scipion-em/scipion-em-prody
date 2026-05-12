@@ -52,7 +52,201 @@ defaultSelstr = "protein and name CA or nucleic and name P C4' C2"
 
 class ProDyMeasure(EMProtocol):
     """
-    This module will provide ProDy distance and angle measurement for structural ensembles
+    Performs geometric measurements on structural ensembles using ProDy.
+
+    The protocol computes distances, angles, or dihedral angles between
+    atom selections across all conformations of one or more ensembles.
+
+    AI Generated:
+
+    ProDy Measure (ProDyMeasure) — User Manual
+        Overview
+
+        The ProDyMeasure protocol performs geometric measurements on
+        structural ensembles.
+
+        Its main purpose is to quantify how specific regions of a
+        molecular structure move relative to one another across multiple
+        conformations.
+
+        This protocol is particularly useful when studying structural
+        variability, conformational transitions, domain rearrangements,
+        or flexible motions in proteins and other macromolecular systems.
+
+        Instead of focusing on global motions, it extracts specific
+        geometric descriptors from selected regions.
+
+        Input Data
+
+        The protocol accepts one or more input ensembles provided as:
+
+            - SetOfAtomStructs
+            - ProDyNpzEnsemble
+
+        All structures within each ensemble must contain the same number
+        of atoms so that equivalent atom selections can be compared
+        consistently across conformations.
+
+        If the input consists of atomic structures, the protocol builds
+        a ProDy ensemble directly from the input files without rejecting
+        any conformations.
+
+        If the input is already a ProDy ensemble, it is loaded directly.
+
+        Measurement Types
+
+        The protocol supports three kinds of geometric measurements:
+
+            - distance
+            - angle
+            - dihedral
+
+        The selected measure determines how many atom selections are
+        required.
+
+        Distance
+
+        Distance requires two atom selections.
+
+        For each conformation, the protocol calculates the geometric
+        center of both selected atom groups and measures the distance
+        between those centers.
+
+        Biologically, this is useful for monitoring:
+
+            - domain opening and closing
+            - inter-subunit separation
+            - ligand-induced displacement
+            - motion between flexible structural regions
+
+        Angle
+
+        Angle requires three atom selections.
+
+        The protocol computes the centers of the three selected regions
+        and measures the angle formed by those centers.
+
+        This can help characterize hinge motions or bending events
+        involving three structural regions.
+
+        Dihedral
+
+        Dihedral requires four atom selections.
+
+        The protocol computes the centers of four selected regions and
+        calculates the dihedral angle for each conformation.
+
+        This is particularly useful when studying torsional rearrangements
+        or rotational motions involving multiple domains.
+
+        Atom Selections
+
+        The protocol uses atom selection strings to define the regions
+        involved in the measurement.
+
+        Each selection may contain any valid ProDy atom selection syntax.
+
+        The measurement is not performed on individual atoms directly,
+        but rather on the geometric centers of the selected groups.
+
+        This design is especially useful in biological systems because
+        it reduces local atomic noise and captures collective positional
+        behavior.
+
+        Computational Workflow
+
+        For each input ensemble, the protocol performs the following
+        steps:
+
+            1. Load or construct the structural ensemble.
+            2. Preserve the original atom set.
+            3. Apply each atom selection independently.
+            4. Compute the geometric center for each selection.
+            5. Calculate the requested geometric measurement.
+            6. Store one measurement value per conformation.
+
+        Each measurement is associated with the corresponding object ID
+        of the original structure.
+
+        Output Files
+
+        For every input ensemble, the protocol writes a CSV file
+        containing the measured values.
+
+        Each file stores one numerical measurement per conformation.
+
+        This makes the results easy to inspect, plot, or use in
+        downstream structural analysis.
+
+        Output Ensembles
+
+        The protocol also creates output ensembles that preserve the
+        identity of the original structures.
+
+        Each item in the output ensemble receives an additional attribute
+        containing the computed measurement value.
+
+        This means the measured geometry remains linked to the original
+        structural objects, which is especially useful for filtering,
+        sorting, or correlating structural states.
+
+        Biological Interpretation
+
+        The biological value of this protocol lies in converting complex
+        structural variability into simple interpretable descriptors.
+
+        For example:
+
+            - a changing distance may indicate domain separation
+            - a changing angle may reveal hinge flexibility
+            - a changing dihedral may uncover rotational transitions
+
+        Because measurements are computed across all conformations, the
+        protocol can reveal continuous trends, state-dependent changes,
+        or structural heterogeneity within the ensemble.
+
+        Practical Recommendations
+
+        The biological interpretation depends strongly on the quality of
+        the atom selections.
+
+        It is generally preferable to select structurally meaningful
+        groups such as:
+
+            - protein domains
+            - helices
+            - loops
+            - active-site regions
+            - subunit interfaces
+
+        Very small selections may become noisy, whereas larger coherent
+        structural regions often produce more robust measurements.
+
+        Summary Information
+
+        Once execution is complete, the protocol reports that the
+        measurements have been calculated.
+
+        If outputs are not yet available, the summary indicates that the
+        calculation is still pending.
+
+        Final Perspective
+
+        ProDyMeasure is best understood as a targeted structural analysis
+        tool.
+
+        Rather than asking:
+
+            "What are the dominant global motions?"
+
+        it asks:
+
+            "How does a specific geometric relationship change across
+            the ensemble?"
+
+        This makes it especially useful when the biological question
+        focuses on specific structural rearrangements rather than global
+        conformational modes.
     """
     _label = 'Measure'
 

@@ -66,7 +66,298 @@ if HAVE_CHEM:
 
 class ProDyBuildPDBEnsemble(EMProtocol):
     """
-    This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
+    Builds a structural ensemble by aligning multiple atomic models
+    using ProDy's buildPDBEnsemble framework.
+
+    AI Generated:
+
+    Build PDB Ensemble (ProDyBuildPDBEnsemble) — User Manual
+        Overview
+
+        The Build PDB Ensemble protocol aligns a collection of atomic
+        structures into a common structural frame and generates a
+        consistent ensemble representation. It is intended for the
+        comparative analysis of related macromolecular conformations,
+        structural variability studies, or preparation of structural
+        ensembles for downstream flexibility and dynamics analysis.
+
+        From a biological perspective, this protocol is useful when
+        several structures correspond to homologous proteins, distinct
+        functional states, alternative experimental conditions, or
+        multiple structures identified through structural similarity
+        searches such as DALI.
+
+        Inputs and General Workflow
+
+        The protocol accepts two input modes:
+
+        1. A set of user-provided atomic structures.
+        2. A PDB identifier and chain identifier used for automatic
+           DALI structural similarity search.
+
+        In both cases, the protocol collects the target structures,
+        parses atomic coordinates with ProDy, and aligns them into
+        a common ensemble.
+
+        When a set of structures is used, one structure can be chosen
+        as the reference either explicitly or by index within the set.
+
+        When DALI search is used, homologous structures are retrieved,
+        filtered according to structural similarity criteria, and
+        then assembled into the ensemble automatically.
+
+        Reference Structure Selection
+
+        The reference structure defines the coordinate system used for
+        the final ensemble.
+
+        Two reference modes are available:
+
+        - Reference by structure:
+          a separate atomic model is used as the alignment target.
+
+        - Reference by index:
+          one of the input structures is selected as reference.
+
+        The reference can optionally be removed after alignment. This
+        is useful when the reference is only needed to define the
+        coordinate frame but should not be part of the final ensemble.
+
+        Structural Matching and Alignment
+
+        When input structures are supplied directly, the protocol
+        performs structural matching before superposition.
+
+        Several chain matching strategies are available:
+
+        - bestMatch:
+          chooses the best chain correspondence automatically.
+
+        - sameChid:
+          matches chains using identical chain identifiers.
+
+        - sameChainPos:
+          matches chains by positional order.
+
+        - custom:
+          allows user-defined chain matching order.
+
+        For custom matching, the protocol builds a chain matching
+        dictionary that specifies how chains in different structures
+        correspond to each other.
+
+        This is particularly useful for:
+
+        - multimeric assemblies,
+        - structures with inconsistent chain naming,
+        - manually curated biological comparisons.
+
+        Residue Mapping
+
+        If residue numbering or residue identity differs between
+        structures, the protocol can apply residue mapping strategies.
+
+        Available mapping options include:
+
+        - pairwise sequence alignment,
+        - combinatorial extension structural alignment,
+        - automatic mapping,
+        - no mapping.
+
+        These mapping procedures help preserve biologically meaningful
+        residue correspondence across structures.
+
+        DALI-Based Structural Search
+
+        When a PDB identifier is used instead of explicit structures,
+        the protocol queries the DALI server for structurally similar
+        entries.
+
+        Retrieved structures may be filtered using:
+
+        - alignment length cutoff,
+        - RMSD cutoff,
+        - Z-score cutoff,
+        - sequence identity cutoff.
+
+        This mode is especially useful when the goal is to construct
+        an ensemble of structural homologs automatically from known
+        structural databases.
+
+        Ensemble Construction
+
+        Once target structures and mappings are defined, ProDy builds
+        the structural ensemble.
+
+        During this step the protocol:
+
+        - aligns all selected structures,
+        - stores atom mappings,
+        - tracks unmapped structures,
+        - preserves structure weights,
+        - supports coordinate degeneracy if multiple coordinate sets
+          are present.
+
+        If a structure contains multiple coordinate sets and
+        degeneracy is disabled, all coordinate sets may contribute
+        independently to the final ensemble.
+
+        Label Handling and Ensemble Consistency
+
+        After alignment, the protocol normalizes structure labels.
+
+        It removes unnecessary suffixes and resolves duplicated names
+        by assigning unique indices.
+
+        This guarantees that each ensemble member can be identified
+        uniquely during downstream analysis.
+
+        Trimming Dummy Atoms
+
+        Missing atoms in some structures may generate dummy atoms in
+        the ensemble.
+
+        The protocol optionally trims these positions according to
+        an occupancy threshold.
+
+        Biologically, trimming is important because it removes poorly
+        conserved or absent regions that may otherwise introduce noise
+        into the final structural comparison.
+
+        Reordering by Custom Chain Dictionary
+
+        If custom chain matching is used, the final ensemble may also
+        be reordered according to the custom chain definition.
+
+        This preserves biologically meaningful ordering of ensemble
+        members when the input order is not the desired final order.
+
+        Optional Output Files
+
+        The protocol can generate several optional outputs in addition
+        to the main ensemble.
+
+        Multiple aligned PDB files
+
+            Each aligned structure can be written as an individual PDB
+            file after applying the ensemble transformations.
+
+        DCD trajectory
+
+            The aligned ensemble can be exported as a trajectory file.
+            This is useful for visualization, conformational analysis,
+            or molecular dynamics–style downstream workflows.
+
+        Sequence alignment
+
+            A multiple sequence alignment is extracted from the final
+            ensemble and written as a FASTA file.
+
+        Main Outputs
+
+        The protocol produces:
+
+        outputNpz
+
+            A ProDy ensemble stored in NPZ format. Each frame contains
+            the aligned coordinates and associated structure weight.
+
+        outAlignment
+
+            A multiple sequence alignment derived from the final
+            structural ensemble.
+
+        outputStructures (optional)
+
+            Individual aligned PDB files for each structure.
+
+        outputTrajectory (optional)
+
+            A DCD trajectory representation of the ensemble.
+
+        Custom Chain Matching Utilities
+
+        The protocol contains internal utilities that support custom
+        matching workflows.
+
+        createMatchDic()
+
+            Builds the chain matching dictionary used for custom
+            alignment strategies.
+
+        getInitialChainOrder()
+
+            Extracts the original chain order from an atomic model.
+
+        These utilities are especially important when aligning
+        assemblies whose biological chain organization must be
+        preserved explicitly.
+
+        Summary of Internal Steps
+
+        _insertAllSteps()
+
+            Defines protocol execution.
+
+        alignStep()
+
+            Main computational stage.
+
+            - Parses structures
+            - Handles references
+            - Performs DALI search if needed
+            - Builds mappings
+            - Aligns structures
+            - Creates ensemble
+            - Writes ensemble files
+
+        createOutputStep()
+
+            Registers all generated outputs into Scipion.
+
+        _summary()
+
+            Reports the number of aligned structures and atoms.
+
+        _setWeights()
+
+            Assigns stored ensemble weights to output objects.
+
+        Practical Biological Interpretation
+
+        This protocol is particularly useful when the scientific goal
+        is to compare multiple related structures in a unified
+        coordinate system.
+
+        Common applications include:
+
+        - comparing conformational states,
+        - studying structural heterogeneity,
+        - preparing homologous ensembles,
+        - generating input for normal mode analysis,
+        - producing aligned datasets for visualization.
+
+        For best biological results:
+
+        - choose a biologically representative reference,
+        - use conservative residue mapping when sequence divergence
+          is high,
+        - trim poorly conserved positions,
+        - verify chain matching carefully for multimeric assemblies.
+
+        Final Perspective
+
+        Build PDB Ensemble is not simply a structural superposition
+        tool.
+
+        It provides a biologically meaningful way to transform a
+        collection of related atomic models into a coherent ensemble
+        that can be analyzed as a unified structural population.
+
+        Proper reference selection, careful chain matching, and
+        appropriate trimming are the key factors that determine
+        whether the final ensemble accurately reflects biologically
+        relevant structural variability.
     """
     _label = 'buildPDBEnsemble'
     _possibleOutputs = {'outputStructures': SetOfAtomStructs,
