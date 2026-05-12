@@ -50,56 +50,132 @@ class ProDyEdit(ProDyModesBase):
     """
     This protocol will edit a SetOfNormalModes object to have more or fewer nodes
     """
-    """
-    Edits a SetOfNormalModes object to change the number of nodes, 
-    enabling flexible modification of normal mode representations 
-    for atomic or pseudoatomic models.
+    _label = 'Edit modes'
 
-    Overview
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form, besidesAnimation=False):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params.
+        """
+        # You need a params to belong to a section:
+        form.addSection(label='ProDy edit')
 
-    The ProDy Edit protocol allows the user to adjust the granularity 
-    of a normal mode set by either reducing, slicing, extending, or 
-    interpolating the nodes. Its main purpose is to facilitate 
-    comparative analyses, enhance visualization, or prepare modes 
-    for further computational workflows by matching them to a desired 
-    atomic or pseudoatomic representation.
+        form.addParam('modes', PointerParam, label='Input set of modes',
+                      pointerClass='SetOfNormalModes',
+                      help='The input modes can be a SetOfNormalModes '
+                           'from an atomic model (true PDB) or a pseudoatomic model '
+                           '(an EM volume compared into pseudoatoms)'
+                           'or a SetOfPrincipalComponents.')
 
-    Inputs and General Workflow
+        form.addParam('edit', EnumParam, choices=['Slice', 'Reduce', 'Extend', 'Interpolate'],
+                    default=NMA_SLICE,
+                    label='Type of edit',
+                    help='Modes can have the number of nodes decreased using either eigenvector slicing '
+                    'or the slower but often more meaningful Hessian reduction method (aka vibrational subsystem '
+                    'analysis; Hinsen et al., Chem Phys 2000; Woodcock et al., J Chem Phys 2008) for ProDy vectors. \n'
+                    'The number of nodes can be increased by extending (copying) eigenvector values '
+                    'from nodes of the same residue or by through-space thin plate splines interpolation')
 
-    Users provide a SetOfNormalModes object along with a new set of 
-    atoms or pseudoatoms representing the desired nodes. The protocol 
-    supports multiple editing strategies: slicing for direct reduction, 
-    Hessian-based reduction for meaningful eigenvector compression, 
-    extension by copying values across residues, and interpolation 
-    for smooth mapping between node sets. Optional normalization can 
-    be applied to maintain consistent vector magnitudes. Additionally, 
-    the protocol can generate animations of the modified modes for 
-    visualization in ContinuousFlex, specifying RMSD amplitudes, 
-    number of frames, and directionality.
+        form.addParam('newNodes', PointerParam,
+                      label='New nodes',
+                      pointerClass='AtomStruct',
+                      help='Atoms or pseudoatoms to use as new nodes.')   
 
-    During execution, the protocol aligns old and new node sets, 
-    applies the chosen editing strategy, and produces updated modes 
-    alongside corresponding atomic coordinates. These outputs are 
-    saved in standard PDB and mode file formats compatible with 
-    ProDy and Scipion workflows, preserving both structural and 
-    dynamic information.
+        form.addParam('norm', BooleanParam, default=True, 
+                      condition='edit==%d' % NMA_SLICE,
+                      label='Normalise sliced vectors',
+                      help='Elect whether to normalise vectors.')
+                      
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
+        form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
+                      label='RMSD Amplitude (A)',
+                      help='Used only for animations of computed normal modes. '
+                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
+                      'along normal modes in the animations. \n')
+        form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
+                      expertLevel=LEVEL_ADVANCED,
+                      label='Number of frames',
+                      help='Number of frames used in each direction of animations.')
+        form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include positive direction",
+                      help='Elect whether to animate in the positive mode direction.')
+        form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Include negative direction",
+                      help='Elect whether to animate in the negative mode direction.')
 
-    Outputs and Their Interpretation
+    # --------------------------- STEPS functions ------------------------------
+    # This is inherited from modes base protocol
+    def _insertAllSteps(self):
+        modes = prody.parseScipionModes(self.modes.get().getFileName())
+        self.nzero = len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0])
 
-    The edited modes are provided as a new SetOfNormalModes object, 
-    annotated with the new atomic coordinates. The outputs include 
-    PDB files of the new node set, mode files compatible with Scipion, 
-    and optionally animation files for visual inspection. Users can 
-    interpret these outputs to assess how changes in node representation 
-    affect dynamic patterns, mode amplitudes, and structural correlations, 
-    facilitating both exploratory and publication-level analyses.
+        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
 
-    Practical Recommendations
+    def computeModesStep(self):
+        self.inputStructure = self.modes.get().getPdb()
+        modes = prody.parseScipionModes(self.modes.get().getFileName(),
+                                        pdb=self.inputStructure.getFileName())
 
-    Careful selection of the editing strategy is recommended: slicing 
-    and reduction are suited for decreasing node counts while preserving 
-    dynamic relevance, whereas extension and interpolation are ideal 
-    for increasing resolution or adapting modes to new atomic models. 
-    Visualizing the resulting modes or generating animations helps 
-    ensure that the edited representations remain biologically meaningful.
-    """
+        oldNodes = prody.parsePDB(self.inputStructure.getFileName(), altloc="all")
+        newNodes = prody.parsePDB(self.newNodes.get().getFileName(), altloc="all")
+
+        nodesList = [oldNodes, newNodes]
+        numAtomsArr = np.array([nodes.numAtoms() for nodes in nodesList])
+        smaller = nodesList[np.argmin(numAtomsArr)]
+        bigger = nodesList[np.argmax(numAtomsArr)]
+
+        amap = prody.alignChains(bigger, smaller, match_func=prody.sameChid)[0]
+        
+        if self.edit == NMA_SLICE:
+            self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
+
+        elif self.edit == NMA_REDUCE:
+            modesPath = os.path.dirname(os.path.dirname(
+                self.modes.get()._getMapper().selectFirst().getModeFile()))
+
+            fromPrody = len(glob(modesPath+"/*npz"))
+            if fromPrody:
+                modes = prody.loadModel(glob(modesPath+"/*npz")[0])
+                self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
+                zeros = bool(np.any(modes.getEigvals() < prody.utilities.ZERO))
+                self.outModes.calcModes(modes.numModes(), zeros=zeros)
+            else:
+                logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
+                self.outModes, self.atoms = prody.sliceModel(modes, bigger, amap, norm=self.norm)
+
+        elif self.edit == NMA_EXTEND:
+            self.outModes, self.atoms = prody.extendModel(modes, amap, bigger, norm=True)
+
+        else:
+            self.outModes, self.atoms = prody.interpolateModel(modes, amap, bigger, norm=True)
+
+        prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
+        prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
+
+        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
+        prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
+
+        if isinstance(self.outModes, prody.GNM):
+            self.gnm = True
+
+    def createOutputStep(self):
+        fnSqlite = self._getPath('modes.sqlite')
+
+        inputClass = type(self.modes.get())
+        nmSet = inputClass(filename=fnSqlite)
+        nmSet._nmdFileName = String(self.nmdFileName)
+        nmSet.setPdb(self.newNodes.get())
+
+        self._defineOutputs(outputModes=nmSet)
+        self._defineSourceRelation(self.newNodes, nmSet)

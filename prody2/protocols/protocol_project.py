@@ -51,49 +51,137 @@ class ProDyProject(EMProtocol):
     """
     This module will provide ProDy projection of structural ensembles on principal component or normal modes
     """
+    _label = 'Projection'
 
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params.
+        """
+        form.addSection(label='ProDy Projection')
+        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
+                      important=True,
+                      pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
+                      help='The input ensemble should be SetOfAtomStructs or ProDyNpzEnsemble '
+                      'objects where all structures have the same number of atoms.')
 
-class ProDyProject(EMProtocol):
-    """
-    AI Generated Summary:
+        form.addParam('inputModes', PointerParam, label="Input set of modes",
+                      important=True,
+                      pointerClass='SetOfNormalModes,SetOfPrincipalComponents',
+                      help='The input modes can come from Continuous-Flex NMA, ProDy NMA, or ProDy PCA.\n'
+                           'The first modes from this set will be used. To use other modes, make a subset.')
 
-    Structural Projection (ProDyProject) — User Manual
+        form.addParam('modeList', NumericRangeParam,
+                      label="Modes selection", allowsNull=True, default="",
+                      help='Select the normal modes that will be used for analysis.\n'
+                           'If you leave this field empty, all the computed modes will be selected from.\n'
+                           'If you only enter one number, all the computed modes will be selected from starting with that one.\n'
+                           'You have several ways to specify the modes.\n'
+                           '   Examples:\n'
+                           ' "7,8-10" -> [7,8,9,10]\n'
+                           ' "8, 10, 12" -> [8,10,12]\n'
+                           ' "8 9, 10-12" -> [8,9,10,11,12])\n')
+        
+        form.addParam('numModes', EnumParam, choices=['1', '2', '3'],
+                      label='Number of modes', default=TWO,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='1, 2 or 3 modes can be used for projection')
 
-    OVERVIEW
-    The Projection protocol maps structural ensembles onto a reduced coordinate
-    system defined by Normal Mode Analysis (NMA) or Principal Component
-    Analysis (PCA). Its primary goal is to simplify high-dimensional molecular
-    movements into discrete coefficients that describe a structure's position
-    along specific biological pathways or functional transitions.
+        form.addParam('norm', BooleanParam, label="Normalize?", default=False,
+                      help='Select whether to normalise projections.')
 
-    INPUTS AND COMPATIBILITY
-    The protocol requires two essential components:
-    - Structural Ensembles: Atomic sets (PDBs) or ProDy NPZ ensembles.
-    - Reference Modes: Principal Components or Normal Modes.
-    A fundamental constraint is that all input structures must share the
-    identical atom count as the model used to generate the reference modes
-    to ensure mathematical validity during vector overlap calculations.
+        form.addParam('rmsd', BooleanParam, label="RMSD scale?", default=True,
+                      help='Select whether to scale projections to RMSDs.')
 
-    MODE SELECTION AND SUBSPACE
-    Users can define the dimensionality of the projection space:
-    - Selective Indexing: Specific modes can be chosen using range strings
-      (e.g., "1, 2, 5-10").
-    - Multi-Mode Projection: The protocol allows projecting onto 1, 2, or 3
-      modes simultaneously, which is ideal for creating 2D or 3D
-      conformational landscapes to identify structural clusters.
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        # Insert processing steps
+        self._insertFunctionStep('computeStep')
+        self._insertFunctionStep('createOutputStep')
 
-    SCALING AND NORMALIZATION
-    To enhance biological interpretability, the protocol provides:
-    - RMSD Scaling: Expresses the projection in Angstroms, allowing
-      researchers to quantify how far a structure has moved along a mode.
-    - Normalization: Adjusts coefficients relative to the mode magnitude,
-      facilitating comparison between different structural models.
+    def computeStep(self):
+        inputModes = self.inputModes.get()
+        modesPath = inputModes.getFileName()
+        modes = prody.parseScipionModes(modesPath)
 
-    OUTPUTS AND DATA EXPORT
-    The results are integrated into the output ensembles as new attributes
-    (projection coefficients). Additionally, the protocol exports:
-    - CSV Files: Containing raw coefficients and structural weights for
-      external statistical analysis.
-    - NMD Files: For visual inspection of the projection subspace in
-      standard NMA viewers.
-    """
+        if not self.modeList.empty():
+            modeSelection = list(np.array(getListFromRangeString(self.modeList.get())) - 1)
+            if len(modeSelection) == 1:
+                modes = modes[modeSelection[0]:]
+            else:
+                modes = modes[modeSelection]
+
+        modes = modes[:self.numModes.get()+1]
+
+        prody.writeScipionModes(self._getPath(), modes, write_star=True)
+        fnSqlite = self._getPath('modes.sqlite')
+        inputClass = type(inputModes)
+        self.outputModes = inputClass(filename=fnSqlite)
+
+        atoms = prody.parsePDB(glob(os.path.dirname(modesPath)+"/*atoms.pdb")[0],
+                               altloc="all")
+        self.nmdFileName = self._getPath('modes.nmd')
+        prody.writeNMD(self.nmdFileName, modes, atoms)
+
+        self.outputModes._nmdFileName = pwobj.String(self.nmdFileName)
+
+        self.proj = []
+        for i, inputEnsemble in enumerate(self.inputEnsemble):
+            ensGot = inputEnsemble.get()
+            idSet = ensGot.getIdSet()
+            if isinstance(ensGot, SetOfAtomStructs):
+                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
+                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+                # the ensemble gets built exactly as the input is setup and nothing gets rejected
+            else:
+                ens = ensGot.loadEnsemble()
+
+            projection = prody.calcProjection(ens, modes[:self.numModes.get()+1], rmsd=self.rmsd.get(),
+                                              norm=self.norm.get())
+            projDict = dict()
+            for j, idx in enumerate(idSet):
+                proj = projection[j]
+                if isinstance(proj, float):
+                    proj = [proj]
+
+                projDict[idx] = proj
+            self.proj.append(projDict)
+            prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
+                             format='%8.5f', delimiter=',')
+
+            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            prody.writeArray(self._getPath('weights_{0}.csv'.format(i+1)), weights,
+                             format='%8.5f', delimiter=',')
+
+    def createOutputStep(self):
+        args = {}
+        for self.ensId, inputEnsemble in enumerate(self.inputEnsemble): 
+            ensGot = inputEnsemble.get()
+
+            suffix = str(self.ensId+1)
+
+            inputClass = type(ensGot)
+            outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
+            outSet.copyItems(ensGot, updateItemCallback=self._setCoeffs)
+            name = "outputEns" + suffix
+            args[name] = outSet
+
+        args["outputModes"] = self.outputModes
+
+        self._defineOutputs(**args)
+
+    # --------------------------- UTILS functions --------------------------------------------
+    def _setCoeffs(self, item, row=None):
+        # We provide data directly so don't need a row
+        vector = pwobj.CsvList()
+        vector._convertValue(["{:18.15f}".format(x) for x in (self.proj[self.ensId][item.getObjId()])])
+        setattr(item, PROJ_COEFFS, vector)
+
+    def _summary(self):
+        if not hasattr(self, 'outputEns1'):
+            summ = ['Projection not ready yet']
+        else:
+            summ = ['Projected structures onto *{0}* components'.format(self.numModes.get()+1)]
+        return summ
+        
