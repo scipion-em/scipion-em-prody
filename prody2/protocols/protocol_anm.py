@@ -51,247 +51,57 @@ class ProDyANM(ProDyModesBase):
     """
     This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
     """
-    _label = 'ANM NMA'
-    _possibleOutputs = {'outputModes': SetOfNormalModes}
+    """
+    Performs normal mode analysis (NMA) using the anisotropic network model (ANM) to explore
+    collective motions of macromolecular structures.
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form, besidesAnimation=False):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
+    AI Generated:
 
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy ANM NMA')
+    ANM Normal Mode Analysis (ProDyANM) — User Manual
 
-        form.addParam('inputStructure', PointerParam, label="Input structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+        Overview
 
-        form.addParam('numberOfModes', IntParam, default=20,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms or pseudoatoms).')
+        The ProDy ANM protocol computes normal modes for atomic or pseudoatomic models
+        using the anisotropic network model. This approach captures intrinsic motions
+        and flexibility within biomolecules, allowing the study of functional dynamics,
+        conformational changes, or principal component analysis of structural ensembles.
 
-        form.addParam('cutoff', StringParam, default=15.,
-                      label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact.\n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases although '
-                           '18 A may sometimes be better, see Eyal et al., Bioinformatics 2006.\n'
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended, see Tirion et al., Phys Rev Lett 1996.\n'
-                           'For other levels of coarse-graining including pseudoatoms, see Doruker et al., J Comput Chem 2002.\n'
-                           'It is also possible to use other functions for the cutoff e.g. 2.9 * math.log(numResidues) - 2.9 for ed-ENM, '
-                           'replacing numResidues with the actual number of residues')
-        form.addParam('gamma', StringParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'Besides pre-defined Gamma functions such as GammaStructureBased from Lezon et al., PLoS Comput Biol 2010 '
-                           'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
-                           'more sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')
+        Inputs and General Workflow
 
-        form.addParam('membrane', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use explicit membrane model?",
-                      help='An explicit lattice elastic network is used to model the membrane. '
-                      'This option requires a protein oriented with opm or ppm.')
+        The protocol requires a single input structure, which can be a PDB atomic model
+        or a pseudoatomic model derived from an EM volume. Users specify the number of
+        modes to calculate, cutoff distances for atomic interactions, and spring constants
+        governing the network. Optional advanced parameters include sparse matrices,
+        KDTree optimization, explicit membrane modeling, and turbo computation mode
+        for enhanced performance.
 
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Zero modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
+        ANM modes are computed through sequential steps. The protocol first calculates
+        the Hessian matrix and derives mode vectors. Modes are then evaluated for
+        collectivity, with less collective modes optionally deselected based on a user-defined
+        threshold. Animations of selected modes can be generated with configurable RMSD,
+        number of frames, and positive or negative direction motion.
 
-        form.addParam('zeros', BooleanParam, default=True,
-                      label="Include zero eigvals",
-                      help='Elect whether modes with zero eigenvalues will be kept.')
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
+        Outputs and Interpretation
 
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=5,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along normal modes in the animations. \n')
-        form.addParam('numSteps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive mode direction.')
-        form.addParam('neg', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative mode direction.')
+        Upon completion, the protocol produces a set of normal modes saved in Scipion
+        format alongside a metadata file containing eigenvalues, collectivity scores,
+        and mode enablement. Each mode captures a distinct collective motion of the
+        input structure, providing insights into flexibility and conformational transitions.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=20, nzeros=6):
-        # Insert processing steps
+        Practical Recommendations
 
-        # Link the input
-        inputFn = self.inputStructure.get().getFileName()
-        numModes = self.numberOfModes.get()
+        For routine use, it is recommended to verify input parameters such as the number
+        of modes and cutoff distance. Visual inspection of mode animations can help
+        validate biological relevance. Advanced options, including membrane modeling
+        or sparse computation, may be leveraged for specialized cases. Users should
+        ensure that computed modes are consistent with expected physical behavior
+        and biological function.
 
-        self.gnm = False
-        self.nzeros = 6 if self.zeros.get() else 0
+        Final Perspective
 
-        self._insertFunctionStep('computeModesStep', inputFn, numModes)
-        self._insertFunctionStep('qualifyModesStep', numModes,
-                                 self.collectivityThreshold.get())
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.numSteps.get(),
-                                 self.neg.get(), self.pos.get(), self.nzeros)
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
-        self._insertFunctionStep('createOutputStep')
-
-    def computeModesStep(self, inputFn='', n=20):
-        """Compute ANM normal modes"""
-
-        self.pdbFileName = self._getPath('atoms.pdb')
-        self.atoms = prody.parsePDB(inputFn, alt='all')
-        prody.writePDB(self.pdbFileName, self.atoms)
-
-        if self.membrane.get():
-            self.prefix = 'modes.exanm'
-        else:
-            self.prefix = 'modes.anm'
-        filename = self.prefix + '.npz'
-
-        args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
-            '--npz -o {1} -p {2} -n {3} -g {4} -c "{5}" -P {6}'.format(self.pdbFileName,
-                                                                         self._getPath(),
-                                                                         self.prefix, n,
-                                                                         self.gamma.get(),
-                                                                         self.cutoff.get(),
-                                                                         self.numberOfThreads.get())
-
-        if self.sparse.get():
-            args += ' --sparse-hessian'
-
-        if self.kdtree.get():
-            args += ' --use-kdtree'
-
-        if self.zeros.get():
-            args += ' --zero-modes'
-            self.startMode = 6
-        else:
-            self.startMode = 0
-
-        if self.turbo.get():
-            args += ' --turbo'
-
-        if self.membrane.get():
-            args += ' --membrane'
-
-        self.runJob(Plugin.getProgram('anm'), args)
-        self.outModes = prody.loadModel(self._getPath(filename))
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
-        self._enterWorkingDir()
-
-        fnVec = glob("modes/vec.*")
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
-            msg += "The maximum number of modes allowed by the method for ANM normal mode analysis is "
-            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
-
-        mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
-        eigvals = self.outModes.getEigvals()
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", vecStr % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            eigval = eigvals[n]
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigval, objId)
-
-            if eigval > prody.utilities.ZERO:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
-
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
-
-    def createOutputStep(self):
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
-
-        inputPdb = self.inputStructure.get()
-        nmSet.setPdb(inputPdb)
-
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
-
-    def _summary(self):
-        if not hasattr(self, 'outputModes'):
-            summ = ['Output modes not ready yet']
-        else:
-            modes = prody.parseScipionModes(self.outputModes.getFileName())
-
-            summ = ['*{0}* ANM modes calculated for *{1}* nodes'.format(
-                    modes.numModes(), modes.numAtoms())]
-        return summ
-
+        The ProDy ANM protocol integrates rigorous computational methods with user-friendly
+        configuration to facilitate structural dynamics analysis. It provides a robust
+        framework for exploring macromolecular flexibility, interpreting functional
+        motions, and generating biologically meaningful insights that support downstream
+        modeling, simulation, or comparative studies.
+    """

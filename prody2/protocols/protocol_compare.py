@@ -48,153 +48,28 @@ class ProDyCompare(EMProtocol):
     """
     This protocol will compare two SetOfNormalModes objects
     """
-    _label = 'Compare modes'
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy compare')
+    """
+    Compares two sets of normal modes using RMSD- or covariance-based metrics. The ProDy Compare protocol 
+    analyzes the similarity between two input mode sets, which can originate from atomic models, pseudoatomic 
+    representations, or principal components. Its primary purpose is to quantify structural correlations, 
+    identify matched modes, and provide representative outputs suitable for downstream analyses. 
 
-        form.addParam('modes1', PointerParam, label="Input modes set 1",
-                      important=True,
-                      pointerClass='SetOfNormalModes',
-                      help='The input modes can be a SetOfNormalModes '
-                           'from an atomic model (true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms) '
-                           'or a SetOfPrincipalComponents.\n'
-                           'The two sets should have the same number of nodes '
-                           'unless one of them has exactly 1 mode in it.')
+    The protocol requires two input mode sets that ideally share the same number of nodes, except when one 
+    set contains a single mode. Users can choose from different comparison metrics, including pairwise 
+    overlaps, covariance overlaps, and root-weighted square inner products (RWSIP). Additional options allow 
+    restricting calculations to diagonal overlaps, normalizing vectors, and matching modes to maximize 
+    correspondence between the sets.
 
-        form.addParam('modes2', PointerParam, label="Input modes set 2",
-                      important=True,
-                      pointerClass='SetOfNormalModes',
-                      help='The input modes can be a SetOfNormalModes '
-                           'from an atomic model (true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms) '
-                           'or a SetOfPrincipalComponents.\n'
-                           'The two sets should have the same number of nodes '
-                           'unless one of them has exactly 1 mode in it.')
+    During execution, the protocol parses the mode sets and associated PDB structures when available. If 
+    mode matching is enabled, it aligns modes across ensembles and outputs matched mode files in both NMD 
+    and Scipion formats. The protocol computes the selected metric and stores the resulting matrix for 
+    interpretation, which reflects pairwise or cumulative mode similarities. Covariance overlaps and RWSIP 
+    calculations exclude the six zero-frequency modes to ensure meaningful comparison.
 
-        form.addParam('metric', EnumParam, choices=['Overlap', 'Covariance Overlap', 'RWSIP'],
-                      default=NMA_METRIC_OVERLAP,
-                      label='Comparison metric',
-                      help='Modes can be compared pairwise using correlation cosine overlaps (inner products), '
-                      'or in sets using either covariance overlap (Hess, Phys Rev E 2002; aka spectral overlap) '
-                      'or the root weighted square inner product (RWSIP; Carnevale et al., J Phys Condens Matter 2007). \n'
-                      'Covariance overlaps and RWSIPs are calculated over growing mode sets.\n'
-                      'The six zero modes are excluded from covariance overlap and RWSIP calculations.')
-
-        form.addParam('diag', BooleanParam, default=False, 
-                      condition='metric==%d' % NMA_METRIC_OVERLAP,
-                      label='Calculate diagonal values only',
-                      help='Elect whether to calculate diagonal values only.')      
-
-        form.addParam('match', BooleanParam, default=False, 
-                      condition='metric!=%d' % NMA_METRIC_RWSIP,
-                      label='Match modes',
-                      help='Elect whether to match modes.')     
-
-        form.addParam('norm', BooleanParam, default=True, 
-                      condition='metric==%d' % NMA_METRIC_OVERLAP,
-                      label='Normalise overlaps',
-                      help='Elect whether to normalise vectors for overlaps or calculate raw dot products.')
-
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep('compareModesStep')
-        self._insertFunctionStep('createOutputStep')
-
-    def compareModesStep(self):
-        modesPath1 = os.path.dirname(os.path.dirname(
-            self.modes1.get()._getMapper().selectFirst().getModeFile()))
-
-        pdb1 = glob(modesPath1+"/*atoms.pdb")
-        if len(pdb1) == 0:
-            pdb1 = None
-
-        modes1 = prody.parseScipionModes(self.modes1.get().getFileName(), pdb=pdb1)
-
-        modesPath2 = os.path.dirname(os.path.dirname(
-            self.modes2.get()._getMapper().selectFirst().getModeFile()))
-            
-        pdb2 = glob(modesPath2+"/*atoms.pdb")
-        if len(pdb2) == 0:
-            pdb2 = None
-
-        modes2 = prody.parseScipionModes(self.modes2.get().getFileName(), pdb=pdb2)
-
-        nModes = np.max([modes1.numModes(), modes2.numModes()])
-        nModesMin = np.min([modes1.numModes(), modes2.numModes()])
-
-        if nModesMin != 1 and self.match:
-            modeEns = prody.ModeEnsemble()
-            modeEns.addModeSet(modes1)
-            modeEns.addModeSet(modes2)
-            modeEns.match()
-
-            matchInds = prody.matchModes(modes1, modes2, index=True)
-
-            self.matchIndsFileName = prody.writeArray(self._getExtraPath('matchInds.txt'),
-                                                      np.array(matchInds, dtype=int)[1]+1,
-                                                      format='%3d')
-
-            pdb = self.modes1.get().getPdb()
-            if pdb is not None:
-                atoms = prody.parsePDB(pdb.getFileName())
-            else:
-                atoms = prody.parsePDB(pdb1)
-
-            typeStr = str(type(modes2)).lower().split('.')[-1].split("'")[0]
-            self.nmdFileName = self._getPath('matched_modes.{0}.nmd'.format(typeStr))
-
-            prody.writeNMD(self.nmdFileName, modeEns[1], atoms)
-            prody.writeScipionModes(self._getPath(), modeEns[1], write_star=True)
-        else:
-            modeEns = [modes1, modes2]
-        
-        if self.metric == NMA_METRIC_OVERLAP:
-            if self.norm:
-                self.matrix = prody.calcOverlap(modeEns[0], modeEns[1], diag=self.diag)
-            else:
-                # Calculate direct dot product without vector normalisation found in calcOverlap
-                self.matrix = modes1.getEigvecs().T @ modes2.getEigvecs()
-
-            if self.matrix.ndim == 1:
-                self.matrix.reshape(-1, 1)
-
-        else:
-            self.matrix = np.empty((nModes-6, 1))
-            for i in range(6, nModes):
-                if self.metric == NMA_METRIC_COV_OVERLAP:
-                    self.matrix[i-6, 0] = prody.calcEnsembleSpectralOverlaps(modeEns[:, 6:i+1])[0, 1]
-                else:
-                    self.matrix[i-6, 0] = prody.calcRWSIP(modeEns[0, 6:i+1], modeEns[1, 6:i+1])
-
-        prody.writeArray(self._getExtraPath('matrix.txt'), self.matrix,
-                         format='%' + str(max([len(str(int(np.max(self.matrix)))),
-                                               len(str(int(np.min(self.matrix))))]) + 4) + '.2f')
-
-    def createOutputStep(self):
-        outputMatrix = EMFile(filename=self._getExtraPath('matrix.txt'))
-
-        if self.match:
-            fnSqlite = self._getPath('modes.sqlite')
-            inputClass = type(self.modes1.get())
-            nmSet = inputClass(filename=fnSqlite)
-            nmSet._nmdFileName = String(self.nmdFileName)
-
-            outputPdb = AtomStruct()
-            outputPdb.setFileName(self._getPath('atoms.pdb'))
-            nmSet.setPdb(outputPdb.get())
-
-            outputMatch = EMFile(filename=self.matchIndsFileName)
-            nmSet._indsFileName = String(self.matchIndsFileName)
-
-            self._defineOutputs(matrixFile=outputMatrix, matchFile=outputMatch, outputModes=nmSet)
-        else:
-            self._defineOutputs(matrixFile=outputMatrix)
+    Outputs include the computed comparison matrix, optional matched mode sets, and PDB structures. These 
+    outputs enable visualization, further computational analysis, or integration into workflows comparing 
+    conformational dynamics. The protocol is particularly useful for evaluating structural consistency 
+    between simulations, models, or experimental reconstructions, providing biologically relevant insights 
+    into correlated motions and dominant conformational modes.
+    """

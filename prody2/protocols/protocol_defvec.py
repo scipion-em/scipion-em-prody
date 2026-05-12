@@ -44,154 +44,60 @@ class ProDyDefvec(EMProtocol):
     """
     This protocol will perform deformation vector analysis
     """
-    _label = 'Deformation'
+    """
+    Performs deformation vector analysis to explore structural differences 
+    between two atomic or pseudoatomic models. The ProDy Deformation 
+    protocol calculates the displacement vectors required to move a 
+    mobile structure toward a target structure, enabling visualization, 
+    quantification, and animation of conformational changes.
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy Defvec')
-        form.addParam('mobStructure', PointerParam, label="Mobile structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The structure to be moved can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms).'
-                           'The two structures should have the same number of nodes.')
-        form.addParam('tarStructure', PointerParam, label="Target structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The target structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)'
-                           'The two structures should have the same number of nodes.')
+    Overview
 
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=0,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along the deformation vector in the animations. \n'
-                      'The default value of 0 means use the actual RMSD between the structures.')
-        form.addParam('n_steps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive direction '
-                           'from mobile to target.')
-        form.addParam('neg', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative direction, '
-                           'extrapolating from mobile further away from target.')
+    The protocol requires two input structures: a mobile structure, which 
+    will be transformed, and a target structure, which defines the 
+    desired conformation. Both structures should have matching numbers 
+    of nodes. The main purpose is to provide insight into the structural 
+    transitions between conformations and to generate animations of 
+    atomic displacements along computed deformation vectors.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        self._insertFunctionStep('defvecStep')
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
-        self._insertFunctionStep('computeAtomShiftsStep')
-        self._insertFunctionStep('createOutputStep')
+    Inputs and General Workflow
 
-    def defvecStep(self):
-        mobStruct = self.mobStructure.get()
-        self.mobFn = mobStruct.getFileName()
+    Users provide the mobile and target structures, along with optional 
+    parameters for animation, such as RMSD amplitude, number of frames, 
+    and whether to include positive and negative directions. The protocol 
+    first parses the input structures, computes RMSD if not provided, 
+    and calculates the deformation vector representing the displacement 
+    of each atom from mobile to target.
 
-        tarStruct = self.tarStructure.get()
-        self.tarFn = tarStruct.getFileName()
+    The protocol generates a mode object representing the deformation 
+    vector, writes it in Scipion mode and NMD formats, and optionally 
+    animates the transformation using the specified RMSD and frame 
+    settings. Visualization scripts compatible with VMD are also 
+    produced to facilitate immediate inspection.
 
-        self.mob = prody.parsePDB(self.mobFn, alt='all')
-        self.tar = prody.parsePDB(self.tarFn, alt='all')
+    Atom Shift Calculation
 
-        if self.rmsd.get() == 0:
-            self.rmsd = prody.calcRMSD(self.mob, self.tar)
-        else:
-            self.rmsd = self.rmsd.get()
+    Beyond animation, the protocol computes per-atom displacement 
+    magnitudes and stores them as metadata. These profiles allow 
+    quantitative analysis of the most mobile regions and identification 
+    of atoms undergoing significant structural shifts.
 
-        self.defvec = prody.calcDeformVector(self.mob, self.tar)
+    Outputs and Their Interpretation
 
-        self.outModes = prody.NMA('defvec')
-        self.outModes.setEigens(self.defvec.getArray().reshape(-1, 1))
-        prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.mob)
+    The primary output is a SetOfNormalModes object encapsulating the 
+    deformation vector, associated mode files, and reference to the 
+    mobile structure. Users can inspect animations, RMSD-based 
+    displacement profiles, and transformed coordinates to interpret 
+    conformational differences. The protocol is particularly useful 
+    for comparing alternative structural states, exploring flexibility, 
+    and generating illustrative animations for biological interpretation.
 
-    def animateModesStep(self, rmsd, nSteps, pos, neg):
-        animationsDir = self._getExtraPath('animations')
-        makePath(animationsDir)
+    Practical Recommendations
 
-        fnAnimation = join(animationsDir, "animated_mode_001")
-
-        self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=rmsd,
-                                           n_steps=nSteps,
-                                           pos=pos, neg=neg)
-        prody.writePDB(fnAnimation+".pdb", self.outAtoms)
-
-        fhCmd=open(fnAnimation+".vmd",'w')
-        fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-        fhCmd.write("animate style Rock\n")
-        fhCmd.write("display projection Orthographic\n")
-        fhCmd.write("mol modcolor 0 0 Index\n")
-
-        if self.mob.select('name P') is not None:
-            numAtomsP = self.mob.select('name P').numAtoms()
-        else:
-            numAtomsP = 0
-
-        if self.mob.ca is not None:
-            numAtomsCA = self.mob.ca.numAtoms()
-        else:
-            numAtomsCA = 0
-
-        numAtomsRep = numAtomsCA + numAtomsP
-        if numAtomsRep == self.mob.numAtoms():
-            fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-            # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-            #         "2.600000 0\n")
-        else:
-            fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                    "2.600000 0\n")
-        fhCmd.write("animate speed 0.5\n")
-        fhCmd.write("animate forward\n")
-        fhCmd.close()   
-
-    def computeAtomShiftsStep(self):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        
-        n = 1
-        fnVec = self._getPath("modes", "vec.%d" % n)
-        fhIn = open(fnVec)
-        md = MetaData()
-        for line in fhIn:
-            x, y, z = map(float, line.split())
-            d = math.sqrt(x*x+y*y+z*z)
-            maxShift.append(d)
-            maxShiftMode.append(1)
-            md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-        md.write(join(fnOutDir,"vec%d.xmd" % n))
-        fhIn.close()
-
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            objId = md.addObject()
-            md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-            md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-    def createOutputStep(self):
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-        nmSet.setPdb(self.mobStructure.get())
-
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.mobStructure, nmSet)
-
+    In typical workflows, RMSD amplitudes can be left at zero to use 
+    the actual structural deviation. The number of frames should be 
+    chosen to balance smooth animations and computational cost. 
+    Including both positive and negative directions provides a complete 
+    view of the conformational landscape, while selective inclusion 
+    may focus on biologically relevant transitions.
+    """

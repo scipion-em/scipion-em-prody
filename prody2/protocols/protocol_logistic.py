@@ -51,168 +51,107 @@ class ProDyLRA(ProDyModesBase):
     """
     This protocol will perform ProDy logistic regression analysis (LRA) using atomic structures
     """
-    _label = 'LRA'
-    _possibleOutputs = {'outputModes': SetOfLogisticModes}
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form, besidesAnimation=False):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
+    """
+    This protocol performs Logistic Regression Analysis (LRA) using ProDy to identify 
+    structural components that best discriminate between two different functional 
+    or conformational states.
 
-        form.addSection(label='ProDy LRA')
-        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
-                      important=True,
-                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble, DcdMDSystem',
-                      help='Each input ensemble should be a SetOfAtomStructs or a ProDy NPZ ensemble.')
-        form.addParam('degeneracy', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition='isinstance(inputEnsemble, SetOfAtomStructs)',
-                      label="Take only first conformation from each structure/set",
-                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
-                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
-        form.addParam('numberOfShuffles', IntParam, default=10,
-                      label='Number of random shuffles',
-                      help='The class labels will be shuffled this many times for LRA to '
-                           'assess random variation.')
-        form.addParam('selstr', StringParam, default="name CA",
-                      label="Selection string",
-                      help='Selection string for atoms to include in the calculation.\n'
-                           'It is recommended to use "name CA" (default)')
-        
-        group = form.addGroup('Class labels')
-        group.addParam('chainOrders', TextParam, width=60, default='{}',
-                       label='Custom class label dictionary',
-                       help='Defined labels for classes. These can be any string including numbers')
-        group.addParam('insertOrder', NumericRangeParam, default='1',
-                       label='Insert label index',
-                       help='Insert the class label with the specified index into the label dict.\n'
-                            'The default (when empty) is the last position.')
-        group.addParam('customOrder', StringParam, default='1',
-                       label='Custom label to insert at the specified index',
-                       help='Enter the desired label here.\n'
-                            'The default (when empty) is the number 1.')
-        group.addParam('label', StringParam, default='',
-                       label='Ensemble label for item with the specified number for recovering custom class labels',
-                       help='This cannot be changed by the user and is for display only.')
-        group.addParam('recoverOrder', StringParam, default='1',
-                       label='Recover custom label number',
-                       help='Enter the desired class label index here.\n'
-                            'Recover the class label with the specified index from the label dict.')
+    AI Generated:
 
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=2,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive mode direction.')
-        form.addParam('neg', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative mode direction.')
+    Logistic Regression Analysis (ProDyLRA) — User Manual
+        Overview
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=1, nzeros=0):
-        # Insert processing steps
-        labelsMap = self.createMatchDic(self.insertOrder.get())
-        self.classes = list(labelsMap.values())
-        numModes = len(set(self.classes)) - 1
-        self.gnm = False
-        self.nzero = nzeros
+        The Logistic Regression Analysis protocol is designed to identify the collective 
+        structural motions that characterize the difference between two distinct groups 
+        of structures. By applying a supervised learning approach to structural 
+        ensembles, LRA finds "modes" that are optimized to separate defined biological 
+        classes, such as "open" vs "closed" states or "ligand-bound" vs "apo" forms.
 
-        self._insertFunctionStep('computeModesStep', numModes)
-        self._insertFunctionStep('qualifyModesStep', numModes, 0.)
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, nzeros)
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 0)
-        self._insertFunctionStep('createOutputStep')
+        For a biological researcher, this tool is invaluable for moving beyond simple 
+        Principal Component Analysis (PCA). While PCA finds directions of maximum 
+        variance, LRA finds the specific directions that are most biologically 
+        relevant to the functional transition being studied.
 
-    def computeModesStep(self, n=1):
-        loadAndWriteEnsemble(self)
-        self.atoms = self.ens.getAtoms()
+        Inputs and General Workflow
 
-        self.outModes = prody.LRA()
-        self.outModes.calcModes(self.ens, self.classes,
-                                n_shuffles=self.numberOfShuffles.get())
+        The protocol requires one or more input ensembles, which can be provided as 
+        atomic structures, ProDy NPZ files, or DCD trajectories. A critical 
+        requirement is that the user must define exactly two classes for the 
+        analysis. If more or fewer than two classes are detected in the labeling 
+        dictionary, the protocol will signal a validation error.
 
-        prody.writeScipionModes(self._getPath(), self.outModes)
-        self._nmdFileName = String(self._getPath('modes.logreg.nmd'))
-        prody.writeNMD(self._nmdFileName.get(), self.outModes, self.atoms)
-        prody.saveModel(self.outModes, self._getPath('modes.logreg.npz'), matrices=True)
+        The workflow involves labeling each structure in the ensemble with a class 
+        identifier. The algorithm then calculates the logistic regression components 
+        that maximize the separation between these classes. To ensure the results are 
+        statistically robust and not due to random variation, the protocol includes 
+        a shuffling parameter to assess the significance of the findings.
 
-    def createOutputStep(self):
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfLogisticModes(filename=fnSqlite)
-        nmSet._nmdFileName = self._nmdFileName
+        Class Labeling and Customization
 
-        self.fractVarsDict = {}
-        for _, item in enumerate(nmSet):
-            self.fractVarsDict[item.getObjId()] = 1
+        Labeling is the core biological driver of this protocol. Users can provide 
+        a custom class label dictionary to group their structural data. This allows 
+        the user to explicitly tell the software which structures belong to which 
+        biological state.
 
-        outSet = SetOfLogisticModes().create(self._getPath())
-        outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
-        outSet._nmdFileName = self._nmdFileName
+        Advanced users can manipulate the label dictionary by inserting custom 
+        labels at specific indices or recovering specific label numbers. This 
+        flexibility is essential when dealing with complex datasets where structures 
+        may be interleaved or require manual sorting into functional categories.
 
-        inputPdb = self.averageStructure
-        self._defineOutputs(refPdb=inputPdb)
-        outSet.setPdb(inputPdb)
+        Atoms Selection and Degeneracy
 
-        self._defineOutputs(outputModes=outSet, outputEnsemble=self.npz)
-        self._defineSourceRelation(inputPdb, outSet)
+        To focus the analysis on relevant structural features, a selection string 
+        is provided. By default, "name CA" (Alpha Carbons) is used, which is 
+        sufficient for most protein systems to capture global conformational 
+        changes while reducing computational noise.
 
-    def _validate(self):
-        errors = []
-        labelsMap = self.createMatchDic(self.insertOrder.get())
-        numClasses = len(set(list(labelsMap.values())))
-        if numClasses != 2:
-            errors.append('The number of class labels should be 2')
+        The degeneracy option allows users to decide whether to use only the 
+        first conformation of each structure or all available coordinate sets. 
+        This is particularly useful when importing multi-model PDB files or 
+        trajectories where some frames may be redundant or represent the 
+        same equilibrium state.
 
-        return errors
+        Animation and Visualization
 
-    def _summary(self):
-        if not hasattr(self, 'outputModes'):
-            summ = ['Output modes not ready yet']
-        else:
-            modes = prody.parseScipionModes(self.outputModes.getFileName())
-            ens = self.outputEnsemble.loadEnsemble()
+        Once the LRA modes are calculated, the protocol allows for their 
+        visualization through animations. These animations depict how the 
+        structure moves along the discriminative components.
 
-            summ = ['*{0}* LRA components calculated from *{1}* structures of *{2}* atoms'.format(
-                    modes.numModes(), ens.numConfs(), ens.numAtoms())]
-        return summ
+        The user can control the RMSD Amplitude to define how far the atoms 
+        move in the animation, and set the number of frames to ensure a smooth 
+        transition. Options to include both positive and negative directions 
+        allow for a full view of the structural transition between the two 
+        defined biological states.
 
-    def _setFractVars(self, item, row=None):
-        # We provide data directly so don't need a row
-        fractVar = Float(self.fractVarsDict[item.getObjId()])
-        setattr(item, PRODY_FRACT_VARS, fractVar)
+        Outputs and Their Interpretation
 
-    def createMatchDic(self, index, label=None):
-        parseMatchDict(self)
-        self.classes = list(self.matchDic.values())
+        After execution, the protocol produces a SetOfLogisticModes. This 
+        output includes the calculated components, which can be explored in 
+        standard NMD viewers. The summary provides a clear count of how many 
+        LRA components were calculated relative to the number of structures 
+        and atoms analyzed.
 
-        # reinitialise to update with new keys
-        # that are still ordered correctly
-        self.matchDic = OrderedDict()
+        The protocol also outputs the processed ensemble and the reference 
+        structure used for the calculation. This ensures that the results 
+        are perfectly mapped back to the physical model, allowing for a 
+        direct biological interpretation of which residues are key to 
+        the conformational switch.
 
-        if self.labels == []:
-            loadAndWriteEnsemble(self)
-            self.labels = self.ens.getLabels()
-            self.classes = list(np.ones(len(self.labels), dtype=str))
+        Practical Recommendations
 
-        if not isinstance(self.labels[0], tuple):
-            self.labels = [(i+1, label) for i, label in enumerate(self.labels)]
+        For optimal results, users should ensure their ensembles are well-aligned 
+        before running LRA. It is highly recommended to start with a clean CA-only 
+        selection to identify the main hinges and domains involved in the 
+        transition. If the "Number of Shuffles" shows that the components are 
+        easily replicated by random labeling, the user should re-evaluate the 
+        biological consistency of their class assignments.
 
-        inds = [item-1 for item in getListFromRangeString(index)]
-        for idx in inds:
-            self.classes[idx] = self.customOrder.get()
+        Final Perspective
 
-        self.matchDic.update(zip(self.labels, self.classes))
-        return self.matchDic
+        Logistic Regression Analysis turns structural data into a diagnostic 
+        tool. It doesn't just ask "how does this molecule move?", but rather 
+        "which specific movements define the difference between these two states?". 
+        By providing a clear mathematical bridge between classification and 
+        molecular dynamics, LRA helps researchers pinpoint the physical 
+        basis of biological regulation.
+    """

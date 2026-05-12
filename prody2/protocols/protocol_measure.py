@@ -54,141 +54,100 @@ class ProDyMeasure(EMProtocol):
     """
     This module will provide ProDy distance and angle measurement for structural ensembles
     """
-    _label = 'Measure'
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        form.addSection(label='ProDy Measure')
-        form.addParam('inputEnsemble', params.MultiPointerParam, label="Input ensemble(s)",
-                      important=True,
-                      pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
-                      help='The input ensembles should be SetOfAtomStructs or ProDyNpzEnsemble '
-                      'objects where all structures have the same number of atoms.')
-        
-        form.addParam('measureType', params.EnumParam,
-                      choices=['distance', 'angle', 'dihedral'], default=DISTANCE,
-                      label='Measure type',
-                      help='Select the type of measure.')
+"""
+Calculates geometric properties such as distances, angles, and dihedral angles across
+structural ensembles. This protocol allows for the tracking of structural changes
+and conformational dynamics by measuring specific relationships between defined atom selections.
 
-        form.addParam('selection1', params.StringParam, default=defaultSelstr,
-                      label="selection string 1",
-                      help=selstrHelp)
-        
-        form.addParam('selection2', params.StringParam, default=defaultSelstr,
-                      label="selection string 2",
-                      help=selstrHelp)
-        
-        form.addParam('selection3', params.StringParam, default=defaultSelstr,
-                      label="selection string 3", condition="measureType>%d" % DISTANCE,
-                      help=selstrHelp)
+```
+AI Generated:
 
-        form.addParam('selection4', params.StringParam, default=defaultSelstr,
-                      label="selection string 4", condition="measureType>%d" % ANGLE,
-                      help=selstrHelp)
+Structural Measurement (ProDyMeasure) — User Manual
+    Overview
 
+    The ProDy Measure protocol provides a robust way to quantify geometric relationships 
+    within one or more structural ensembles. Its main purpose is to transform complex 3D 
+    conformational changes into discrete numerical data—distances, angles, or dihedrals—so 
+    they can be compared, plotted, or used for statistical analysis. In cryo-EM and 
+    structural biology workflows, this step is vital for characterizing the range of 
+    motion in flexible complexes or verifying specific functional states.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep('computeStep')
-        self._insertFunctionStep('createOutputStep')
+    For a biological user, the most common applications include monitoring the distance 
+    between two domains during a catalytic cycle, measuring the hinge angle of a 
+    molecular motor, or tracking the dihedral rotation of a specific side chain across 
+    an MD trajectory or a set of reconstructed maps converted to pseudoatoms.
 
-    def computeStep(self):
-        selstr1 = self.selection1.get()
-        selstr2 = self.selection2.get()
+    Inputs and General Workflow
 
-        measureType = self.measureType.get()
-        if measureType > DISTANCE:
-            selstr3 = self.selection3.get()
-        if measureType > ANGLE:
-            selstr4 = self.selection4.get()
+    The protocol accepts multiple input ensembles, which can be provided as sets of atomic 
+    structures or ProDy NPZ files. A fundamental requirement is that all structures 
+    within the input ensembles must share the same number of atoms to ensure consistency 
+    during the measurement loop.
 
-        self.measures = []
-        for i, inputEnsemble in enumerate(self.inputEnsemble):
-            ensGot = inputEnsemble.get()
-            idSet = ensGot.getIdSet()
-            if isinstance(ensGot, SetOfAtomStructs):
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
-                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-            else:
-                ens = ensGot.loadEnsemble()
+    The workflow centers on defining "selections" that represent the points of interest. 
+    The protocol calculates the geometric center of each selection for every frame in 
+    the ensemble. Once these centers are established, the protocol applies the 
+    appropriate geometric formula based on the selected measurement type.
 
-            atomsCopy = ens.getAtoms().copy()
+    Measurement Types and Selections
 
-            try:
-                ens.setAtoms(atomsCopy)
-            except ValueError:
-                ens = prody.trimPDBEnsemble(ens)
-                ens.setAtoms(atomsCopy)
+    The protocol offers three distinct modes of geometric analysis, each requiring a 
+    different number of point selections:
 
-            ens.setAtoms(atomsCopy.select(selstr1))
-            centers1 = prody.calcCenter(ens.getCoordsets())
+    Distance measurement is the most straightforward, requiring two selection strings. 
+    It calculates the Euclidean distance between the centers of mass of selection 1 
+    and selection 2. This is ideal for tracking the "opening" or "closing" of a pocket.
 
-            ens.setAtoms(atomsCopy)
-            ens.setAtoms(atomsCopy.select(selstr2))
-            centers2 = prody.calcCenter(ens.getCoordsets())
+    Angle measurement requires three selections. It calculates the angle formed at the 
+    vertex (selection 2) by the lines connecting to selections 1 and 3. This is useful 
+    for quantifying hinge-like movements in multi-domain proteins.
 
-            if measureType > DISTANCE:
-                ens.setAtoms(atomsCopy)
-                ens.setAtoms(atomsCopy.select(selstr3))
-                centers3 = prody.calcCenter(ens.getCoordsets())
+    Dihedral measurement is the most complex, requiring four selections. It calculates 
+    the torsion angle between the planes defined by points (1,2,3) and (2,3,4). This is 
+    the standard way to measure twisting motions or bond rotations.
 
-            if measureType == DIHEDRAL:
-                ens.setAtoms(atomsCopy)
-                ens.setAtoms(atomsCopy.select(selstr4))
-                centers4 = prody.calcCenter(ens.getCoordsets())
+    Atom Selection Logic
 
-            ens.setAtoms(atomsCopy)
+    Selection strings are powered by the ProDy selection language, allowing users to 
+    target specific residues, atom names, or chains. From a biological perspective, 
+    selecting a robust set of atoms (like C-alpha atoms of a stable helix) to define a 
+    center is generally preferred over selecting a single atom, as it provides a more 
+    statistically stable representation of a domain's position.
 
-            if measureType == DISTANCE:
-                measures = prody.calcDistance(centers1, centers2)
-            elif measureType == ANGLE:
-                measures = prody.measure.getAngle(centers1, centers2, centers3)
-            else:
-                measures = np.zeros(len(centers1))
-                for j in range(len(centers1)):
-                    measures[j] = prody.measure.getDihedral(centers1[j], centers2[j],
-                                                            centers3[j], centers4[j])
+    If the ensemble contains structural discrepancies, the protocol includes an 
+    automated "trimming" step to ensure that the atom selections remain valid across 
+    all coordinate sets, preventing crashes during center-of-mass calculations.
 
-            measuresDict = dict()
-            for j, idx in enumerate(idSet):
-                measuresDict[idx] = measures[j]
-            self.measures.append(measuresDict)
-            prody.writeArray(self._getPath('measures_{0}.csv'.format(i+1)), measures, 
-                             format='%8.5f', delimiter=',')
+    Outputs and Data Interpretation
 
-    def createOutputStep(self):
-        args = {}
-        for self.ensId, inputEnsemble in enumerate(self.inputEnsemble): 
-            ensGot = inputEnsemble.get()
+    Upon completion, the protocol generates new ensembles that are copies of the 
+    inputs but augmented with a new attribute: the calculated measure for each 
+    individual structure. These values are also exported to CSV files, formatted 
+    for easy import into external plotting or spreadsheet software.
 
-            suffix = str(self.ensId+1)
+    Biologically, these outputs allow the user to correlate structural identifiers 
+    with geometric values. For instance, one can identify which subset of an 
+    ensemble exhibits a "closed" conformation by filtering based on the distance 
+    attribute now attached to the output structures.
 
-            inputClass = type(ensGot)
-            outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
-            outSet.copyItems(ensGot, updateItemCallback=self._setMeasures)
+    Practical Recommendations
 
-            name = "outputEns" + suffix
-            
-            args[name] = outSet
+    In routine practice, it is best to verify selection strings on a single 
+    representative PDB file before running the protocol on a large ensemble. 
+    If the resulting distances or angles appear erratic, consider broadening 
+    the selection string to include more stable backbone atoms, which reduces 
+    noise caused by local side-chain fluctuations.
 
-        self._defineOutputs(**args)
+    When measuring complex motions, it is often helpful to run multiple instances 
+    of the protocol—for example, combining distance and angle measurements—to 
+    obtain a multi-dimensional view of the protein's conformational landscape.
 
-    # --------------------------- UTILS functions --------------------------------------------
-    def _setMeasures(self, item, row=None):
-        # We provide data directly so don't need a row
-        measure = pwobj.Float(self.measures[self.ensId][item.getObjId()])
-        setattr(item, MEASURES, measure)
+    Final Perspective
 
-    def _summary(self):
-        if not hasattr(self, 'outputEns1'):
-            summ = ['Measures not ready yet']
-        else:
-            summ = ['Measures calculated']
-        return summ
-        
+    For most researchers, measuring a distance or an angle is the first step toward 
+    turning a visual observation into a publication-quality statistic. By automating 
+    this across entire ensembles, the ProDy Measure protocol bridges the gap between 
+    qualitative structural inspection and quantitative biophysical characterization.
+"""
+

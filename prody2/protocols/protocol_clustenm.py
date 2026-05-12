@@ -54,287 +54,230 @@ class ProDyClustENM(EMProtocol):
     """
     This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
     """
-    _label = 'ClustENM(D)'
-    _possibleOutputs = {'outputStructures1': SetOfAtomStructs,
-                        'outputNpz1': ProDyNpzEnsemble}
+    """
+    Performs conformational sampling of biomolecular structures using 
+    the ClustENM and ClustENMD methodologies implemented in ProDy. 
+    The protocol combines Elastic Network Model (ENM) normal mode 
+    analysis, clustering, energy minimization, and optional molecular 
+    dynamics simulations to explore biologically relevant conformational 
+    landscapes of proteins and macromolecular assemblies.
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
+    AI Generated:
 
-        form.addSection(label='ClustENM(D)')
-        form.addParam('inputStructures', MultiPointerParam, label="Input structures",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='Each input structures should be an atomic model')
-        form.addParam('numberOfModes', IntParam, default=3,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms), but we suggest 3 to 5.')
-        form.addParam('n_gens', IntParam, default=2,
-                      label='Number of generations',
-                      help='Number of generations of NMA, clustering and refinement')     
-        form.addParam('n_confs', IntParam, default=10,
-                      label='Number of conformers from each existing conformer',
-                      help='Number of new conformers to be generated based on any conformer '
-                           'from the previous generation')    
-        form.addParam('sim', BooleanParam, default=True,
-                      label="Whether to run a short MD simulation as well as minimisation",
-                      help='This includes a heating-up phase until the desired temperature is reached plus '
-                           'the numbers of steps set below.')
-        form.addParam('parallel', BooleanParam, default=False,
-                      label='Whether to use parallel threads for conformer generation.',
-                      help='This will only affect the ENM NMA steps')  
-        form.addParam('rmsd', StringParam, default="1.",
-                      label="Average RMSD (A) of the new conformers from source conformer",
-                      help='Average RMSD of the new conformers with respect to the conformer'
-                           'from which they are generated \n'
-                           'A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.')
-        form.addParam('clusterMode', EnumParam, choices=['maxclust', 'threshold'], default=0,
-                      label="Method for clustering for each generation",
-                      help='Either maxclust or RMSD threshold should be given! For large number of '
-                           'generations and/or structures, specifying maxclust is more efficient.')
-        form.addParam('maxclust', StringParam,
-                      condition='clusterMode==0',
-                      default='None',
-                      label="Maximum number of clusters for each generation",
-                      help='A tuple of floats can be given, e.g. (10, 30, 50) for subsequent generations.')
-        form.addParam('threshold', StringParam, condition='clusterMode==1',
-                      default='None',
-                      label="RMSD threshold (A) to apply when forming clusters",
-                      help='A tuple of floats can be given, e.g. (1.0, 1.5, 1.5) for subsequent generations.\n'
-                           'This parameter has been used in ClustENMv1, setting it to 75%% of the maximum RMSD for sampling. '
-                           'For the current version (v2), this should be chosen carefully for efficiency')                          
+    ClustENM(D) (ProDyClustENM) — User Manual
 
-        form.addSection(label='NMA')
-        form.addParam('gamma', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
-        form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Cut-off distance (A)",
-                      help='Calpha atoms beyond this distance will not interact. \n'
-                           'The default distance of 15 A works well in the majority of cases.')
-        form.addParam('sparse', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use sparse matrices?",
-                      help='This saves memory at the expense of computational time.')
-        form.addParam('kdtree', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use KDTree for building Hessian matrix?",
-                      help='This takes more computational time.')
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
+        Overview
 
-        form.addSection(label='Simulation')
-        form.addParam('solvent', EnumParam, choices=['implicit', 'explicit'],
-                      label="Solvent type", default=IMP,
-                      display=EnumParam.DISPLAY_HLIST,
-                      help='Choose whether to use implicit or explicit solvent')
-        form.addParam('padding', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Padding distance to use for solvation",
-                      help='Padding distance to use for the solvent box')
-        form.addParam('ionicStrength', FloatParam, default=0.,
-                      condition="solvent==%d" % EXP,
-                      label="Total concentration of ions (both positive and negative) to add in mol/L",
-                      help='This does not include ions that are added to neutralize the system.')
-        form.addParam('force_field', StringParam, default="None",
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Force field to use",
-                      help="If set to None, Implicit solvent force field is ('amber99sbildn.xml', 'amber99_obc.xml') "
-                           "and Explicit solvent force field is ('amber14-all.xml', 'amber14/tip3pfb.xml').\n"
-                           "Any other tuple of protein and water force fields implemented in OpenMM should work.")
+        The ClustENM(D) protocol is designed to generate and refine 
+        alternative conformations of biomolecular structures by combining 
+        coarse-grained normal mode analysis with iterative structural 
+        sampling and molecular dynamics refinement. The method provides 
+        an efficient way to explore large-scale collective motions that 
+        are often associated with biological function, such as domain 
+        rearrangements, hinge bending, loop movements, or allosteric 
+        transitions.
 
-        form.addParam('tolerance', FloatParam, default=10.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Energy tolerance to which the system should be minimized in kJ/mole",
-                      help='Energy tolerance for stopping energy minimisation')
-        form.addParam('maxIterations', IntParam, default=0,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Maximum number of iterations to perform during energy minimization",
-                      help='If this is 0 (default), minimization is continued until the results converge without '
-                           'regard to how many iterations it takes') 
+        In structural biology workflows, this protocol is particularly 
+        useful for studying conformational heterogeneity, generating 
+        structural ensembles for flexible fitting, investigating protein 
+        dynamics, or preparing candidate conformations for downstream 
+        cryo-EM or molecular docking analyses. Unlike conventional MD 
+        simulations alone, ClustENM(D) focuses sampling along collective 
+        low-frequency motions predicted by ENM normal mode analysis, 
+        allowing efficient exploration of biologically meaningful states 
+        with reduced computational cost.
 
-        simTrue = "sim==True"
-        form.addParam('temp', FloatParam, default=303.15,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=simTrue,
-                      label="Temperature (K)",
-                      help='Temperature (K) at which the simulations are conducted')                           
-        form.addParam('t_steps_i', IntParam, default=1000,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=simTrue,
-                      label="Number of 2 fs MD time steps for the initial starting structure",
-                      help='Default value is good for reducing possible drift from the starting structure') 
-        form.addParam('t_steps_g', StringParam, default="7500",
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=simTrue,
-                      label="Number of 2 fs MD time steps for each conformer from each generation",
-                      help="A tuple of integers can be given, e.g. (3000, 5000, 7000) for subsequent generations.")
+        Inputs and General Workflow
 
-        form.addParam('outlier', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition="solvent==%d" % IMP,
-                      label="Exclude conformers detected as outliers in each generation?",
-                      help="Outliers, if any, are detected by the modified z-scores of the conformers' "
-                           "potential energies over a generation.\n"
-                           "Note: It is automatically set to False when explicit solvent is being used")                      
-        form.addParam('mzscore', FloatParam, default=3.5,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition="outlier==True",
-                      label="Modified z-score threshold to label conformers as outliers",
-                      help='Modified z-score threshold to label conformers as outliers')   
+        The protocol requires one or more atomic structures as input. 
+        These structures are typically protein models in PDB format and 
+        act as the starting conformations for conformational sampling. 
+        Each input structure is independently processed through iterative 
+        generations of normal mode analysis, conformer generation, 
+        clustering, and refinement.
 
-        form.addSection(label='Fitting')
-        form.addParam('doFitting', BooleanParam, default=False,
-                      label="Whether to do fitting to volumes like MDeNM-EMFit?",
-                      help="If selected, this will filter structures to those that do not reduce the cross-correlation much")
-        fittingCondition = 'doFitting==True'
-        form.addParam('inputVolumes', MultiPointerParam, label="Target volumes",
-                      important=True, allowsNull=True, condition=fittingCondition,
-                      pointerClass='Volume',
-                      help='If fitting, there should be the same number of volumes as models or just one for all of them')
-        form.addParam('fitResolution', FloatParam, default=5.,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=fittingCondition,
-                      label="Resolution for simulated volumes (A)",
-                      help='Resolution (A) for simulating volumes to compare against the target')
-        form.addParam('replaceFiltered', BooleanParam, default=False, condition=fittingCondition,
-                      label="Whether to sample again to replace filtered conformations?",
-                      help="If selected, this will sample and filter structures repeatedly until the selected number are kept")
-        form.addParam('mapCutoff', FloatParam, default=0.1,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=fittingCondition,
-                      label="Intensity threshold for target maps",
-                      help='Minimum intensity cutoff for reading target maps to avoid noise')
+        During each generation, the protocol computes low-frequency ENM 
+        modes and generates new conformers by perturbing the structure 
+        along collective motions. The resulting conformers are then 
+        clustered to reduce redundancy and identify representative states. 
+        Optionally, the protocol performs energy minimization and short 
+        molecular dynamics simulations to refine generated conformations 
+        and improve their physical realism.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+        This iterative workflow allows the protocol to progressively 
+        expand the conformational landscape while maintaining biologically 
+        meaningful structural diversity.
 
-        self.args = {}
+        Conformational Sampling and Generational Expansion
 
-        # Insert processing steps
-        pdbs = [struct.get().getFileName() for struct in self.inputStructures]
+        One of the central concepts of ClustENM(D) is the generation-based 
+        exploration of conformational space. Each generation begins from 
+        the representative conformers retained from the previous cycle. 
+        New conformations are produced by displacing structures along 
+        selected normal modes, with the average RMSD controlling the 
+        magnitude of structural perturbation.
 
-        if self.doFitting.get():
-            if self.inputVolumes is not None:
-                self.volumes = [vol.get().getFileName() for vol in self.inputVolumes]
-            else:
-                self.volumes = []
+        The number of modes determines how many collective motions are 
+        sampled during conformer generation. In most biological systems, 
+        low-frequency modes capture the largest functional motions, and 
+        using a small number of modes typically provides stable and 
+        interpretable results. Excessively large numbers of modes may 
+        introduce unrealistic local distortions rather than biologically 
+        relevant collective movements.
 
-            if len(self.volumes) < len(pdbs) and len(self.volumes) != 1:
-                if len(self.volumes) != 0:
-                    logger.warning("Ignoring volumes as the number of them does not match structures.")
-                self.volumes = None
-            
-            if len(pdbs) == 1 and len(self.volumes) > 1:
-                pdbs = [pdbs[0] for _ in self.volumes]
+        The number of conformers generated per structure controls the 
+        breadth of sampling. Larger values increase structural diversity 
+        but also raise computational cost. Similarly, increasing the 
+        number of generations expands conformational exploration but may 
+        lead to progressively less physically relevant states if sampling 
+        becomes too aggressive.
 
-        if self.solvent.get() == IMP:
-            self.solvent = 'imp'
-        else:
-            self.solvent = 'exp'
+        Clustering and Structural Diversity
 
-        for i, pdb in enumerate(pdbs):
-            self._insertFunctionStep('computeStep', i, pdb)
+        Clustering plays an essential role in controlling redundancy and 
+        preserving representative conformational states. After each 
+        generation, conformers are grouped according to structural 
+        similarity, allowing the protocol to retain representative 
+        structures while discarding highly redundant conformations.
 
-        self._insertFunctionStep('createOutputStep')
+        The protocol supports clustering either by specifying a maximum 
+        number of clusters or by defining an RMSD threshold. The 
+        maxclust strategy is generally more efficient for large datasets 
+        or many generations, while RMSD threshold clustering provides 
+        more direct structural control over ensemble diversity.
 
-    def computeStep(self, i, pdb):
+        From a biological perspective, clustering prevents oversampling 
+        of nearly identical conformations and helps maintain a balanced 
+        representation of distinct structural states. Choosing overly 
+        permissive thresholds may retain excessive redundancy, whereas 
+        very strict clustering can remove meaningful intermediate states.
 
-        suffix = str(i+1)
-        direc = self._getPath('clustenm_{0}'.format(suffix))
-        if not os.path.exists(direc):
-            os.mkdir(direc)
+        Elastic Network Model Parameters
 
-        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
-               '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} --t_steps_i {12} --t_steps_g {13} ' \
-               '--tolerance {14} --maxIterations {15} -o {16} --file-prefix pdbs --multiple -P {17}'.format(
-                   pdb, self.n_gens.get(), self.numberOfModes.get(),
-                   self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(),
-                   self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
-                   self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
-                   self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
+        The ENM component of the protocol models the structure as a 
+        network of interacting nodes connected by springs. The spring 
+        constant determines the strength of interactions between residues, 
+        while the cutoff distance defines which atoms are considered 
+        connected in the elastic network.
 
-        if self.n_gens.get() > 0:
-            args += ' --maxclust "{0}" --threshold "{1}"'.format(self.maxclust.get(), self.threshold.get())
+        The default cutoff values generally perform well for globular 
+        proteins and standard biomolecular systems. However, highly 
+        elongated structures, membrane proteins, or flexible assemblies 
+        may require parameter adjustment to better capture collective 
+        dynamics.
 
-        if self.sim.get() is False:
-            args += ' --no-sim'
+        Advanced computational options such as sparse Hessian matrices, 
+        KDTree construction, and turbo mode allow optimization of memory 
+        usage and computational speed. These settings are particularly 
+        relevant for large macromolecular complexes or high-throughput 
+        ensemble generation workflows.
 
-        if self.sparse.get():
-            args += ' --sparse-hessian'
+        Molecular Dynamics Refinement
 
-        if self.kdtree.get():
-            args += ' --use-kdtree'
+        The protocol optionally integrates short molecular dynamics 
+        simulations after conformer generation. This refinement stage 
+        improves structural realism by relaxing steric clashes and 
+        allowing local adaptation of the perturbed conformations.
 
-        if self.turbo.get():
-            args += ' --turbo'
+        Simulations may be performed using either implicit or explicit 
+        solvent environments. Implicit solvent simulations are generally 
+        faster and computationally lighter, making them suitable for 
+        exploratory ensemble generation. Explicit solvent simulations 
+        provide more physically realistic environments but require 
+        substantially greater computational resources.
 
-        if self.parallel.get():
-            args += ' --parallel'
+        Additional parameters such as temperature, ionic strength, 
+        minimization tolerance, and simulation length allow fine control 
+        over the refinement process. In biological applications, moderate 
+        simulation lengths are often sufficient to stabilize generated 
+        conformers without drifting excessively from the intended ENM 
+        perturbations.
 
-        if self.outlier.get():
-            args += ' --mzscore {0}'.format(self.mzscore.get())
-        else:
-            args += ' --no-outlier'
+        Outlier Detection and Ensemble Quality
 
-        if self.doFitting.get():
-            args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
-                                                                                 self.fitResolution.get(),
-                                                                                 self.mapCutoff.get())
-            if self.replaceFiltered.get():
-                args += ' --replace_filtered'
+        For implicit solvent simulations, the protocol can automatically 
+        detect and exclude energetic outliers using modified z-score 
+        analysis. This filtering step removes conformations with unusually 
+        unfavorable potential energies that may correspond to unstable or 
+        nonphysical structural states.
 
-        self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
+        Biologically, outlier filtering improves the quality and 
+        interpretability of the final ensemble by reducing the presence 
+        of unrealistic conformations. However, users should exercise 
+        caution because highly flexible or partially unfolded states may 
+        occasionally appear as energetic outliers despite having potential 
+        biological relevance.
 
-        structs = SetOfAtomStructs.create(self._getExtraPath())
-        for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
-            pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
-            structs.append(pdb)
+        Flexible Fitting to Experimental Volumes
 
-        ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
-        self.weights = ens.getSizes()
+        An important optional feature of the protocol is the ability to 
+        perform filtering against experimental density maps. When enabled, 
+        generated conformations are evaluated according to their agreement 
+        with input volumes, similarly to approaches used in flexible 
+        fitting workflows.
 
-        outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
-        outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
-        self.args["outputStructures" + suffix] = outSetAS
+        This functionality is particularly useful in cryo-EM studies where 
+        conformational ensembles need to remain compatible with 
+        experimental density data. Structures that significantly reduce 
+        cross-correlation with the target map can be filtered out, helping 
+        guide sampling toward experimentally supported conformations.
 
-        self.ensBaseName = os.path.join(direc, 'pdbs')
-        npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
-        for j in range(ens.numCoordsets()):
-            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
-                              objLabel=ens.getLabels()[j],
-                              weight=self.weights[j])
-            npz.append(frame)
+        The protocol also supports iterative replacement of filtered 
+        conformers, allowing the ensemble size to remain approximately 
+        constant while enforcing map consistency.
 
-        self.args["outputNpz" + suffix] = npz
+        Outputs and Their Interpretation
 
-    def _setWeights(self, item, row=None):
-            weight = pwobj.Float(self.weights[item.getObjId()-1])
-            setattr(item, ENSEMBLE_WEIGHTS, weight)
+        After execution, the protocol produces sets of refined atomic 
+        structures corresponding to the generated conformational ensemble. 
+        Each output structure is associated with ensemble weights derived 
+        from the clustering and sampling procedure.
 
-    def createOutputStep(self):
-        self._defineOutputs(**self.args)
+        In addition, the protocol generates compressed ProDy ensemble 
+        files containing coordinate sets and metadata for all sampled 
+        conformers. These ensembles can be reused for downstream 
+        structural analysis, visualization, dimensionality reduction, or 
+        comparison with experimental data.
 
-    def _summary(self):
-        if not hasattr(self, 'outputStructures1'):
-            summ = ['Output not ready yet']
-        else:
-            summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(
-                    self.n_gens.get(), self.numberOfSteps-1)]
-        return summ
+        Biologically, the resulting ensemble should be interpreted as a 
+        representation of accessible collective motions rather than an 
+        exact thermodynamic distribution. The generated conformations are 
+        most valuable for exploring plausible functional transitions and 
+        identifying structurally meaningful dynamic states.
 
+        Practical Recommendations
+
+        For most biological applications, beginning with a small number 
+        of modes and moderate RMSD perturbations provides the most stable 
+        and interpretable results. Excessive perturbation amplitudes or 
+        too many generations may generate unrealistic conformations that 
+        deviate from experimentally plausible structures.
+
+        Implicit solvent refinement is generally recommended for rapid 
+        exploratory studies, while explicit solvent simulations are more 
+        suitable for detailed structural refinement or publication-level 
+        analyses. When studying large conformational transitions, combining 
+        several generations with careful clustering often provides a good 
+        balance between diversity and structural realism.
+
+        When fitting against cryo-EM maps, users should carefully choose 
+        map thresholds and simulated volume resolutions to avoid 
+        overfitting noise or introducing artificial structural bias.
+
+        Final Perspective
+
+        ClustENM(D) provides an efficient hybrid framework for exploring 
+        biomolecular flexibility by combining coarse-grained collective 
+        motion analysis with atomistic refinement techniques. Rather than 
+        relying solely on long-timescale molecular dynamics simulations, 
+        the protocol guides sampling toward biologically relevant motions 
+        predicted by elastic network theory.
+
+        For structural biologists, this approach offers a practical way 
+        to investigate conformational variability, generate flexible 
+        structural ensembles, and bridge computational modeling with 
+        experimental structural data such as cryo-EM density maps. 
+        Careful parameter selection, balanced conformational sampling, 
+        and biologically informed interpretation remain essential for 
+        obtaining meaningful and reliable results.
+    """

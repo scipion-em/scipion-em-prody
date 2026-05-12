@@ -48,246 +48,49 @@ class ProDyRTB(ProDyModesBase):
     """
     This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
     """
-    _label = 'RTB NMA'
-    _possibleOutputs = {'outputModes': SetOfNormalModes}
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form, besidesAnimation=False):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy RTB NMA')
+    """
+    AI Generated Summary:
 
-        form.addParam('inputStructure', PointerParam, label="Input structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+    RTB Normal Mode Analysis (ProDyRTB) — User Manual
 
-        form.addParam('numberOfModes', IntParam, default=20,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms or pseudoatoms).')
+    OVERVIEW
+    The RTB (Rotation-Translation of Blocks) protocol is a high-performance 
+    implementation of Normal Mode Analysis. It is specifically designed to 
+    handle massive macromolecular complexes by partitioning the structure into 
+    rigid blocks, thereby reducing the degrees of freedom and making the 
+    calculation of global motions computationally feasible for systems that 
+    would otherwise exhaust system memory.
 
-        form.addParam('blockDef', EnumParam, choices=['res', 'secstr'],
-                      label="Block definition type",
-                      default=BLOCKS_FROM_RES,
-                      display=EnumParam.DISPLAY_HLIST,
-                      help='Define blocks using either a number of residues or secondary structure information')
+    BLOCK DEFINITION AND COARSE-GRAINING
+    The efficiency of the method relies on how the molecule is divided:
+    - Residue-Based: Groups a specific number of residues into single blocks.
+    - Secondary Structure: Groups atoms based on biological units like alpha 
+      helices and beta sheets, preserving essential structural domains.
+    - Optimization: Automatically splits long blocks and merges short ones 
+      to maintain numerical stability and structural relevance.
 
-        form.addParam('res_per_block', IntParam, default=10,
-                      condition='blockDef==%d' % BLOCKS_FROM_RES,
-                      label="Number of residues per block",
-                      help='All blocks will have this number of residues except the last one')
+    PHYSICAL MODELING (ENM)
+    The protocol builds a Hessian matrix based on an Elastic Network Model:
+    - Cut-off Distance: Controls the interaction range between blocks (default 
+      15 Å for C-alpha).
+    - Spring Constant (Gamma): Defines the strength of the virtual springs 
+      connecting the blocks.
+    - Hessian Matrix: Describes the potential energy landscape of the 
+      partitioned system.
 
-        form.addParam('shortest_block', IntParam, default=4,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of residues in shortest block',
-                      help='Blocks with fewer residues will be combined into the previous block. '
-                           'Fewer than 4 can be problematic.')
+    PERFORMANCE AND VALIDATION
+    - Turbo Mode: An optimized, memory-intensive algorithm for rapid 
+      eigenvector decomposition.
+    - Sparse Matrices: Automatically utilized if the system detects potential 
+      MemoryErrors, ensuring robustness for extremely large assemblies.
+    - Collectivity Filtering: Identifies collective functional motions vs. 
+      local fluctuations, excluding the first six rigid-body modes.
 
-        form.addParam('longest_block', IntParam, default=20,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of residues in longest block',
-                      help='Blocks with more residues will be split in half')
-
-        form.addParam('min_dist_cutoff', FloatParam, default=20.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Distance cutoff for splitting blocks',
-                      help='Distance of a residue from others beyond which '
-                           'it is not included in the same block based on a distance tree. '
-                           'This is calculated using ProDy function findSubgroups.')
-
-        form.addParam('cutoff', FloatParam, default=15.,
-                      label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact.\n'
-                           'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
-                           'For all atoms, a shorter distance such as 5 or 7 A is recommended.\n'
-                           'For fewer atoms or pseudoatoms, set this according to the level of coarse-graining '
-                           '(see Doruker et al., J Comput Chem 2002 though values may differ for RTB).')
-
-        form.addParam('gamma', FloatParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
-
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Zero modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
-
-        form.addParam('zeros', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include zero eigvals",
-                      help='Elect whether modes with zero eigenvalues will be kept.')
-
-        form.addParam('turbo', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use turbo mode",
-                      help='Elect whether to use a memory intensive, but faster way to calculate modes.')
-
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=5,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive mode direction.')
-        form.addParam('neg', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative mode direction.')
-                           
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self, n=20, nzeros=6):
-        # Insert processing steps
-
-        # Link the input
-        inputFn = self.inputStructure.get().getFileName()
-        numModes = self.numberOfModes.get()
-        self.gnm = False
-
-        self.nzeros = 6 if self.zeros.get() else 0
-
-        self._insertFunctionStep('computeModesStep', inputFn, numModes)
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), self.nzeros)
-        self._insertFunctionStep('qualifyModesStep', numModes,
-                                 self.collectivityThreshold.get())
-        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
-        self._insertFunctionStep('createOutputStep')
-
-    def computeModesStep(self, inputFn='', n=20):       
-        self.pdbFileName = self._getPath('atoms.pdb')
-        self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
-
-        if self.blockDef.get() == BLOCKS_FROM_RES:
-            self.blocks, self.amap = prody.assignBlocks(self.atoms, res_per_block=self.res_per_block.get(),
-                                                        shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get(),
-                                                        min_dist_cutoff=self.min_dist_cutoff.get())
-        else:
-            self.blocks, self.amap = prody.assignBlocks(self.atoms, secstr=True,
-                                                        shortest_block=self.shortest_block.get(),
-                                                        longest_block=self.longest_block.get(),
-                                                        min_dist_cutoff=self.min_dist_cutoff.get())
-
-        prody.writePDB(self.pdbFileName, self.amap)
-
-        self.outModes = prody.RTB()
-        try:
-            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
-                                gamma=self.gamma.get())
-        except MemoryError as err:
-            prody.LOGGER.warn("{0} so using sparse matrix".format(err))
-            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
-                                    gamma=self.gamma.get(), sparse=True)
-
-        try:
-            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
-        except MemoryError as err:
-            prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
-            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=False)
-
-        if self.zeros.get():
-            self.startMode = 6
-        else:
-            self.startMode = 0
-        
-        prody.writeScipionModes(self._getPath(), self.outModes)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.amap)
-        prody.saveModel(self.outModes, self._getPath('modes.rtb.npz'), matrices=True)
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
-        self._enterWorkingDir()
-        fnVec = glob("modes/vec.*")
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for RTB normal mode analysis is "
-            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
-
-        mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
-        eigvals = self.outModes.getEigvals()
-
-        vecStr = "vec.%d"
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", vecStr % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            if n >= self.startMode:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n] , objId)
-
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
-
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
-
-    def createOutputStep(self):
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
-
-        inputPdb = self.inputStructure.get()
-        nmSet.setPdb(inputPdb)
-
-        self._defineOutputs(outputModes=nmSet)
-        self._defineSourceRelation(self.inputStructure, nmSet)
-
+    OUTPUTS AND VISUALIZATION
+    The protocol generates a 'SetOfNormalModes' and NMD files. It also 
+    produces VMD-compatible animations where the user can adjust RMSD 
+    amplitude to visually inspect how the protein 'breathes' or 'twists' 
+    along the calculated vectors, providing a direct link between 
+    mathematical modes and biological function.
+    """

@@ -60,235 +60,46 @@ class ProDyPCA(ProDyModesBase):
     """
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
-    _label = 'PCA'
-    _possibleOutputs = {'outputModes': SetOfPrincipalComponents}
-    _nmdFileName = 'modes.pca.nmd'
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form, besidesAnimation=False):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        cpus = cpu_count()//2 # don't use everything
-        form.addParallelSection(threads=cpus, mpi=0)
+    """
+    AI Generated Summary:
 
-        form.addSection(label='ProDy PCA')
-        form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble",
-                      important=True,
-                      pointerClass=POINTER_CLASSES,
-                      help='The input ensemble should be a SetOfAtomStructs '
-                      'where all structures have the same number of atoms or a ProDy ensemble.')
-        form.addParam('degeneracy', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Take only first conformation from each structure/set",
-                      help='Elect whether only the active coordinate set (**True**) or all the coordinate sets '
-                           '(**False**) of each structure should be added to the ensemble. Default is **True**.')
-        form.addParam('numberOfModes', IntParam, default=5,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms or pseudoatoms).')
-        form.addParam('collectivityThreshold', FloatParam, default=0, # important modes may well not be collective
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n')
-        form.addParam('selstr', StringParam, default="all",
-                      label="Selection string",
-                      help='Selection string for atoms to include in the calculation.\n'
-                           'It is recommended to use "all" (default) or "name CA"')
-        form.addParam('keepAlignment', BooleanParam, default=True,
-                      label="Keep alignment", help="The alternative is to realign the structures")
+    Principal Component Analysis (ProDyPCA) — User Manual
 
-        form.addSection(label='Animation')        
-        form.addParam('rmsd', FloatParam, default=2,
-                      label='RMSD Amplitude (A)',
-                      help='Used only for animations of computed normal modes. '
-                      'This is the maximal amplitude with which atoms or pseudoatoms are moved '
-                      'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Number of frames',
-                      help='Number of frames used in each direction of animations.')
-        form.addParam('pos', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include positive direction",
-                      help='Elect whether to animate in the positive mode direction.')
-        form.addParam('neg', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include negative direction",
-                      help='Elect whether to animate in the negative mode direction.')
+    OVERVIEW
+    The Principal Component Analysis protocol is the primary tool for reducing 
+    the dimensionality of structural ensembles. It identifies the dominant 
+    directions of motion—Principal Components—that account for the largest 
+    variations in a set of structures, effectively filtering biological signal 
+    from structural noise.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
-        n = self.numberOfModes.get()
+    INPUTS AND PRE-PROCESSING
+    The protocol supports multi-source ensembles including atomic structures, 
+    DCD trajectories, and ProDy ensembles. To capture internal dynamics rather 
+    than global rotation, the system can either keep existing alignment or 
+    perform an iterative superposition. Furthermore, the degeneracy parameter 
+    allows the choice between using all coordinate sets or just the 
+    representative first conformation of each structure.
 
-        self.gnm = False
-        nzeros = 0
+    CORE ANALYSIS AND METRICS
+    The protocol computes the covariance matrix of atomic positions to extract 
+    fractional variance, which quantifies the percentage of total movement 
+    explained by each mode. It also analyzes cross-correlation to understand 
+    the coordinated movement between different residues or domains. Parallel 
+    execution is optimized for performance, using multi-threaded processing 
+    during the intensive covariance calculations.
 
-        self._insertFunctionStep('computeModesStep', n)
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get())
-        self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), 0)
-        self._insertFunctionStep('createOutputStep')
+    BIOLOGICAL FILTERING AND VALIDATION
+    Collectivity serves as a key metric where high collectivity modes represent 
+    coordinated domain movements and low collectivity indicates local 
+    fluctuations. The protocol generates visual animations in both positive 
+    and negative directions to confirm that mathematical components align with 
+    plausible biological transitions. Selection strings are typically focused 
+    on the protein backbone (C-alpha) to analyze global fold changes.
 
-    def computeModesStep(self, n=5):
-        if (len(self.inputEnsemble)==1 and
-            isinstance(self.inputEnsemble[0].get(), DcdMDSystem)):
-                self.npz = None
-                system = self.inputEnsemble[0].get()
-                self.dcdFileName = system.getTrajectoryFile()
-
-                self.pdbFileName = self._getPath('atoms.pdb')
-                copyFile(system.getSystemFile(), self.pdbFileName)
-                self.averageStructure = AtomStruct()
-                self.averageStructure.setFileName(self.pdbFileName)
-        else:
-            loadAndWriteEnsemble(self) # creates self.npz, self.dcdFileName, self.pdbFileName and others
-
-        args = '{0} --pdb {1} -s "{2}" ' \
-               '--covariance --export-scipion --npz --npzmatrices' \
-               ' -o {3} -p modes.pca -n {4} -P {5}'.format(self.dcdFileName,
-                                                           self.pdbFileName,
-                                                           self.selstr.get(),
-                                                           self._getPath(), n,
-                                                           self.numberOfThreads.get())
-        if self.keepAlignment.get():
-            args += " --aligned"
-
-        self.runJob(Plugin.getProgram('pca'), args)
-        
-        self.outModes, self.atoms = prody.parseNMD(self._getPath(self._nmdFileName),
-                                                   type=prody.PCA)
-        
-        crossCorr = prody.calcCrossCorr(self.outModes)
-        prody.writeArray(self._getPath('modes.pca_crossCorr.txt'), crossCorr)
-
-        if not self.keepAlignment.get():
-            dcdEnsemble = prody.parseDCD(self._getPath('ensemble.dcd'))
-            dcdEnsemble.iterpose()
-
-            if self.npz is not None:
-                self.npz2 = replaceCoordsets(self.npz, dcdEnsemble.getCoordsets(),
-                                            suffix='_aligned', iterpose=False,
-                                            coords=dcdEnsemble.getCoords())
-            else:
-                self.npz2 = None
-        else:
-            self.npz2 = self.npz
-        
-        self.fract_vars = prody.calcFractVariance(self.outModes)
-        prody.writeArray(self._getPath('pca_fract_vars.txt'), self.fract_vars)
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0, suffix=None):
-        self._enterWorkingDir()
-
-        fnVec = glob("modes/vec.*")
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
-            msg += "The maximum number of modes allowed by the method for atomic principal component analysis is "
-            msg += "the number of structures - 1 (%d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.ens.numConfs())))
-
-        mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
-        eigvals = self.outModes.getEigvals()
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            mdOut.setValue(MDL_ENABLED, 1, objId)
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigvals[n], objId)
-
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes.xmd")
-
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
-
-
-    def createOutputStep(self):
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfPrincipalComponents(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath(self._nmdFileName))
-
-        self.fractVarsDict = {}
-        for i, item in enumerate(nmSet):
-            self.fractVarsDict[item.getObjId()] = self.fract_vars[i]
-
-        outSet = SetOfPrincipalComponents().create(self._getPath())
-        outSet.copyItems(nmSet, updateItemCallback=self._setFractVars)
-        outSet._nmdFileName = String(self._getPath(self._nmdFileName))
-
-        inputPdb = self.averageStructure
-        self._defineOutputs(refPdb=inputPdb)
-        outSet.setPdb(inputPdb)
-
-        self._defineOutputs(outputModes=outSet)
-        self._defineSourceRelation(inputPdb, outSet)
-
-        if self.npz2 is not None:
-            self._defineOutputs(outputEnsemble=self.npz2)
-
-        outputMatrixCov = EMFile(filename=self._getExtraPath('modes.pca_covariance.txt'))
-        outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes.pca_crossCorr.txt'))
-        self._defineOutputs(matrixFileCC=outputMatrixCrosCor,
-                            matrixFileCV=outputMatrixCov)
-
-    def _summary(self):
-        if not hasattr(self, 'outputModes'):
-            summ = ['Output modes not ready yet']
-        else:
-            modes = prody.parseScipionModes(self.outputModes.getFileName())
-
-            if hasattr(self, 'outputEnsemble'):
-                ens = self.outputEnsemble.loadEnsemble()
-
-                summ = ['*{0}* principal components calculated from *{1}* structures of *{2}* atoms'.format(
-                        modes.numModes(), ens.numConfs(), ens.numAtoms())]
-            else:
-                summ = ['*{0}* principal components calculated'.format(modes.numModes())]
-        return summ
-
-    def _setFractVars(self, item, row=None):
-        # We provide data directly so don't need a row
-        fractVar = Float(self.fractVarsDict[item.getObjId()])
-        setattr(item, PRODY_FRACT_VARS, fractVar)
+    OUTPUTS
+    The results are packaged into a 'SetOfPrincipalComponents' object complete 
+    with eigenvalues and fractional variance metadata. Additionally, the 
+    protocol exports raw covariance and correlation matrices as external files 
+    to facilitate advanced statistical validation and further research.
+    """

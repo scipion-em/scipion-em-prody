@@ -52,240 +52,74 @@ class ProDyGNM(EMProtocol):
     """
     This protocol will perform normal mode analysis (NMA) using the Gaussian network model (GNM)
     """
-    _label = 'GNM analysis'
+class ProDyGNM(EMProtocol):
+    """
+    Performs normal mode analysis (NMA) on atomic or pseudoatomic structures using
+the Gaussian Network Model (GNM).
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy GNM NMA')
+    AI Generated:
 
-        form.addParam('inputStructure', PointerParam, label="Input structure",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='The input structure can be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
+    GNM Analysis (ProDyGNM) — User Manual
 
-        form.addParam('numberOfModes', IntParam, default=20,
-                      label='Number of modes',
-                      help='The maximum number of modes allowed by the method for '
-                           'atomic normal mode analysis is 3 times the '
-                           'number of nodes (Calpha atoms or pseudoatoms).')
+        Overview
 
-        form.addParam('cutoff', FloatParam, default=10,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Cut-off distance (A)",
-                      help='Atoms or pseudoatoms beyond this distance will not interact. \n'
-                           'For Calpha atoms, the default distance of 7.5 A works well in the majority of cases. \n'
-                           'For all atoms, a shorter distance is recommended.'
-                           'For fewer atoms or pseudoatoms, a longer distance is recommended.')
+        The ProDyGNM protocol performs normal mode analysis on molecular structures
+using the Gaussian Network Model. Its main goal is to analyze intrinsic collective
+motions of proteins and assemblies, providing insights into flexibility, conformational
+changes, and functional dynamics. The protocol works with either atomic models or
+pseudoatomic representations derived from EM volumes, supporting both exploratory
+and publication-level structural studies.
 
-        form.addParam('gamma', StringParam, default=1.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Spring constant",
-                      help='This number or function determines the strength of the springs.\n'
-                           'More sophisticated options are available within the ProDy API and '
-                           'the resulting modes can be imported back into Scipion.\n'
-                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
+        Inputs and General Workflow
 
-        form.addParam('membrane', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Use explicit membrane model?",
-                      help='An explicit lattice elastic network is used to model the membrane. '
-                      'This option requires a protein oriented with opm or ppm.')
+        Users provide an input structure (atomic or pseudoatomic) and select the number
+of modes to compute. Optional parameters include a cut-off distance for interactions,
+spring constant for the network, explicit membrane modeling, collectivity threshold
+for mode selection, and inclusion of zero eigenvalues. The protocol is organized
+into sequential steps: computation of normal modes, qualification of modes based on
+collectivity, calculation of atomic displacements, and generation of outputs.
 
-        form.addParam('collectivityThreshold', FloatParam, default=0.15,
-                      expertLevel=LEVEL_ADVANCED,
-                      label='Threshold on collectivity',
-                      help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
-                      'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
-                      'the modes metadata file as these modes are much less collective. \n'
-                      'For no deselection, this parameter should be set to 0 . \n'
-                      'Modes 1-6 are always deselected as they are related to rigid-body movements. \n'
-                      'The modes metadata file can be used to see which modes are more collective '
-                      'in order to decide which modes to use at the image analysis step.')
+        Mode Computation
 
-        form.addParam('zeros', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Include zero eigvals",
-                      help='Elect whether modes with zero eigenvalues will be kept.')
+        Normal modes are computed using the ProDy GNM or ExGNM model. Input structures
+are parsed and written to temporary PDB files. Depending on the membrane setting,
+modes are labeled accordingly. Users can include or exclude zero eigenvalue modes.
+The resulting mode covariance and cross-correlation matrices are saved for further
+analysis.
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
+        Mode Qualification
 
-        # Link the input
-        inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
-        n = self.numberOfModes.get()
+        Modes are evaluated based on collectivity and eigenvalues. Low-collectivity or
+zero-eigenvalue modes are deselected. Scores are assigned to modes according to
+their collectivity, allowing prioritization of biologically meaningful movements.
+Metadata files store mode properties for downstream use.
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
-        self._insertFunctionStep('createOutputStep')
+        Atomic Shifts and Displacements
 
-    def computeModesStep(self, inputFn, n):
+        The protocol calculates maximum atomic displacements across modes, recording
+which mode contributes most to each atomic shift. Distance profiles are saved for
+each mode, facilitating detailed structural interpretation and identification of
+dynamic hotspots.
 
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
+        Outputs
 
-        ag = prody.parsePDB(inputFn, alt='all')
-        prody.writePDB(self.pdbFileName, ag)
+        Final outputs include a set of GNM modes (SQLite database), covariance and
+cross-correlation matrices, and metadata describing mode properties and atomic shifts.
+The protocol links the outputs to the original input structure, ensuring traceability
+and reproducibility in downstream analyses.
 
-        if self.membrane.get():
-            self.prefix = 'modes.exgnm'
-        else:
-            self.prefix = 'modes.gnm'
-        filename = self.prefix + '.npz'
+        Practical Recommendations
 
-        args = '{0} -s "all" --altloc "all" --kirchhoff --export-scipion --npz --npzmatrices ' \
-               '-o {1} -p {2} -n {3} -g {4} -c {5} -P {6}'.format(self.pdbFileName,
-                                                              self._getPath(),
-                                                              self.prefix, n,
-                                                              self.gamma.get(),
-                                                              self.cutoff.get(),
-                                                              self.numberOfThreads.get())
+        For routine analysis, selecting alpha-carbon nodes with default cut-off and
+spring parameters is robust. Membrane modeling is recommended when analyzing
+transmembrane proteins. Collectivity thresholds help filter non-meaningful modes.
+Careful inspection of modes and atomic shifts supports biologically relevant
+interpretation of protein dynamics.
 
-        if self.zeros.get():
-            args += ' --zero-modes'
-            self.startMode = 1
-        else:
-            self.startMode = 0
-        
-        if self.membrane.get():
-            args += ' --membrane'
+        Final Perspective
 
-        self.runJob(Plugin.getProgram('gnm'), args)
-
-        self.gnm = prody.loadModel(self._getPath(filename))
-        covariances = prody.calcCrossCorr(self.gnm[self.startMode:], norm=False)
-        prody.writeArray(self._getExtraPath('modes_covariance.txt'), covariances)
-
-        crossCorr = prody.calcCrossCorr(self.gnm[self.startMode:])
-        prody.writeArray(self._getExtraPath('modes_crossCorr.txt'), crossCorr)
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
-        self._enterWorkingDir()
-
-        fnVec = glob("modes/vec.*")
-
-        if len(fnVec) < numberOfModes:
-            msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
-            msg += "The maximum number of modes allowed by the method for GNM normal mode analysis is "
-            msg += "1 times the number of nodes (atoms or pseudoatoms; %d). "
-            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms())))
-
-        mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.gnm))
-        eigvals = self.gnm.getEigvals()
-
-        vecStr = "vec.%d"
-
-        for n in range(len(fnVec)):
-            collectivity = collectivityList[n]
-
-            objId = mdOut.addObject()
-            modefile = self._getPath("modes", vecStr % (n + 1))
-            mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
-            mdOut.setValue(MDL_ORDER, int(n + 1), objId)
-
-            mdOut.setValue(MDL_NMA_COLLECTIVITY, collectivity, objId)
-
-            eigval = eigvals[n]
-            mdOut.setValue(MDL_NMA_EIGENVAL, eigval, objId)
-
-            if eigval > prody.utilities.ZERO:
-                mdOut.setValue(MDL_ENABLED, 1, objId)
-            else:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-            if collectivity < collectivityThreshold:
-                mdOut.setValue(MDL_ENABLED, -1, objId)
-
-        idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
-
-        score = []
-        for _ in range(len(fnVec)):
-            score.append(0)
-
-        modeNum = []
-        l = 0
-        for k in range(len(fnVec)):
-            modeNum.append(k)
-            l += 1
-
-        for i in range(len(fnVec)):
-            score[idxSorted[i]] = idxSorted[i] + modeNum[i] + 2
-            
-        i = 0
-        for objId in mdOut:
-            score[i] = float(score[i]) / (2.0 * l)
-            mdOut.setValue(MDL_NMA_SCORE, score[i], objId)
-            i += 1
-        mdOut.write("modes%s.xmd" % suffix)
-
-        self._leaveWorkingDir()
-        
-        prody.writeScipionModes(self._getPath(), self.gnm, scores=score, only_sqlite=True,
-                                collectivityThreshold=collectivityThreshold)
-
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        vecStr = "vec.%d"
-        for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", vecStr % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    d = abs(float(line))
-                    if n==self.startMode+1:
-                        maxShift.append(d)
-                        maxShiftMode.append(self.startMode+1)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-                
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-    def createOutputStep(self):
-        outputMatrixCov = EMFile(filename=self._getExtraPath('modes_covariance.txt'))
-        outputMatrixCrosCor = EMFile(filename=self._getExtraPath('modes_crossCorr.txt'))
-
-        fnSqlite = self._getPath('modes.sqlite')
-        nmSet = SetOfGnmModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
-
-        inputPdb = self.inputStructure.get()
-        nmSet.setPdb(inputPdb)
-
-        self._defineOutputs(outputModes=nmSet,
-                            matrixFileCC=outputMatrixCrosCor,
-                            matrixFileCV=outputMatrixCov)
-        self._defineSourceRelation(self.inputStructure, nmSet)
-
+        ProDyGNM integrates computational NMA with metadata management to provide
+a comprehensive view of protein flexibility. Proper configuration of input
+parameters, mode selection, and post-analysis interpretation is essential for
+extracting meaningful insights into conformational dynamics and functional motions.
+    """

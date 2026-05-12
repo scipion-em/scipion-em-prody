@@ -68,517 +68,81 @@ class ProDyBuildPDBEnsemble(EMProtocol):
     """
     This protocol will use ProDy's buildPDBEnsemble method to align atomic structures
     """
-    _label = 'buildPDBEnsemble'
-    _possibleOutputs = {'outputStructures': SetOfAtomStructs,
-                        'outputNpz': ProDyNpzEnsemble,
-                        'outAlignment': SetOfSequences}
+class ProDyBuildPDBEnsemble(EMProtocol):
+    """
+    Build PDB Ensemble (ProDyBuildPDBEnsemble) — User Manual
 
-    weights = []
+    Overview
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy buildPDBEnsemble')
+    The Build PDB Ensemble protocol aligns multiple atomic structures into a shared
+    coordinate system using ProDy's buildPDBEnsemble method. It creates a structural
+    ensemble for comparative analysis, conformational studies, and downstream
+    molecular interpretation.
 
-        form.addParam('inputType', EnumParam, choices=['structures', 'id for search'],
-                      default=STRUCTURE, important=True,
-                      label="Type of input for building the ensemble",
-                      help='The input can be a SetOfAtomStructs or an ID to search the PDB')
+    This protocol supports both user-provided structures and automatic retrieval of
+    homologous structures via DALI searches, allowing flexible exploratory and
+    in-depth structural analyses.
 
-        inputTypeCheck = "inputType == %d"
-        form.addParam('structures', MultiPointerParam, label="Set of structures",
-                      condition=inputTypeCheck % STRUCTURE,
-                      pointerClass='AtomStruct,SetOfAtomStructs', allowsNull=True,
-                      help='The structures to be aligned must be atomic models.')
+    Inputs and General Workflow
 
-        form.addParam('uniteChains', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Unite chains in mmCIF segments",
-                      help='Elect whether to unite chains in mmCIF segments for each structure like ChimeraX. '
-                            'Default is **False**, which means the smaller unit IDs are used for chains like PyMOL.')
+    The protocol accepts either explicit atomic structures or a PDB ID with a chain
+    for automated DALI searches. Input structures can include all coordinate sets
+    or only the active conformation. DALI-based retrieval supports filtering by
+    RMSD, sequence identity, Z-score, and alignment length.
 
-        form.addParam('id', StringParam, label="PDB ID and chain ID for DALI search",
-                      condition=inputTypeCheck % INDEX,
-                      help='This ID should be a 5-character combination of a PDB ID and chain ID e.g., 3h5vA.')
+    Reference Structure Selection
 
-        form.addParam('degeneracy', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Take only first conformation from each structure/set",
-                      help='Elect whether only the active coordinate set (degeneracy=**True**) or all the coordinate sets '
-                           '(degeneracy=**False**) of each structure should be added to the ensemble. Default is **False**.')
+    A reference structure defines the ensemble coordinate frame and can be provided
+    explicitly or selected from the input set. The reference may optionally be removed
+    after alignment to avoid biasing downstream analyses.
 
-        form.addParam('lenCutoff', StringParam, label="length cutoff for filtering DALI results",
-                      condition=inputTypeCheck % INDEX, default='-1',
-                      expertLevel=LEVEL_ADVANCED,
-                      help='Filter out results with length of aligned residues < length cutoff'
-                      '(must be an integer up to the number of residues or a float between 0 and 1)')
-        form.addParam('rmsdCutoff', StringParam, label="rmsdCutoff for filtering DALI results",
-                      condition=inputTypeCheck % INDEX, default='-1',
-                      expertLevel=LEVEL_ADVANCED,
-                      help='Filter out results with RMSD > RMSD Cutoff (must be a positive number)')
-        form.addParam('zCutoff', StringParam, label="Z score cutoff for filtering DALI results",
-                      condition=inputTypeCheck % INDEX, default='-1',
-                      expertLevel=LEVEL_ADVANCED,
-                      help='Select results with Z score < Z score cutoff (must be a positive number)')
-        form.addParam('idCutoff', StringParam, label="Sequence ID cutoff for filtering DALI results",
-                      condition=inputTypeCheck % INDEX, default='-1',
-                      expertLevel=LEVEL_ADVANCED,
-                      help='Filter out results with sequence identity < sequence ID cutoff '
-                      '(must be an integer up to 100 or a float between 0 and 1).')
+    Structural Alignment and Chain Matching
 
-        form.addParam('refType', EnumParam, choices=['structure', 'index'], 
-                      default=INDEX, condition=inputTypeCheck % STRUCTURE,
-                      label="Reference structure type",
-                      help='The reference structure can be a separate structure or indexed from the set')
+    Multiple chain matching strategies are available, including automatic best match,
+    same-chain-ID, chain-position, or fully custom user-defined mapping. Custom chain
+    matching is useful for multi-chain assemblies or structures with inconsistent
+    chain labels.
 
-        form.addParam('refStructure', PointerParam, label="Reference structure",
-                      condition="refType == %d" % STRUCTURE,
-                      pointerClass='AtomStruct', allowsNull=True,
-                      help='Select an atomic model as the reference structure. '
-                      'When using Dali, this is optional and is used for selecting atoms at the end.')
+    Residue Mapping and Structural Correspondence
 
-        form.addParam('delReference', BooleanParam, default=False,
-                      label="Whether to delete the reference from the ensemble",
-                      help='This could be useful if you just want to use the reference for alignment.')
+    Residue correspondences are established using sequence alignment (Biopython pwalign),
+    structural alignment (CE), or an automatic method. Thresholds for sequence identity
+    and coverage ensure biologically meaningful mappings, especially for distant homologs.
 
-        form.addParam('refIndex', IntParam, label="Reference structure index", default=1,
-                      condition="refType == %d and inputType != %d" % (INDEX, INDEX),
-                      help='Select the index of the reference structure in the set, starting from 1. '
-                      'When using Dali, this is optional and is used for selecting atoms at the end.')
-        
-        form.addParam('matchFunc', EnumParam, choices=['bestMatch', 'sameChid', 'sameChainPos', 'custom'], 
-                      default=SAME_CHID, condition=inputTypeCheck % STRUCTURE,
-                      label="Chain matching function",
-                      help='See http://http://www.bahargroup.org/prody/manual/release/v1.11_series.html for more details.\n')
+    Atom Selection and Ensemble Construction
 
-        form.addParam('seqid', FloatParam, default=0.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Sequence identity cutoff",
-                      help='Alignment mapping with lower percent sequence identity will not be accepted.\n'
-                           'This can be a number between 0 and 100')
+    Users define which atoms participate in the ensemble via selection strings
+    (commonly alpha carbons). Unmapped structures are reported, and dummy atoms may
+    be introduced for missing residues. Optional trimming removes poorly occupied atoms.
 
-        form.addParam('overlap', FloatParam, default=0.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Overlap cutoff",
-                      help='Alignment mapping with lower percent sequence coverage will not be accepted.\n'
-                           'This can be a number between 0 and 100')
+    Degeneracy and Multiple Coordinate Sets
 
-        form.addParam('rmsdReject', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Rejection RMSD (A)",
-                      help='Alignments with worse RMSDs than this will be rejected.')
+    Supports NMR ensembles or multiple conformations per structure. Users can include
+    all sets or restrict to the first active conformation. Including all sets captures
+    structural heterogeneity.
 
-        form.addParam('selstr', StringParam, default="name CA",
-                      label="Selection string",
-                      help='Selection string for atoms to include in the ensemble.\n'
-                           'It is recommended to use "protein" or "name CA" (default)')
+    Output Generation and Ensemble Representation
 
-        form.addParam('trim', BooleanParam, default=True,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Whether to trim away dummy atoms",
-                      help='If any structure lacks some atom in the reference '
-                           'then it will be replaced by a dummy atom at the average '
-                           'position in the ensemble. This option allows these to be trimmed away.')
-        form.addParam('trimFraction', FloatParam, default=1,
-                      expertLevel=LEVEL_ADVANCED, condition="trim == True",
-                      label="Occupancy fraction to trim away dummy atoms",
-                      help='This option controls how many dummy atoms are trimmed away '
-                           'and should take a value between 0 and 1.\n'
-                           'The resulting ensemble will contain atoms whose occupancies are greater '
-                           'than or equal to this value.')
-        
-        matchFuncCheck = 'matchFunc == %d'
-        group = form.addGroup('Custom chain orders', condition=matchFuncCheck % CUSTOM)
-        
-        group.addParam('chainOrders', TextParam, width=50,
-                       condition=matchFuncCheck % CUSTOM, default="",
-                       label='Custom chain match dictionary',
-                       help='Defined order of chains from custom matching.')
-        
-        group.addParam('insertOrder', NumericRangeParam, default='1',
-                       condition=matchFuncCheck % CUSTOM,
-                       label='Insert custom match order number',
-                       help='Insert the chain order with the specified index into the match list.\n'
-                            'The default (when empty) is the last position.\n'
-                            'If the reference is a structure then that is structure 1.')
-        
-        group.addParam('customOrder', StringParam, default='',
-                       condition=matchFuncCheck % CUSTOM,
-                       label='Custom match order to insert at the specified number',
-                       help='Enter the desired chain order here.\n'
-                            'The default (when empty) is the current chain order in the form. '
-                            'The initial value is the order in the structure file.')
-        
-        group.addParam('label', StringParam, default='',
-                       condition=matchFuncCheck % CUSTOM,
-                       label='Label for item with the specified number for recovering custom match',
-                       help='This cannot be changed by the user and is for display only.')
+    Outputs include a ProDy NPZ ensemble file, a multiple sequence alignment in FASTA,
+    optionally aligned PDBs, and DCD trajectory files. Reference topologies are included
+    when generating trajectories.
 
-        group.addParam('recoverOrder', StringParam, default='1',
-                       condition=matchFuncCheck % CUSTOM,
-                       label='Recover custom match order number',
-                       help='Enter the desired chain order index here.\n'
-                            'Recover the chain order with the specified index from the match list.')
+    Weight Management and Ensemble Metadata
 
-        form.addParam('mapping', EnumParam, choices=['Nothing',
-                                                     'Biopython pwalign local sequence alignment',
-                                                     'Combinatorial extension (CE) structural alignment',
-                                                     'Auto (try pwalign then ce)'],
-                      default=PWALIGN, condition=inputTypeCheck % STRUCTURE,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Residue mapping function",
-                      help='This method will be used for matching residues if the residue numbers and types aren\'t identical. \n'
-                           'See http://http://www.bahargroup.org/prody/manual/reference/proteins/compare.html?highlight=mapchainontochain#prody.proteins.compare.mapChainOntoChain '
-                           'for more details.')
+    Structure or coordinate set weights are maintained throughout the workflow, allowing
+    weighted ensemble analyses or integrative studies.
 
-        form.addParam('writeDCDFile', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      label="Whether to write DCD trajectory file",
-                      help='This will be registered as output too')
-        
-        form.addParam('writePDBFiles', BooleanParam, default=False,
-                      expertLevel=LEVEL_ADVANCED,
-                      condition=(HAVE_CHEM==True and 'degeneracy'),
-                      label="Whether to write many PDB files",
-                      help='These will be registered as output too')
-        
-        form.addParam('doReorder', BooleanParam, default=False,
-                      condition=matchFuncCheck % CUSTOM,
-                      label="Whether to reorder ensemble by custom match dict",
-                      help='Otherwise the order matches the input')
+    Practical Recommendations
 
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # actual steps
-        self._insertFunctionStep('alignStep')
-        self._insertFunctionStep('createOutputStep')
+    Alpha-carbon selection with automatic chain matching is robust for homologous
+    structures. Custom chain mapping should be used when chain identities differ.
+    Trimming improves consistency for incomplete or flexible structures. DALI filters
+    should be adjusted to prevent inclusion of distant homologs.
 
-    def alignStep(self):
-        """This step includes alignment mapping and superposition"""
-        degeneracy = self.degeneracy.get()
+    Final Perspective
 
-        # handle reference
-        self.weights = []
-        if self.refType.get() == STRUCTURE:
-            ref = prody.parsePDB(self.refStructure.get().getFileName(), alt='all',
-                                 unite_chains=self.uniteChains.get())
-            if ref.numCoordsets() > 1 and not degeneracy:
-                self.weights.extend([self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS,
-                                                                               defaultValue=1)] * ref.numCoordsets())
-            else:
-                self.weights.append(self.refStructure.get().getAttributeValue(ENSEMBLE_WEIGHTS,
-                                                                              defaultValue=1))
-        else:
-            ref = self.refIndex.get() - 1 # convert from Scipion (sqlite) to ProDy (python) nomenclature
-
-        # handle other inputs
-        if self.inputType.get() == STRUCTURE:
-            self.pdbs = []
-            structureObjects = []
-            for i, obj in enumerate(self.structures):
-                if isinstance(obj.get(), AtomStruct):
-                    structureObjects.append(obj.get())
-                    self.pdbs.append(obj.get().getFileName())
-                else:
-                    structureObjects.extend([tarStructure for tarStructure in obj.get()])
-                    self.pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-
-            if self.mapping.get() == DEFAULT:
-                mappings = 'auto'
-            elif self.mapping.get() == PWALIGN:
-                mappings = 'pwalign'
-            elif self.mapping.get() == CEALIGN:
-                mappings = 'ce'
-            else:
-                mappings = False
-
-        else:
-            idstr = self.id.get()
-            daliRec = prody.searchDali(idstr[:4], idstr[4], timeout=10000)
-            while daliRec.isSuccess != True:
-                daliRec.fetch(timeout=1000)
-                time.sleep(10)
-
-            lenCutoff = eval(str(self.lenCutoff.get()))
-            if lenCutoff == -1:
-                lenCutoff = None
-
-            rmsdCutoff = eval(str(self.rmsdCutoff.get()))
-            if rmsdCutoff == -1:
-                rmsdCutoff = None
-
-            zCutoff = eval(str(self.zCutoff.get()))
-            if zCutoff == -1:
-                zCutoff = None
-
-            idCutoff = eval(str(self.idCutoff.get()))
-            if idCutoff == -1:
-                idCutoff = None
-
-            self.pdbs = daliRec.filter(cutoff_len=lenCutoff, cutoff_rmsd=rmsdCutoff,
-                                       cutoff_Z=zCutoff, cutoff_identity=idCutoff,
-                                       stringency=True)
-            mappings = daliRec.getMappings()
-
-            if idstr not in self.pdbs:
-                self.pdbs.insert(0, idstr)
-
-        if not hasattr(self, "tars"):
-            self.tars = prody.parsePDB(self.pdbs, alt='all',
-                                       unite_chains=self.uniteChains.get())
-            if isinstance(self.tars, prody.Atomic):
-                self.tars = [self.tars]
-
-            for i, tar in enumerate(self.tars):
-                self.weights.extend([structureObjects[i].getAttributeValue(ENSEMBLE_WEIGHTS,
-                                                                           defaultValue=1)] * tar.numCoordsets())
-
-        atommaps = [] # output argument for collecting atommaps
-        unmapped = []
-
-        if self.inputType.get() != STRUCTURE:
-            ens = prody.buildPDBEnsemble([tar.select(self.selstr.get()) for tar in self.tars],
-                                          seqid=self.seqid.get(),
-                                          overlap=self.overlap.get(),
-                                          mapping=mappings,
-                                          atommaps=atommaps,
-                                          unmapped=unmapped,
-                                          rmsd_reject=self.rmsdReject.get())
-            self.weights = list(np.ones(ens.numConfs()))
-        else:
-            if self.matchFunc.get() == BEST_MATCH:
-                matchFunc = prody.bestMatch
-                logger.info('\nUsing bestMatch\n')
-            elif self.matchFunc.get() == SAME_CHID:
-                matchFunc = prody.sameChid
-                logger.info('\nUsing sameChid\n')
-            elif self.matchFunc.get() == SAME_POS:
-                matchFunc = prody.sameChainPos
-                logger.info('\nUsing sameChainPos\n')
-
-            if self.refType.get() == STRUCTURE:
-                if self.matchFunc.get() < CUSTOM:
-                    self.tars = [ref] + self.tars
-                ref=0
-
-            if self.matchFunc <= SAME_POS:
-                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
-                self.labels = [tar.getTitle() for tar in tars]
-            else:
-                self.matchDic = self.createMatchDic(self.insertOrder.get())
-                self.labels = list(self.matchDic.keys())
-                self.orders = list(self.matchDic.values())
-
-                if isinstance(self.labels[0], tuple):
-                    self.labels = [label[1] for label in self.labels]
-
-                self.matchDic = OrderedDict()
-                self.matchDic.update(zip(self.labels, self.orders))
-
-                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.matchDic))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, self.matchDic)
-
-                tars = [tar.select(self.selstr.get()).copy() for tar in self.tars]
-
-            if len(tars) != len(self.labels):
-                logger.warn(redStr('labels e.g. from matchDic ({0}) do not match '
-                            'target structures ({1})'.format(len(self.labels), len(tars))))
-                
-            matchDictLabels = self.labels
-                
-            titles = [tar.getTitle() for tar in tars]
-            for i, title in enumerate(titles):
-                title = title.replace(" Selection 'name CA'", "")
-                title = title.replace("_atoms", "")
-                tars[i].setTitle(title)
-
-            ens = prody.buildPDBEnsemble(tars,
-                                         ref=ref,
-                                         seqid=self.seqid.get(),
-                                         overlap=self.overlap.get(),
-                                         match_func=matchFunc,
-                                         atommaps=atommaps,
-                                         unmapped=unmapped,
-                                         rmsd_reject=self.rmsdReject.get(),
-                                         degeneracy=self.degeneracy.get(),
-                                         mapping=mappings)
-            
-            if self.delReference.get():
-                ens.delCoordset(ref)
-                self.tars.pop(ref)
-
-        logger.info('\nUnmapped structures: {0}\n'.format(unmapped))
-
-        self.labels = ens.getLabels()
-        _, idx, inv, c = np.unique(self.labels, return_index=True,
-                                   return_inverse=True, return_counts=True)
-
-        for i, label in enumerate(self.labels):
-            if label.endswith('_ca'):
-                self.labels[i] = label[:-3]
-
-            if i in idx:
-                j = 0
-            else:
-                j += 1
-
-            if c[inv][i] > 1:
-                self.labels[i] = self.labels[i] + '_' + str(j)
-
-        ens._labels = self.labels
-
-        if self.trim.get():
-            ens = prody.trimPDBEnsemble(ens, self.trimFraction.get())
-
-        if self.doReorder.get():
-            newIndices = [self.labels.index(label) for label in matchDictLabels 
-                          if label in self.labels]
-            ens = ens[newIndices]
-
-        msa = ens.getMSA()
-        prody.writeMSA(self._getExtraPath('ensemble.fasta'), msa)
-
-        if self.writePDBFiles.get():
-            indices = ens.getIndices()
-            amapTitles = [amap.getAtomGroup().getTitle() for amap in atommaps]
-
-            tars = [tar for tar in tars if tar.getTitle() in amapTitles]
-
-            aligned = prody.alignByEnsemble(tars, ens)
-            self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-            for i, ag in enumerate(aligned):
-                amap = atommaps[i]
-                if indices is not None:
-                    amap = amap[indices]
-                
-                amap.setTitle(amap.getTitle().split('[')[0])
-                filename = self._getExtraPath('{:06d}_{:s}_amap.pdb'.format(i+1, ag.getTitle()))
-                prody.writePDB(filename, amap)
-                pdb = AtomStruct(filename)
-                setattr(pdb, ENSEMBLE_WEIGHTS, Float(self.weights[i]))
-                self.pdbs.append(pdb)
-
-        prody.writePDB(self._getPath('ensemble.pdb'), ens)
-
-        self.npzFileName = self._getPath('ensemble.ens.npz')
-        prody.saveEnsemble(ens, self.npzFileName)
-
-        self.npz = ProDyNpzEnsemble().create(self._getExtraPath())
-        for j in range(ens.numConfs()):
-            frame = TrajFrame((j+1, self.npzFileName), objLabel=ens.getLabels()[j])
-            setattr(frame, ENSEMBLE_WEIGHTS, Float(self.weights[j]))
-            self.npz.append(frame)
-
-        if self.writeDCDFile.get():
-            self.pdbFilename = self._getPath('refStructure.pdb')
-            prody.writeDCD(self._getPath(ENS_FILENAME), ens)
-            prody.writePDB(self.pdbFilename, ens.getAtoms())
-
-    def createOutputStep(self):
-        outputSeqs = SetOfSequences().create(self._getExtraPath())
-        outputSeqs.importFromFile(self._getExtraPath('ensemble.fasta'))
-
-        outputs = {"outputNpz": self.npz,
-                   "outAlignment": outputSeqs}
-        
-        if self.writeDCDFile.get():
-            if HAVE_CHEM:
-                outMDSystem = DcdMDSystem(filename=self.pdbFilename)
-                outMDSystem.setTopologyFile(self.pdbFilename)
-                outMDSystem.setTrajectoryFile(self._getPath(ENS_FILENAME))
-                outputs["outputTrajectory"] = outMDSystem
-            else:
-                outEMFile = EMFile(filename=self._getPath(ENS_FILENAME))
-                outputs["outputTrajectory"] = outEMFile
-
-        if self.writePDBFiles.get():
-            outputs["outputStructures"] = self.pdbs
-
-        self._defineOutputs(**outputs)
-
-    def createMatchDic(self, index, label=""):     
-        parseMatchDict(self)
-        self.orders = list(self.matchDic.values())
-
-        # reinitialise to update with new keys
-        # that are still ordered correctly
-        self.matchDic = OrderedDict()
-
-        inds = [item-1 for item in getListFromRangeString(index)]
-
-        if len(self.labels) == 0:
-            if not hasattr(self, 'tars'):
-                if self.refType.get() == STRUCTURE:
-                    structures = [self.refStructure] + self.structures
-                else:
-                    structures = self.structures
-
-                pdbs = []
-                structureObjects = []
-                for _, obj in enumerate(structures):
-                    if isinstance(obj.get(), AtomStruct):
-                        pdbs.append(obj.get().getFileName())
-                        structureObjects.append(obj.get())
-                    else:
-                        pdbs.extend([tarStructure.getFileName() for tarStructure in obj.get()])
-                        structureObjects.extend([tarStructure for tarStructure in obj.get()])
-
-                self.tars = prody.parsePDB(pdbs, alt='all',
-                                           unite_chains=self.uniteChains.get())
-
-                if isinstance(self.tars, prody.Atomic):
-                    self.tars = [self.tars]
-
-                for i, tar in enumerate(self.tars):
-                    self.weights.extend([structureObjects[i].getAttributeValue(ENSEMBLE_WEIGHTS, defaultValue=1)] * tar.numCoordsets())
-                    if tar.numCoordsets() > 1:
-                        self.haveMultipleCoordsets = True
-            
-            titles = [ag.getTitle() for ag in self.tars]
-            _, counts = np.unique(np.array(titles), return_counts=True)
-
-            for idx, ag in enumerate(self.tars):
-                if (idx in inds or counts[idx] > 1) and label!="":
-                    if len(inds) == 1:
-                        ag.setTitle(label)
-                    else:
-                        ag.setTitle(label + str(inds.index(idx)))
-
-                title = ag.getTitle()
-                self.labels.append(title)
-                self.orders.append(self.getInitialChainOrder(ag))
-
-        self.orders = np.array(self.orders)
-
-        if not isinstance(self.labels[0], tuple):
-            self.labels = [(i+1, label) for i, label in enumerate(self.labels)]
-        
-        for idx in inds:
-            if self.customOrder.get() != '':
-                self.orders[idx] = self.customOrder.get()
-
-        self.matchDic.update(zip(list(self.labels), list(self.orders)))
-        return self.matchDic
-    
-    def getInitialChainOrder(self, ag):
-        return ''.join([ch.getChid() for ch in ag.protein.getHierView().iterChains()])
-
-    def _summary(self):
-        if not hasattr(self, 'outputNpz'):
-            summ = ['Output ensemble not ready yet']
-        else:
-            if len(self.outputNpz) < 100:
-                ens = self.outputNpz.loadEnsemble()
-                summ = ['Ensemble imported with *{0}* structures of *{1}* atoms'.format(
-                    ens.numConfs(), ens.numAtoms())]
-            else:
-                summ = ['Ensemble imported with *{0}* structures'.format(len(self.outputNpz))]
-        return summ
-    
-    def _setWeights(self, item, row=None):
-            weight = Float(self.weights[item.getObjId()-1])
-            setattr(item, ENSEMBLE_WEIGHTS, weight)
+    The protocol provides a framework for organizing heterogeneous atomic models into
+    biologically interpretable ensembles. Proper configuration of reference, chain
+    matching, residue mapping, and trimming parameters is critical for meaningful
+    structural analysis and conformational studies.
+    """

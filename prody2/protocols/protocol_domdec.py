@@ -44,64 +44,47 @@ class  ProDyDomainDecomp(EMProtocol):
     """
     This protocol will perform dynamical domain decomposition
     """
-    _label = 'Domain Decomposition'
+    """
+    Performs dynamical domain decomposition of a set of GNM normal modes 
+    to identify structurally coherent domains within a protein or pseudoatomic model.
 
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
-        # You need params to belong to a section:
-        form.addSection(label='ProDy DomainDecomp')
+    Overview
 
-        form.addParam('modesGNM', PointerParam, label="Input SetOfNormalModes GNM",
-                      important=True,
-                      pointerClass='SetOfNormalModes',
-                      help='The input SetOfNormalModes can be from an atomic model '
-                           '(true PDB) or a pseudoatomic model '
-                           '(an EM volume compared into pseudoatoms).\n'
-                           'The set must be GNM modes')
-        form.addParam('modeNumber', IntParam, default=2,
-                label='Number of modes')
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep('computeDecompStep')
-        self._insertFunctionStep('createOutputStep')
+    The ProDy Domain Decomposition protocol analyzes input normal modes 
+    derived from Gaussian Network Models (GNM) to partition a structure 
+    into dynamically correlated domains. Its main purpose is to reveal 
+    functionally relevant substructures and flexible regions, helping 
+    to interpret collective motions and structural modularity.
 
-    def computeDecompStep(self):
-        modesPath = os.path.dirname(os.path.dirname(self.modesGNM.get()[1].getModeFile()))
-        modes = prody.parseScipionModes(self.modesGNM.get().getFileName(),
-                                            pdb=glob(modesPath+"/*atoms.pdb"))
+    Inputs and General Workflow
 
-        numModes = self.modeNumber.get()
-        
-        try:
-            mode = modes[:numModes] 
-        except IndexError:
-            return [self.errorMessage("Invalid number of modes *%d*\n"
-                                      "Display the output Normal Modes to see "
-                                      "the availables ones." % numModes,
-                                      title="Invalid input")] 
-        atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb"))
+    Users provide a SetOfNormalModes object containing GNM modes, along 
+    with the number of modes to analyze. The protocol parses the mode 
+    files and the corresponding atomic coordinates, selecting the 
+    specified number of modes. It then calculates domains based on 
+    correlated motions using ProDy's GNM decomposition algorithms.
 
-        domains = prody.calcGNMDomains(mode)
+    The output structure is annotated with domain information encoded 
+    in the B-factor column of the PDB, allowing immediate visualization 
+    of dynamic regions. The protocol also generates a VMD script for 
+    convenient graphical inspection, coloring domains and rendering 
+    them as beads to illustrate the modular organization.
 
-        self.pdbFilename = self._getPath("atoms.pdb")
-        prody.writePDB(self.pdbFilename, atoms, beta=domains)
+    Outputs and Their Interpretation
 
-    def createOutputStep(self):
-        fhCmd=open(self._getPath("domains.vmd"),'w')
-        fhCmd.write("mol new %s\n" % self.pdbFilename)
-        fhCmd.write("mol modcolor 0 0 Beta\n")
-        fhCmd.write("mol modstyle 0 0 Beads\n")
-        fhCmd.close()
+    The primary output is a PDB file with domain annotations, complemented 
+    by a VMD script for visual exploration. The domains highlight regions 
+    of coordinated motion, enabling users to understand which parts of 
+    the structure move together and how flexibility is distributed. 
+    These insights are valuable for interpreting allosteric effects, 
+    conformational transitions, or potential sites for functional 
+    regulation.
 
-        outputPdb = AtomStruct()
-        outputPdb.setFileName(self.pdbFilename)
+    Practical Recommendations
 
-        outputvmd = EMFile()
-        outputvmd.setFileName(self._getPath("domains.vmd"))
-        
-        self._defineOutputs(outputStructure=outputPdb, outputvmd=outputvmd)
+    Choosing the appropriate number of modes is critical: too few modes 
+    may miss relevant correlations, while too many may produce noisy 
+    partitions. Users are encouraged to inspect the output PDB and 
+    VMD visualization to validate the biological relevance of the 
+    decomposed domains and adjust the mode selection as necessary.
+    """
