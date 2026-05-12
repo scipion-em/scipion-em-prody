@@ -29,37 +29,276 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import params
-
-import os
-from os.path import basename, exists, join
-
-import math
 from multiprocessing import cpu_count
 
-from pwem import *
+import prody
+from prody2 import Plugin
+from prody2.protocols.protocol_modes_base import ProDyModesBase
+
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
+from pwem.objects import SetOfNormalModes, String
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
-import prody
+vecStr = "vec.%d"
 
-class ProDyANM(EMProtocol):
+class ProDyANM(ProDyModesBase):
     """
-    This protocol will perform normal mode analysis (NMA) using the anisotropic network model (ANM)
+    This protocol performs normal mode analysis (NMA) using the
+    anisotropic network model (ANM).
+
+    AI Generated:
+
+    ANM NMA (ProDyANM) — User Manual
+        Overview
+
+        The ANM NMA protocol computes collective motions of a molecular
+        structure using the Anisotropic Network Model (ANM). ANM is one of the
+        most widely used coarse-grained approaches for studying large-scale
+        structural dynamics in proteins, nucleic acids, and macromolecular
+        assemblies.
+
+        Rather than simulating atomic trajectories over time, ANM estimates the
+        intrinsic directions in which a structure can move most easily around
+        its equilibrium conformation. These motions often correspond to
+        biologically meaningful conformational changes such as domain closure,
+        hinge bending, subunit rearrangements, breathing motions, or ligand
+        gating.
+
+        For cryo-EM and structural biology users, ANM is especially useful when
+        exploring functional flexibility, interpreting structural variability,
+        generating candidate motions for flexible fitting, or selecting
+        collective deformation coordinates for downstream analysis.
+
+        Inputs and General Workflow
+
+        The protocol requires a single input structure.
+
+        This structure can be a conventional atomic model (for example a PDB
+        file) or a pseudoatomic model derived from an EM density map.
+
+        The protocol constructs an elastic network where nodes correspond to
+        atoms or pseudoatoms, and springs connect nearby nodes. From this
+        network, the Hessian matrix is built and diagonalized to obtain the
+        normal modes.
+
+        The resulting modes describe preferred directions of collective motion.
+
+        Biological Interpretation of ANM
+
+        ANM is best viewed as a model of intrinsic structural mechanics.
+
+        Low-frequency non-zero modes often describe collective motions that are
+        most relevant biologically. These are typically the modes associated
+        with functional conformational changes.
+
+        High-frequency modes generally represent more localized fluctuations and
+        are often less informative when studying large-scale biological motion.
+
+        Six zero modes correspond to rigid-body translations and rotations.
+        These do not describe internal flexibility.
+
+        In practice, biological interpretation usually focuses on the first few
+        low-frequency non-zero modes.
+
+        Number of Modes
+
+        The Number of modes parameter controls how many modes are computed.
+
+        For exploratory analysis, values around 10 to 20 are often sufficient.
+
+        If the goal is to characterize broader conformational variability or to
+        provide a richer basis for downstream flexible fitting, larger values
+        may be useful.
+
+        The theoretical maximum number of modes is three times the number of
+        nodes.
+
+        In most biological applications, computing very large numbers of modes
+        rarely provides major practical benefit unless downstream dimensionality
+        reduction or clustering is planned.
+
+        Cutoff Distance
+
+        The cutoff distance is one of the most important parameters in ANM.
+
+        It determines which nodes interact through springs.
+
+        Biologically, this defines the effective mechanical connectivity of the
+        structure.
+
+        For C-alpha models, the default value of 15 Å usually works well.
+
+        Slightly larger values such as 18 Å may improve robustness in some
+        proteins, especially elongated or multi-domain systems.
+
+        For all-atom models, much smaller cutoffs such as 5–7 Å are generally
+        more appropriate.
+
+        For pseudoatomic models, the optimal value depends on the level of
+        coarse-graining and particle density.
+
+        If the cutoff is too small, the network may become poorly connected and
+        modes may become unstable or fragmented.
+
+        If the cutoff is too large, the model becomes overly rigid and may lose
+        biologically meaningful flexibility.
+
+        A practical biological strategy is to begin with the default and adjust
+        only if the computed modes appear unphysical or overly localized.
+
+        Spring Constant (Gamma)
+
+        Gamma controls the stiffness of the elastic springs.
+
+        In many biological applications, the default value of 1 is entirely
+        sufficient because relative mode shapes matter more than absolute
+        frequencies.
+
+        More advanced users may introduce structure-dependent gamma functions
+        when modeling specific physical hypotheses, but this is usually not
+        necessary for standard exploratory structural analysis.
+
+        Collectivity Threshold
+
+        Collectivity is a particularly useful biological descriptor.
+
+        It measures how broadly distributed a motion is across the structure.
+
+        Modes with high collectivity involve large fractions of the molecule and
+        often correspond to biologically relevant collective rearrangements.
+
+        Modes with low collectivity tend to be more localized and may reflect
+        local flexibility rather than global conformational change.
+
+        The collectivity threshold allows automatic deselection of poorly
+        collective modes.
+
+        For many biological analyses, the default value provides a useful first
+        filter.
+
+        Setting the threshold to zero disables deselection entirely.
+
+        Zero Modes
+
+        The protocol can optionally retain zero eigenvalue modes.
+
+        These correspond to rigid-body motions and generally do not provide
+        information about internal structural flexibility.
+
+        In most biological analyses, these are not of primary interest.
+
+        However, keeping them may be useful for technical completeness or
+        specialized downstream workflows.
+
+        Sparse, KDTree, and Turbo Options
+
+        These parameters mainly affect computational performance rather than
+        biological interpretation.
+
+        Sparse matrices reduce memory usage at the cost of speed.
+
+        KDTree changes how neighbors are identified during network
+        construction.
+
+        Turbo mode uses a faster but more memory-intensive diagonalization
+        strategy.
+
+        For most users, the default settings are appropriate.
+
+        Explicit Membrane Model
+
+        For membrane proteins, an explicit membrane elastic network can be
+        included.
+
+        This is particularly relevant when the mechanical environment of the
+        lipid bilayer strongly influences the dominant motions.
+
+        Biologically, this can improve interpretation of channels,
+        transporters, and membrane-associated assemblies.
+
+        This option should only be used when the structure has already been
+        properly oriented relative to the membrane.
+
+        Animation and Visual Interpretation
+
+        The protocol automatically generates animations of the computed modes.
+
+        These animations are extremely useful for biological interpretation.
+
+        They help reveal whether a mode corresponds to hinge closure, domain
+        rotation, interface breathing, gate opening, or other collective
+        rearrangements.
+
+        RMSD amplitude controls the visual excursion along the mode.
+
+        Larger amplitudes make motions easier to inspect but can exaggerate
+        structural changes beyond realistic physical scales.
+
+        Number of frames determines smoothness of the animation.
+
+        Positive and negative directions simply explore both directions along
+        the same mode vector.
+
+        Outputs and Their Interpretation
+
+        The main output is a SetOfNormalModes object.
+
+        Each mode includes:
+
+        - an eigenvector describing the direction of motion
+        - an eigenvalue related to stiffness
+        - collectivity information
+        - metadata indicating whether the mode passed collectivity filtering
+
+        The protocol also produces visualization files compatible with ProDy
+        and ContinuousFlex viewers.
+
+        These outputs can be used directly in downstream analyses such as mode
+        comparison, deformation fitting, image analysis, or structural
+        interpretation.
+
+        Practical Recommendations
+
+        For most biological systems, a good starting point is:
+
+        - 10 to 20 modes
+        - cutoff near 15 Å for C-alpha models
+        - default collectivity filtering
+
+        If modes appear fragmented or excessively localized, increasing the
+        cutoff is often the first parameter worth testing.
+
+        If the structure is a membrane protein, consider the membrane option
+        only if the orientation is biologically meaningful.
+
+        In practice, visual inspection of the first few non-zero collective
+        modes usually provides the most biologically useful information.
+
+        Final Perspective
+
+        ANM does not attempt to reproduce exact physical trajectories.
+
+        Instead, it identifies the easiest collective deformations allowed by
+        the architecture of the structure.
+
+        For structural biology users, this makes ANM especially powerful for
+        understanding how molecular architecture constrains biological motion.
+
+        The most reliable biological conclusions usually come from combining
+        ANM with structural knowledge, biochemical context, and direct visual
+        inspection of the dominant collective modes.
     """
     _label = 'ANM NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -100,7 +339,7 @@ class ProDyANM(EMProtocol):
                            'and GammaED from Orellana et al., J Chem Theory Comput 2010, '
                            'more sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
         form.addParam('sparse', BooleanParam, default=False,
                       expertLevel=LEVEL_ADVANCED,
                       label="Use sparse matrices?",
@@ -109,6 +348,12 @@ class ProDyANM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Use KDTree for building Hessian matrix?",
                       help='This takes more computational time.')
+
+        form.addParam('membrane', BooleanParam, default=False,
+                      expertLevel=LEVEL_ADVANCED,
+                      label="Use explicit membrane model?",
+                      help='An explicit lattice elastic network is used to model the membrane. '
+                      'This option requires a protein oriented with opm or ppm.')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -135,7 +380,7 @@ class ProDyANM(EMProtocol):
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
-        form.addParam('n_steps', IntParam, default=10,
+        form.addParam('numSteps', IntParam, default=10,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
@@ -149,45 +394,44 @@ class ProDyANM(EMProtocol):
                       help='Elect whether to animate in the negative mode direction.')
 
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=20, nzeros=6):
         # Insert processing steps
 
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
+        numModes = self.numberOfModes.get()
 
-        self.model_type = 'anm'
-        n = self.numberOfModes.get()
+        self.gnm = False
+        self.nzeros = 6 if self.zeros.get() else 0
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeModesStep', inputFn, numModes)
+        self._insertFunctionStep('qualifyModesStep', numModes,
+                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.numSteps.get(),
+                                 self.neg.get(), self.pos.get(), self.nzeros)
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn, n):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
+    def computeModesStep(self, inputFn='', n=20):
+        """Compute ANM normal modes"""
 
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
-
+        self.pdbFileName = self._getPath('atoms.pdb')
         self.atoms = prody.parsePDB(inputFn, alt='all')
         prody.writePDB(self.pdbFileName, self.atoms)
 
-        args = 'anm {0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
-            '--npz -o {1} -p modes -n {2} -g {3} -c "{4}" -P {5}'.format(self.pdbFileName,
-                                                                       self._getPath(), n,
-                                                                       self.gamma.get(),
-                                                                       self.cutoff.get(),
-                                                                       self.numberOfThreads.get())
+        if self.membrane.get():
+            self.prefix = 'modes.exanm'
+        else:
+            self.prefix = 'modes.anm'
+        filename = self.prefix + '.npz'
+
+        args = '{0} -s "all" --altloc "all"  --hessian --export-scipion --npzmatrices ' \
+            '--npz -o {1} -p {2} -n {3} -g {4} -c "{5}" -P {6}'.format(self.pdbFileName,
+                                                                         self._getPath(),
+                                                                         self.prefix, n,
+                                                                         self.gamma.get(),
+                                                                         self.cutoff.get(),
+                                                                         self.numberOfThreads.get())
 
         if self.sparse.get():
             args += ' --sparse-hessian'
@@ -204,80 +448,33 @@ class ProDyANM(EMProtocol):
         if self.turbo.get():
             args += ' --turbo'
 
-        self.runJob('prody', args)
+        if self.membrane.get():
+            args += ' --membrane'
 
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-        
-        self.anm = prody.loadModel(self._getPath('modes.anm.npz'))
+        self.runJob(Plugin.getProgram('anm'), args)
+        self.outModes = prody.loadModel(self._getPath(filename))
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
-        for i, mode in enumerate(self.anm[self.startMode:]):
-            modenum = i+self.startMode+1
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
-                               % modenum)
-             
-            self.outAtoms = prody.traverseMode(mode, self.atoms, rmsd=rmsd, 
-                                               n_steps=n_steps,
-                                               pos=pos, neg=neg)
-            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
-
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            if self.structureEM:
-                fhCmd.write("mol modcolor 0 0 Beta\n")
-                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
-            else:
-                fhCmd.write("mol modcolor 0 0 Index\n")
-
-                if self.atoms.select('name P') is not None:
-                    numPhosAtoms = self.atoms.select('name P').numAtoms()
-                else:
-                    numPhosAtoms = 0
-
-                if self.atoms.ca is not None:
-                    numCaAtoms = self.atoms.ca.numAtoms()
-                else:
-                    numCaAtoms = 0
-
-                numRepAtoms = numCaAtoms + numPhosAtoms
-                if numRepAtoms == self.atoms.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()
 
         fnVec = glob("modes/vec.*")
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for ANM normal mode analysis is "
+            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.anm))
-        eigvals = self.anm.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.outModes))
+        eigvals = self.outModes.getEigvals()
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -297,7 +494,7 @@ class ProDyANM(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -317,52 +514,13 @@ class ProDyANM(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.anm, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
-
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        
-        for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==self.startMode+1:
-                        maxShift.append(d)
-                        maxShiftMode.append(self.startMode+1)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
         nmSet = SetOfNormalModes(filename=fnSqlite)
-        nmSet._nmdFileName = String(self._getPath('modes.nmd'))
+        nmSet._nmdFileName = String(self._getPath(self.prefix + '.nmd'))
 
         inputPdb = self.inputStructure.get()
         nmSet.setPdb(inputPdb)

@@ -29,44 +29,327 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the anisotropic network model (ANM).
 """
-from pyworkflow.protocol import params
-
-from os.path import basename, exists, join
 import math
+from os.path import exists, join
 
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
                         MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
 from pwem.objects import AtomStruct, SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
-from pyworkflow.utils import *
+from pyworkflow.utils import glob, redStr
 from pyworkflow.utils.path import makePath
 from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
                                         BooleanParam, LEVEL_ADVANCED)
 
 import prody
 
+
 class ProDyModesBase(EMProtocol):
     """
-    This protocol acts as a base class for various kinds of mode analysis,
-    providing easier access to the qualify and animate steps.
-    Currently, the only child class is ProDyEdit.
+    Base protocol for normal mode analysis workflows in ProDy.
+
+    It provides shared functionality for computing, qualifying,
+    animating, and exporting structural modes.
+
+    AI Generated:
+
+    ProDy Modes Base (ProDyModesBase) — User Manual
+        Overview
+
+        The ProDyModesBase protocol is a foundational class used by
+        several ProDy-based mode analysis protocols.
+
+        Its purpose is not to perform a specific mode calculation by
+        itself, but to provide the common infrastructure needed by
+        protocols that generate normal modes or related collective
+        motions.
+
+        In practical terms, it defines how modes are:
+
+            - parameterized
+            - qualified
+            - animated
+            - analyzed
+            - exported
+
+        This makes it the central framework for structural mode-based
+        analyses.
+
+        Input Structure
+
+        The protocol expects one atomic structure as input.
+
+        The input can be either:
+
+            - a true atomic model (for example, a PDB structure)
+            - a pseudoatomic model derived from an EM volume
+
+        This structure defines the nodes on which collective motions are
+        computed.
+
+        In biological applications, these nodes often represent:
+
+            - alpha carbons in proteins
+            - pseudoatoms in coarse-grained EM models
+            - all atoms in more detailed analyses
+
+        Mode Calculation Parameters
+
+        Although the actual mode computation is implemented in child
+        protocols, this base class defines the parameters that control
+        that process.
+
+        Number of Modes
+
+        The user specifies the number of modes to compute.
+
+        The theoretical upper limit is:
+
+            3 × number of nodes
+
+        In practice, only a subset of low-frequency modes is usually
+        biologically relevant because those often describe collective
+        functional motions.
+
+        Cutoff Distance
+
+        The cutoff distance defines which nodes interact.
+
+        Nodes farther apart than this threshold are considered
+        disconnected.
+
+        Biological interpretation depends strongly on the granularity of
+        the model:
+
+            - around 15 Å is typically appropriate for alpha carbons
+            - shorter distances are often better for all-atom models
+            - pseudoatomic models may require system-dependent tuning
+
+        Spring Constant
+
+        The spring constant defines interaction strength between nodes.
+
+        In elastic network models, this parameter influences the
+        stiffness of the network.
+
+        Although the default constant is usually sufficient for many
+        applications, advanced users may adjust it depending on the
+        biological system.
+
+        Zero Eigenvalues
+
+        The protocol allows the user to decide whether modes with zero
+        eigenvalues should be retained.
+
+        These zero modes usually correspond to rigid-body motions.
+
+        In most structural interpretations, such modes are not
+        biologically informative and are typically excluded.
+
+        Collectivity Threshold
+
+        Collectivity quantifies how broadly a mode is distributed across
+        the structure.
+
+        Values range between:
+
+            0 and 1
+
+        A highly collective mode involves many atoms moving together,
+        whereas a low-collectivity mode tends to reflect localized
+        fluctuations.
+
+        The collectivity threshold is used to automatically deselect
+        modes that are insufficiently collective.
+
+        This is biologically useful because highly collective modes are
+        often more relevant to functional conformational changes.
+
+        Workflow
+
+        The protocol organizes the mode analysis workflow into several
+        sequential steps.
+
+        Mode Computation
+
+        The actual computation is delegated to child protocols through
+        the method:
+
+            computeModesStep()
+
+        This method is intentionally left undefined in the base class.
+
+        Mode Qualification
+
+        After computation, the protocol evaluates all generated modes.
+
+        For each mode, it calculates:
+
+            - collectivity
+            - eigenvalue
+            - enable/disable status
+            - ranking score
+
+        Modes associated with rigid-body motion are automatically
+        disabled.
+
+        Modes with collectivity below the selected threshold are also
+        deselected.
+
+        This produces a metadata table describing the structural
+        relevance of all computed modes.
+
+        Mode Ranking
+
+        Modes are additionally ranked according to their relative
+        collectivity.
+
+        A score is assigned to each mode and stored in the output
+        metadata.
+
+        This ranking helps users identify which modes are more likely to
+        represent meaningful collective structural motions.
+
+        Animation
+
+        The protocol optionally generates animations of the computed
+        modes.
+
+        Animation is controlled by the following parameters:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        For each selected mode, the protocol generates:
+
+            - a PDB trajectory
+            - a VMD visualization script
+
+        These animations provide an intuitive visual representation of
+        collective structural motion.
+
+        From a biological perspective, animation is often one of the
+        most useful ways to interpret a normal mode.
+
+        It allows users to identify:
+
+            - hinge regions
+            - domain motions
+            - flexible loops
+            - collective rearrangements
+
+        Representation Choice
+
+        During animation generation, the protocol automatically chooses
+        a visual representation.
+
+        If the structure consists only of alpha carbons or phosphorus
+        atoms, it uses bead representation.
+
+        Otherwise, ribbon representation is used.
+
+        This helps preserve biologically meaningful visualization
+        without requiring manual intervention.
+
+        Atom Shift Analysis
+
+        The protocol also computes atom displacement profiles.
+
+        For each mode, it calculates the displacement magnitude of every
+        atom.
+
+        These profiles are written as metadata files.
+
+        In addition, the protocol identifies for each atom the mode that
+        produces the largest displacement.
+
+        This produces a global map of structural mobility.
+
+        Biologically, this analysis helps identify:
+
+            - highly flexible regions
+            - residues strongly involved in collective motion
+            - structural hotspots of deformation
+
+        Output
+
+        At the end of execution, the protocol creates a
+        SetOfNormalModes object.
+
+        This output contains:
+
+            - mode vectors
+            - collectivity values
+            - scores
+            - eigenvalues
+            - associated structure reference
+
+        The generated normal modes remain linked to the original input
+        structure, which allows downstream structural interpretation and
+        further analysis.
+
+        Practical Interpretation
+
+        The biological meaning of normal mode analysis is not simply the
+        presence of motion, but the identification of preferred
+        low-energy collective directions accessible to the structure.
+
+        These modes often approximate motions associated with:
+
+            - ligand binding
+            - domain closure
+            - allosteric communication
+            - functional conformational transitions
+
+        Practical Recommendations
+
+        In most biological applications, the most informative modes are
+        low-frequency, highly collective modes.
+
+        Users should generally inspect:
+
+            - collectivity
+            - atom shift profiles
+            - animations
+
+        together rather than relying on a single numerical descriptor.
+
+        Modes with low collectivity are often less biologically
+        interpretable.
+
+        Final Perspective
+
+        ProDyModesBase provides the structural framework for normal mode
+        workflows.
+
+        Rather than defining a specific analysis method, it establishes
+        the shared biological logic behind mode-based structural
+        interpretation.
+
+        It answers the question:
+
+            "How should collective structural motions be evaluated,
+            visualized, and interpreted once they have been computed?"
     """
     _label = 'Modes base'
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=True):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
         """
         # You need a params to belong to a section:
-        form.addSection(label='ProDy modes base')
+        form.addSection(label='ProDy modes base',
+                        condition=besidesAnimation)
 
         form.addParam('inputStructure', PointerParam, label="Input structure",
                       important=True,
+                      condition=besidesAnimation,
                       pointerClass='AtomStruct',
                       help='The input structure can be an atomic model '
                            '(true PDB) or a pseudoatomic model\n'
@@ -74,12 +357,14 @@ class ProDyModesBase(EMProtocol):
 
         form.addParam('numberOfModes', IntParam, default=20,
                       label='Number of modes',
+                      condition=besidesAnimation,
                       help='The maximum number of modes allowed by the method for '
                            'atomic normal mode analysis is 3 times the '
                            'number of nodes (Calpha atoms or pseudoatoms).')
 
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact. \n'
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases. \n'
@@ -89,14 +374,16 @@ class ProDyModesBase(EMProtocol):
 
         form.addParam('gamma', FloatParam, default=1.,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label="Spring constant",
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
+                      condition=besidesAnimation,
                       label='Threshold on collectivity',
                       help='Collectivity degree is related to the number of atoms or pseudoatoms that are affected by '
                       'the mode, and it is normalized between 0 and 1. Modes below this threshold are deselected in '
@@ -107,25 +394,33 @@ class ProDyModesBase(EMProtocol):
                       'in order to decide which modes to use at the image analysis step.')
 
         form.addParam('zeros', BooleanParam, default=True,
+                      condition=besidesAnimation,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include zero eigvals",
                       help='Elect whether modes with zero eigenvalues will be kept.')
 
-        form.addSection(label='Animation')        
+        form.addSection(label='Animation')
+        form.addParam('doAnimation', BooleanParam, default=False,
+                      label='Make animations for ContinuousFlex viewer')
+        animCheck = 'doAnimation == True'
         form.addParam('rmsd', FloatParam, default=5,
+                      condition=animCheck,
                       label='RMSD Amplitude (A)',
                       help='Used only for animations of computed normal modes. '
                       'This is the maximal amplitude with which atoms or pseudoatoms are moved '
                       'along normal modes in the animations. \n')
         form.addParam('n_steps', IntParam, default=10,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label='Number of frames',
                       help='Number of frames used in each direction of animations.')
         form.addParam('pos', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include positive direction",
                       help='Elect whether to animate in the positive mode direction.')
         form.addParam('neg', BooleanParam, default=True,
+                      condition=animCheck,
                       expertLevel=LEVEL_ADVANCED,
                       label="Include negative direction",
                       help='Elect whether to animate in the negative mode direction.')
@@ -133,7 +428,6 @@ class ProDyModesBase(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self, n, nzeros):
         # Insert processing steps
-        #n = self.numberOfModes.get()
 
         self.gnm = False
 
@@ -141,31 +435,30 @@ class ProDyModesBase(EMProtocol):
         self._insertFunctionStep('qualifyModesStep', n,
                                  collectivityThreshold=0.15,
                                  structureEM=False, suffix='')
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get(), nzeros)
+        if self.doAnimation:
+            self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
+                                     self.neg.get(), self.pos.get(), nzeros)
         self._insertFunctionStep('computeAtomShiftsStep', n, nzeros)
         self._insertFunctionStep('createOutputStep')
 
     def computeModesStep(self):
         # This gets defined in each child protocol
-        # self.oldVerbosity and self.oldSecondary should be defined and replaced therein
         pass
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg, nzero=6):
+    def animateModesStep(self, rmsd, nSteps, pos, neg, nzero=6):
         self.nzero = nzero
 
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
         else:
-            animations_dir = self._getExtraPath('animations')
-            makePath(animations_dir)
+            animationsDir = self._getExtraPath('animations')
+            makePath(animationsDir)
             for i, mode in enumerate(self.outModes[nzero:]):
                 modenum = i+nzero+1
-                fnAnimation = join(animations_dir, "animated_mode_%03d"
+                fnAnimation = join(animationsDir, "animated_mode_%03d"
                                 % modenum)
                 prody.writePDB(fnAnimation+".pdb", 
-                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=n_steps,
+                               prody.traverseMode(mode, self.atoms, rmsd=rmsd, n_steps=nSteps,
                                                   pos=pos, neg=neg)
                               )
 
@@ -175,18 +468,14 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.write("display projection Orthographic\n")
                 fhCmd.write("mol modcolor 0 0 Index\n")
 
+                numAtomsP = numAtomsCA = 0
                 if self.atoms.select('name P') is not None:
-                    num_p_atoms = self.atoms.select('name P').numAtoms()
-                else:
-                    num_p_atoms = 0
-
+                    numAtomsP = self.atoms.select('name P').numAtoms()
                 if self.atoms.ca is not None:
-                    num_ca_atoms = self.atoms.ca.numAtoms()
-                else:
-                    num_ca_atoms = 0
+                    numAtomsCA = self.atoms.ca.numAtoms()
 
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.atoms.numAtoms():
+                numAtomsRep = numAtomsCA + numAtomsP
+                if numAtomsRep == self.atoms.numAtoms():
                     fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
                     # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
                     #         "2.600000 0\n")
@@ -198,10 +487,9 @@ class ProDyModesBase(EMProtocol):
                 fhCmd.close()    
 
     def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15,
-                         structureEM=False, suffix='', nzero=None):
+                         suffix=''):
 
-        if nzero is None:
-            nzero = self.nzero
+        nzero = self.nzero
 
         self._enterWorkingDir()
 
@@ -209,20 +497,26 @@ class ProDyModesBase(EMProtocol):
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
-            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance. "
+            msg += "The maximum number of modes allowed by the method for normal mode analysis is "
+            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.outModes))
+        collectivity = prody.calcCollectivity(self.outModes)
+        if isinstance(collectivity, float):
+            collectivityList = [collectivity]
+        else:
+            collectivityList = list(collectivity)
         eigvals = self.outModes.getEigvals()
+
+        vecStr = "vec.%d"
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -240,7 +534,7 @@ class ProDyModesBase(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -270,9 +564,10 @@ class ProDyModesBase(EMProtocol):
         maxShiftMode=[]
         
         nzp1 = nzero + 1
+        vecStr = "vec.%d"
         
         for n in range(nzp1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
+            fnVec = self._getPath("modes", vecStr % n)
             if exists(fnVec):
                 fhIn = open(fnVec)
                 md = MetaData()
@@ -297,16 +592,12 @@ class ProDyModesBase(EMProtocol):
                 fhIn.close()
         md = MetaData()
         for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
+            fnVec = self._getPath("modes", vecStr % (maxShiftMode[i]+1))
             if exists(fnVec):
                 objId = md.addObject()
                 md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
                 md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
         md.write(self._getExtraPath('maxAtomShifts.xmd'))
-
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

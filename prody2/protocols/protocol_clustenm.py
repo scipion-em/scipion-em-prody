@@ -41,17 +41,250 @@ from pyworkflow.protocol.params import (IntParam, FloatParam, StringParam, Boole
                                         EnumParam, MultiPointerParam, LEVEL_ADVANCED)
 
 import prody
-from prody2.constants import CLUSTENM_WEIGHTS
+from prody2.constants import ENSEMBLE_WEIGHTS
+from prody2.objects import ProDyNpzEnsemble, TrajFrame
+from prody2 import Plugin
 
 IMP = 0
 EXP = 1
 
+from pyworkflow.utils import logger
+
 class ProDyClustENM(EMProtocol):
     """
-    This protocol will provide the ClustENM and ClustENMD hybrid simulation methods from ProDy, combining clustering, ENM NMA, minimisation and MD.
+    Performs hybrid conformational sampling using the ProDy ClustENM/ClustENMD framework.
+
+    AI Generated:
+
+    ClustENM(D) (ProDyClustENM) — User Manual
+        Overview
+
+        The ClustENM(D) protocol explores conformational variability of one or more
+        atomic structures by combining normal mode analysis (ENM), conformer generation,
+        clustering, energy minimization, and optional molecular dynamics refinement.
+
+        In practical structural biology terms, this protocol is designed to generate
+        plausible alternative conformations starting from one or more input atomic
+        models. It is particularly useful when studying intrinsic flexibility,
+        conformational transitions, domain motions, or preparing structural ensembles
+        for downstream fitting, analysis, or interpretation.
+
+        Unlike a single minimization or a standard MD trajectory, ClustENM(D)
+        generates multiple branches of structural alternatives across successive
+        generations. This makes it especially valuable when the biological goal is to
+        explore possible motions rather than only refine a single structure.
+
+        Inputs and General Workflow
+
+        The protocol requires one or more input atomic structures. Each structure is
+        processed independently.
+
+        For every input structure, the workflow follows this general scheme:
+
+            1. Perform elastic network normal mode analysis.
+            2. Generate new conformers along selected low-frequency modes.
+            3. Cluster the generated conformers.
+            4. Refine representative conformers by minimization.
+            5. Optionally perform short molecular dynamics simulations.
+            6. Repeat this process for the desired number of generations.
+
+        The result is a structured ensemble of conformations that represent accessible
+        motions around the starting structure.
+
+        Number of Modes and Conformer Generation
+
+        The number of normal modes determines how many collective motions are used to
+        generate structural perturbations.
+
+        In biological applications, low-frequency modes often correspond to large-scale
+        collective motions such as hinge bending, domain rearrangements, or breathing
+        motions. Because of this, a small number of modes (commonly 3–5) is usually
+        sufficient for exploratory analyses.
+
+        The number of conformers controls how broadly each conformational branch is
+        sampled. Higher values increase diversity but also increase computational cost.
+
+        A practical strategy is:
+
+            - small exploratory runs: few conformers and few generations
+            - broader sampling: more conformers and more generations
+
+        RMSD Sampling Amplitude
+
+        The RMSD parameter defines the average displacement of newly generated
+        conformers relative to their parent structure.
+
+        Biologically, this controls how far the exploration moves away from the
+        current conformation.
+
+            - small RMSD values favor local exploration
+            - larger RMSD values allow broader conformational searches
+
+        Different RMSD values can be assigned to successive generations. This is often
+        useful when beginning with broader exploration and gradually refining later
+        generations.
+
+        Clustering Strategy
+
+        After conformer generation, structures are clustered to remove redundancy and
+        retain representative states.
+
+        Two clustering strategies are available:
+
+            - maxclust:
+              limits the maximum number of clusters. This is generally more efficient
+              for large searches.
+
+            - threshold:
+              groups structures according to an RMSD cutoff. This can be useful when
+              structural similarity has a clear biological meaning.
+
+        In most practical workflows, maxclust is often easier to control when many
+        conformers or multiple generations are used.
+
+        Normal Mode Analysis Parameters
+
+        Several advanced parameters control ENM behavior:
+
+            - gamma:
+              spring constant controlling interaction strength
+
+            - cutoff:
+              distance threshold defining which Cα atoms interact
+
+            - sparse:
+              saves memory at the cost of longer computation
+
+            - kdtree:
+              alternative Hessian construction strategy
+
+            - turbo:
+              faster but more memory-demanding mode calculation
+
+        For most biological applications, the default cutoff and gamma values are
+        suitable starting points unless very unusual systems are being studied.
+
+        Simulation and Refinement
+
+        After conformer generation, structures can be refined using energy
+        minimization and optional molecular dynamics.
+
+        If simulation is enabled, the protocol performs:
+
+            - minimization
+            - optional heating
+            - short MD sampling
+
+        This helps remove unrealistic distortions introduced by mode-based
+        perturbations and improves physical plausibility.
+
+        Solvent Models
+
+        Two solvent models are available:
+
+            - implicit solvent:
+              computationally cheaper and generally suitable for exploratory
+              conformational sampling
+
+            - explicit solvent:
+              more realistic but significantly more expensive
+
+        For most routine conformational exploration, implicit solvent is usually the
+        preferred starting choice.
+
+        Explicit solvent becomes more relevant when physical detail is especially
+        important, for example when local side-chain packing or solvent-mediated
+        effects may matter.
+
+        Outlier Filtering
+
+        In implicit solvent mode, conformers with unusually unfavorable energies can
+        be filtered automatically using modified z-score statistics.
+
+        From a biological perspective, this helps remove highly distorted or unstable
+        structures that are less likely to represent meaningful conformational states.
+
+        The outlier threshold should usually be kept conservative unless aggressive
+        sampling is intentionally being performed.
+
+        Optional Fitting to Experimental Volumes
+
+        The protocol can optionally filter generated conformers against one or more
+        experimental volumes.
+
+        In this mode, simulated density maps are generated from candidate conformers
+        and compared against target maps.
+
+        This becomes particularly useful in cryo-EM workflows when one wants to
+        retain only conformers compatible with experimental density.
+
+        Practical biological applications include:
+
+            - exploring flexible fitting candidates
+            - selecting conformers consistent with low-resolution maps
+            - filtering out conformers that deviate too strongly from experimental data
+
+        If enabled, the protocol can optionally resample conformers to replace those
+        rejected during the fitting stage.
+
+        Parallel Execution
+
+        Conformer generation can be parallelized across CPU threads.
+
+        This primarily accelerates ENM/NMA-based sampling and is especially useful
+        when processing multiple structures or larger conformational searches.
+
+        Outputs and Their Interpretation
+
+        For each input structure, the protocol produces:
+
+            - outputStructuresN:
+              a set of sampled atomic conformers
+
+            - outputNpzN:
+              an ensemble representation of the same conformers with associated weights
+
+        Each conformer receives a weight derived from the ensemble statistics.
+
+        Biologically, these weights can be interpreted as relative representation
+        within the sampled ensemble, although they should not automatically be treated
+        as rigorous thermodynamic populations.
+
+        Practical Recommendations
+
+        For exploratory biological studies, a good starting strategy is:
+
+            - 2 generations
+            - 3 to 5 modes
+            - moderate RMSD (~1 Å)
+            - implicit solvent
+            - modest clustering
+
+        For broader conformational searches:
+
+            - increase number of generations
+            - increase number of conformers
+            - gradually tune RMSD and clustering thresholds
+
+        When fitting to cryo-EM maps, careful attention should be paid to map
+        resolution and threshold selection, since overly aggressive filtering may
+        discard biologically relevant alternatives.
+
+        Final Perspective
+
+        ClustENM(D) is best understood not as a conventional molecular dynamics
+        protocol, but as a structured conformational exploration framework.
+
+        For structural biologists, its main value lies in efficiently sampling
+        physically plausible collective motions that may correspond to biologically
+        meaningful functional transitions.
+
+        When used carefully, it provides an effective bridge between coarse-grained
+        normal mode analysis and more detailed atomistic refinement.
     """
     _label = 'ClustENM(D)'
-    _possibleOutputs = {'outputTraj1': SetOfAtomStructs}
+    _possibleOutputs = {'outputStructures1': SetOfAtomStructs,
+                        'outputNpz1': ProDyNpzEnsemble}
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -63,7 +296,7 @@ class ProDyClustENM(EMProtocol):
         form.addParallelSection(threads=cpus, mpi=0)
 
         form.addSection(label='ClustENM(D)')
-        form.addParam('inputStructure', MultiPointerParam, label="Input structures",
+        form.addParam('inputStructures', MultiPointerParam, label="Input structures",
                       important=True,
                       pointerClass='AtomStruct',
                       help='Each input structures should be an atomic model')
@@ -114,7 +347,7 @@ class ProDyClustENM(EMProtocol):
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
         form.addParam('cutoff', FloatParam, default=15.,
                       expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
@@ -193,7 +426,28 @@ class ProDyClustENM(EMProtocol):
                       label="Modified z-score threshold to label conformers as outliers",
                       help='Modified z-score threshold to label conformers as outliers')   
 
-
+        form.addSection(label='Fitting')
+        form.addParam('doFitting', BooleanParam, default=False,
+                      label="Whether to do fitting to volumes like MDeNM-EMFit?",
+                      help="If selected, this will filter structures to those that do not reduce the cross-correlation much")
+        fittingCondition = 'doFitting==True'
+        form.addParam('inputVolumes', MultiPointerParam, label="Target volumes",
+                      important=True, allowsNull=True, condition=fittingCondition,
+                      pointerClass='Volume',
+                      help='If fitting, there should be the same number of volumes as models or just one for all of them')
+        form.addParam('fitResolution', FloatParam, default=5.,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=fittingCondition,
+                      label="Resolution for simulated volumes (A)",
+                      help='Resolution (A) for simulating volumes to compare against the target')
+        form.addParam('replaceFiltered', BooleanParam, default=False, condition=fittingCondition,
+                      label="Whether to sample again to replace filtered conformations?",
+                      help="If selected, this will sample and filter structures repeatedly until the selected number are kept")
+        form.addParam('mapCutoff', FloatParam, default=0.1,
+                      expertLevel=LEVEL_ADVANCED,
+                      condition=fittingCondition,
+                      label="Intensity threshold for target maps",
+                      help='Minimum intensity cutoff for reading target maps to avoid noise')
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
@@ -201,7 +455,21 @@ class ProDyClustENM(EMProtocol):
         self.args = {}
 
         # Insert processing steps
-        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
+        pdbs = [struct.get().getFileName() for struct in self.inputStructures]
+
+        if self.doFitting.get():
+            if self.inputVolumes is not None:
+                self.volumes = [vol.get().getFileName() for vol in self.inputVolumes]
+            else:
+                self.volumes = []
+
+            if len(self.volumes) < len(pdbs) and len(self.volumes) != 1:
+                if len(self.volumes) != 0:
+                    logger.warning("Ignoring volumes as the number of them does not match structures.")
+                self.volumes = None
+            
+            if len(pdbs) == 1 and len(self.volumes) > 1:
+                pdbs = [pdbs[0] for _ in self.volumes]
 
         if self.solvent.get() == IMP:
             self.solvent = 'imp'
@@ -220,15 +488,18 @@ class ProDyClustENM(EMProtocol):
         if not os.path.exists(direc):
             os.mkdir(direc)
 
-        args = 'clustenm {0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} --maxclust "{7}" --threshold "{8}" ' \
-               '--solvent {9} --force_field {10} --ionicStrength {11} --padding {12} --temp {13} --t_steps_i {14} --t_steps_g {15} ' \
-               '--tolerance {16} --maxIterations {17} -o {18} --file-prefix pdbs --multiple'.format(pdb, self.n_gens.get(), self.numberOfModes.get(),
-                    self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(), 
-                    self.maxclust.get(), self.threshold.get(),
-                    self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
-                    self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
-                    self.tolerance.get(), self.maxIterations.get(), direc)
-        
+        args = '{0} --ngens {1} --number-of-modes {2} --nconfs {3} --rmsd {4} -c {5} -g {6} ' \
+               '--solvent {7} --force_field {8} --ionicStrength {9} --padding {10} --temp {11} --t_steps_i {12} --t_steps_g {13} ' \
+               '--tolerance {14} --maxIterations {15} -o {16} --file-prefix pdbs --multiple -P {17}'.format(
+                   pdb, self.n_gens.get(), self.numberOfModes.get(),
+                   self.n_confs.get(), self.rmsd.get(), self.cutoff.get(), self.gamma.get(),
+                   self.solvent, self.force_field.get(), self.ionicStrength.get(), self.padding.get(),
+                   self.temp.get(), self.t_steps_i.get(), self.t_steps_g.get(),
+                   self.tolerance.get(), self.maxIterations.get(), direc, self.numberOfThreads.get())
+
+        if self.n_gens.get() > 0:
+            args += ' --maxclust "{0}" --threshold "{1}"'.format(self.maxclust.get(), self.threshold.get())
+
         if self.sim.get() is False:
             args += ' --no-sim'
 
@@ -249,29 +520,46 @@ class ProDyClustENM(EMProtocol):
         else:
             args += ' --no-outlier'
 
-        self.runJob('prody', args)
+        if self.doFitting.get():
+            args += ' --fitmap {0} --fit_resolution {1} --map_cutoff {2}'.format(self.volumes[i],
+                                                                                 self.fitResolution.get(),
+                                                                                 self.mapCutoff.get())
+            if self.replaceFiltered.get():
+                args += ' --replace_filtered'
+
+        self.runJob('export OPENMM_CPU_THREADS={0} && '.format(self.numberOfThreads.get()) + Plugin.getProgram('clustenm'), args)
 
         structs = SetOfAtomStructs.create(self._getExtraPath())
-        for filename in os.listdir(os.path.join(direc, 'pdbs')):
+        for filename in sorted(os.listdir(os.path.join(direc, 'pdbs'))):
             pdb = AtomStruct(os.path.join(direc, 'pdbs', filename))
             structs.append(pdb)
 
         ens = prody.loadEnsemble(os.path.join(direc, 'pdbs.ens.npz'))
         self.weights = ens.getSizes()
-        outSet = SetOfAtomStructs().create(self._getPath())
-        outSet.copyItems(structs, updateItemCallback=self._setWeights)
 
-        self.args["outputTraj" + suffix] = outSet
+        outSetAS = SetOfAtomStructs().create(self._getPath(), suffix=suffix)
+        outSetAS.copyItems(structs, updateItemCallback=self._setWeights)
+        self.args["outputStructures" + suffix] = outSetAS
+
+        self.ensBaseName = os.path.join(direc, 'pdbs')
+        npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix=suffix)
+        for j in range(ens.numCoordsets()):
+            frame = TrajFrame((j+1, self.ensBaseName+'.ens.npz'),
+                              objLabel=ens.getLabels()[j],
+                              weight=self.weights[j])
+            npz.append(frame)
+
+        self.args["outputNpz" + suffix] = npz
 
     def _setWeights(self, item, row=None):
-            weight = pwobj.Integer(self.weights[item.getObjId()-1])
-            setattr(item, CLUSTENM_WEIGHTS, weight)
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
+            setattr(item, ENSEMBLE_WEIGHTS, weight)
 
     def createOutputStep(self):
         self._defineOutputs(**self.args)
 
     def _summary(self):
-        if not hasattr(self, 'outputTraj1'):
+        if not hasattr(self, 'outputStructures1'):
             summ = ['Output not ready yet']
         else:
             summ = ['ClustENM completed *{0}* generations for *{1}* structures'.format(

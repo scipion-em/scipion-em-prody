@@ -30,45 +30,50 @@ visualization program and the normal mode wizard NMWiz.
 """
 
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.utils import glob
-
-from pwem.objects import SetOfNormalModes
 from pwem.viewers import VmdView
-
-from prody2.protocols import (ProDyANM, ProDyDefvec, ProDyEdit,
-                              ProDyImportModes, ProDyRTB,
-                              ProDyPCA)
+from prody2.objects import ProDyNpzEnsemble
+from prody2.protocols import ProDyBuildPDBEnsemble, ProDyImportEnsemble
 
 import os
 import prody
 
-class ProDyModeViewer(Viewer):
-    """ Visualization of a SetOfNormalModes from the ProDy ANM NMA protocol or elsewhere.    
-        Normally, modes with high collectivity and low NMA score are preferred.
+class ProDyEnsembleViewer(Viewer):
+    """ Visualization of an ensemble from the ProDy protocol or elsewhere
     """    
-    _label = 'ProDy mode viewer'
-    _targets = [SetOfNormalModes, ProDyANM, ProDyRTB, ProDyPCA,
-                ProDyDefvec, ProDyEdit, ProDyImportModes]
+    _label = 'ProDy ensemble viewer'
+    _targets = [ProDyNpzEnsemble, ProDyBuildPDBEnsemble,
+                ProDyImportEnsemble]
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
     def _visualize(self, obj, **kwargs):
-        """visualisation for mode sets"""
-        if isinstance(obj, SetOfNormalModes):
-            modes = obj
-        else:
-            modes = obj.outputModes
+        """visualisation for ensembles"""
 
-        if hasattr(modes, '_nmdFileName'):
-            self.nmdFileName = modes._nmdFileName
+        if isinstance(obj, ProDyNpzEnsemble):
+            ensemble = obj
         else:
-            if glob(self.protocol._getPath("modes*.nmd")):
-                self.nmdFileName = glob(self.protocol._getPath("modes*.nmd"))[0]
-            else:
-                prodyModes = prody.parseScipionModes(modes.getFileName())
-                modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
-                atoms = prody.parsePDB(glob(modesPath+"/*atoms.pdb")[0], altloc="all")
-                self.nmdFileName = modesPath+"/modes.nmd"
-                prody.writeNMD(self.nmdFileName, prodyModes, atoms)
+            try:
+                ensemble = obj.outputNpz
+            except AttributeError:
+                ensemble = obj.outputEnsemble
+
+        ensPath = os.path.dirname(ensemble.getFileName()) + "/"
+        ensFn = ensPath + "ensemble.dcd"
+        atomsFn = ensPath + "atoms.pdb"
+
+        if not os.path.isfile(ensFn):
+            ens = ensemble.loadEnsemble()
+            atoms = ens.getAtoms()
+            prody.writePDB(atomsFn, atoms)
+            prody.writeDCD(ensFn, ens)
+            
+        cmdFn = ensPath + "ensemble.vmd"
+        fhCmd = open(cmdFn, "w")
+        fhCmd.write("mol new %s\n" % atomsFn)
+        fhCmd.write("animate delete all\n")
+        fhCmd.write("mol addfile %s\n" % ensFn)
+        fhCmd.write("mol modcolor 0 0 Chain\n")
+        fhCmd.write("mol modstyle 0 0 Tube\n")
+        fhCmd.close()
         
-        return [VmdView('-e "%s"' % self.nmdFileName)]
+        return [VmdView('-e "%s"' % cmdFn)]
 

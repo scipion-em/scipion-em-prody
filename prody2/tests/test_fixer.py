@@ -2,7 +2,6 @@
 # **************************************************************************
 # *
 # * Authors:     James Krieger (jmkrieger@cnb.csic.es)
-# *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)                 
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -26,23 +25,33 @@
 # *
 # **************************************************************************
 
-"""
-This module implements the dynamical domains decomposition protocol
-visualization program using VMD.
-"""
-from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pwem.viewers import VmdView
-from prody2.protocols import ProDyDomainDecomp
+from pwem.tests.workflows import TestWorkflow
+from pyworkflow.tests import setupTestProject
 
-class ProDyDomainViewer(Viewer):
-    """ Visualization of domains from GNM domain decomposition
-    """    
-    _label = 'Dynamical domain viewer'
-    _targets = [ProDyDomainDecomp]
-    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+from prody2.protocols import (ProDySelect, ProDyPDBFixer)
+import prody
 
-    def _visualize(self, obj, **kwargs):
-        """visualisation for mode dynamical domains"""
+class TestProDyFixer(TestWorkflow):
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect(cls)
 
-        return [VmdView('-e "%s"' % self.protocol._getPath("domains.vmd"))]
+    def testProDyFixer(cls):
+        protFix = cls.newProtocol(ProDyPDBFixer)
+        protFix.inputStructure.set(cls.protSel.outputStructure)
+        protFix.setObjLabel('fix_3hsyB')
+        cls.launchProtocol(protFix)
 
+        ag = prody.parsePDB(protFix.outputStructure.getFileName())
+        cls.assertTrue(ag.numAtoms() == 5956,
+                       "After fixing, 3hsy B should have 5956 atoms, not {0}".format(ag.numAtoms()))
+
+
+def importSelect(cls):
+    cls.protSel = cls.newProtocol(ProDySelect, selection="protein and chain B",
+                                  inputPdbData=0)
+    cls.protSel.pdbId.set("3hsy")
+    cls.protSel.setObjLabel('sel_3hsyB')
+    cls.launchProtocol(cls.protSel)

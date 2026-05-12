@@ -29,37 +29,325 @@
 """
 This module will provide ProDy normal mode analysis (NMA) using the the rotation and translation of blocks (RTB) framework.
 """
-from pyworkflow.protocol import params
-
-from os.path import basename, exists, join
-import math
-
-from pwem import *
 from pwem.emlib import (MetaData, MDL_NMA_MODEFILE, MDL_ORDER,
                         MDL_ENABLED, MDL_NMA_COLLECTIVITY, MDL_NMA_SCORE, 
-                        MDL_NMA_ATOMSHIFT, MDL_NMA_EIGENVAL)
-from pwem.objects import AtomStruct, SetOfNormalModes, String
-from pwem.protocols import EMProtocol
+                        MDL_NMA_EIGENVAL)
+from pwem.objects import SetOfNormalModes, String
 
-from pyworkflow.utils import *
-from pyworkflow.utils.path import makePath
-from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam, StringParam,
+from pyworkflow.utils import glob, redStr
+from pyworkflow.protocol.params import (PointerParam, IntParam, FloatParam,
                                         BooleanParam, EnumParam, LEVEL_ADVANCED)
 
 import prody
+from prody2.protocols.protocol_modes_base import ProDyModesBase
 
 BLOCKS_FROM_RES = 0
 BLOCKS_FROM_SECSTR = 1
 
-class ProDyRTB(EMProtocol):
+class ProDyRTB(ProDyModesBase):
     """
-    This protocol will perform normal mode analysis (NMA) using the rotation and translation of blocks (RTB) framework
+    Performs normal mode analysis using the Rotation Translation of
+    Blocks (RTB) framework.
+
+    The protocol approximates collective structural motions by grouping
+    atoms into blocks and computing their coupled rigid-body motions.
+
+    AI Generated:
+
+    ProDy RTB Normal Mode Analysis (ProDyRTB) — User Manual
+        Overview
+
+        The ProDyRTB protocol performs normal mode analysis using the
+        Rotation Translation of Blocks (RTB) formalism.
+
+        Its main purpose is to reduce the computational cost of normal
+        mode analysis while preserving the biologically meaningful
+        collective motions of large macromolecular systems.
+
+        Instead of treating every atom independently, RTB groups atoms
+        into blocks and models the motion of those blocks as rigid-body
+        translations and rotations.
+
+        This makes the protocol especially useful for:
+
+            - large proteins
+            - multi-domain complexes
+            - coarse-grained structural models
+            - pseudoatomic EM models
+
+        Biological Motivation
+
+        In many biological systems, large-scale functional motions often
+        involve coordinated movement of structural regions rather than
+        isolated atomic fluctuations.
+
+        RTB exploits this idea by representing groups of residues as
+        collective moving units.
+
+        This allows efficient approximation of motions such as:
+
+            - domain rearrangements
+            - hinge bending
+            - subunit displacement
+            - collective conformational transitions
+
+        Input Structure
+
+        The protocol requires one input atomic structure.
+
+        The input can be:
+
+            - a standard atomic model
+            - a pseudoatomic model
+
+        The structure is loaded with secondary structure information
+        whenever available.
+
+        Block Definition
+
+        A key feature of RTB is how the structural blocks are defined.
+
+        The protocol supports two strategies.
+
+        Residue-Based Blocks
+
+        Blocks can be defined by assigning a fixed number of residues to
+        each block.
+
+        The parameter:
+
+            res_per_block
+
+        controls the target number of residues per block.
+
+        This is a simple and robust option when the user wants uniform
+        coarse-graining.
+
+        Secondary Structure Blocks
+
+        Blocks can also be defined using secondary structure
+        information.
+
+        In this case, blocks tend to follow biologically meaningful
+        structural elements such as:
+
+            - helices
+            - beta strands
+            - compact structural segments
+
+        This can often provide more interpretable collective motions.
+
+        Block Refinement
+
+        Several parameters control block refinement.
+
+        Shortest Block
+
+        Very small blocks can be unstable.
+
+        Blocks shorter than the selected threshold are merged with the
+        previous block.
+
+        Longest Block
+
+        Very large blocks may be overly rigid.
+
+        Blocks longer than the threshold are split.
+
+        Distance-Based Splitting
+
+        The parameter:
+
+            min_dist_cutoff
+
+        allows block subdivision based on internal structural distance.
+
+        Residues that are too far apart are not forced into the same
+        block.
+
+        Biologically, this helps avoid grouping disconnected structural
+        regions into one rigid body.
+
+        Elastic Network Parameters
+
+        Cutoff Distance
+
+        The cutoff defines which block interactions are included in the
+        elastic network.
+
+        For most alpha-carbon models, the default value of 15 Å is often
+        appropriate.
+
+        Shorter values may be preferable for denser atomic models.
+
+        Spring Constant
+
+        The spring constant controls the strength of inter-block
+        coupling.
+
+        This defines the stiffness of the RTB elastic network.
+
+        Computational Workflow
+
+        The protocol performs the following main steps.
+
+        Structure Preparation
+
+        The input structure is loaded and converted into a block-mapped
+        representation.
+
+        The resulting block assignment is stored together with an atom
+        mapping structure.
+
+        Hessian Construction
+
+        The RTB Hessian matrix is constructed using the selected blocks
+        and elastic network parameters.
+
+        If memory limitations occur, the protocol automatically switches
+        to sparse matrix representation.
+
+        Mode Calculation
+
+        Normal modes are computed from the RTB Hessian.
+
+        The user specifies the desired number of modes.
+
+        Two additional options control this stage.
+
+        Zero Eigenvalues
+
+        The user may decide whether zero-eigenvalue modes are retained.
+
+        When enabled, the first six rigid-body modes are preserved.
+
+        Turbo Mode
+
+        Turbo mode uses a faster but more memory-intensive matrix
+        decomposition.
+
+        If memory becomes limiting, the protocol automatically falls back
+        to a non-turbo calculation.
+
+        Output Files
+
+        The protocol exports the computed RTB modes in several formats:
+
+            - Scipion mode files
+            - NMD visualization file
+            - NPZ model file including matrices
+
+        These outputs allow visualization and downstream structural
+        analysis.
+
+        Mode Qualification
+
+        Each computed mode is evaluated according to:
+
+            - collectivity
+            - eigenvalue
+            - ranking score
+            - enabled/disabled state
+
+        If zero modes are included, the first six rigid-body modes are
+        automatically disabled for interpretation.
+
+        Modes below the selected collectivity threshold are also
+        deselected.
+
+        This filtering helps focus on biologically meaningful collective
+        motions.
+
+        Animation
+
+        The protocol automatically generates animations of the computed
+        RTB modes.
+
+        Animation parameters include:
+
+            - RMSD amplitude
+            - number of frames
+            - positive direction
+            - negative direction
+
+        These animations are especially useful because RTB often captures
+        large-amplitude domain-scale rearrangements that are easy to
+        interpret visually.
+
+        Atom Shift Profiles
+
+        The protocol also computes atom displacement profiles for the
+        selected modes.
+
+        This identifies which regions of the structure undergo the
+        largest displacements.
+
+        Biologically, this helps detect:
+
+            - flexible hinges
+            - moving domains
+            - collective deformation hotspots
+
+        Output
+
+        The final output is a:
+
+            - SetOfNormalModes
+
+        The output modes remain linked to the original input structure.
+
+        This allows downstream interpretation in structural and
+        conformational analyses.
+
+        Biological Interpretation
+
+        RTB should be understood as a coarse-grained approximation of
+        normal mode analysis.
+
+        It is particularly useful when the biological question concerns
+        large-scale collective motion rather than local atomic detail.
+
+        Compared with fully atomistic normal mode analysis, RTB often
+        provides:
+
+            - faster computation
+            - better scalability
+            - clearer interpretation of domain-level motion
+
+        Practical Recommendations
+
+        Residue-based blocks are usually a good starting point for
+        exploratory analyses.
+
+        Secondary-structure-based blocks may be preferable when the user
+        wants motions that align more closely with biologically defined
+        structural elements.
+
+        For very large systems, RTB is often much more practical than
+        full atomistic normal mode analysis.
+
+        Final Perspective
+
+        ProDyRTB is best understood as a scalable collective-motion
+        approximation.
+
+        Rather than asking:
+
+            "How does every atom fluctuate?"
+
+        it asks:
+
+            "How do coherent structural blocks move relative to one
+            another?"
+
+        This makes it especially powerful for studying large
+        macromolecular rearrangements.
     """
     _label = 'RTB NMA'
     _possibleOutputs = {'outputModes': SetOfNormalModes}
 
     # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, besidesAnimation=False):
         """ Define the input parameters that will be used.
         Params:
             form: this is the form to be populated with sections and params.
@@ -92,11 +380,13 @@ class ProDyRTB(EMProtocol):
                       help='All blocks will have this number of residues except the last one')
 
         form.addParam('shortest_block', IntParam, default=4,
+                      expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in shortest block',
                       help='Blocks with fewer residues will be combined into the previous block. '
                            'Fewer than 4 can be problematic.')
 
         form.addParam('longest_block', IntParam, default=20,
+                      expertLevel=LEVEL_ADVANCED,
                       label='Number of residues in longest block',
                       help='Blocks with more residues will be split in half')
 
@@ -108,7 +398,6 @@ class ProDyRTB(EMProtocol):
                            'This is calculated using ProDy function findSubgroups.')
 
         form.addParam('cutoff', FloatParam, default=15.,
-                      expertLevel=LEVEL_ADVANCED,
                       label="Cut-off distance (A)",
                       help='Atoms or pseudoatoms beyond this distance will not interact.\n'
                            'For Calpha atoms, the default distance of 15 A works well in the majority of cases. '
@@ -122,7 +411,7 @@ class ProDyRTB(EMProtocol):
                       help='This number or function determines the strength of the springs.\n'
                            'More sophisticated options are available within the ProDy API and '
                            'the resulting modes can be imported back into Scipion.\n'
-                           'See http://prody.csb.pitt.edu/tutorials/enm_analysis/gamma.html')
+                           'See http://http://www.bahargroup.org/prody/tutorials/enm_analysis/gamma.html')
 
         form.addParam('collectivityThreshold', FloatParam, default=0.15,
                       expertLevel=LEVEL_ADVANCED,
@@ -165,145 +454,87 @@ class ProDyRTB(EMProtocol):
                       help='Elect whether to animate in the negative mode direction.')
                            
     # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
+    def _insertAllSteps(self, n=20, nzeros=6):
         # Insert processing steps
 
         # Link the input
         inputFn = self.inputStructure.get().getFileName()
-        self.structureEM = self.inputStructure.get().getPseudoAtoms()
+        numModes = self.numberOfModes.get()
+        self.gnm = False
 
-        self.model_type = 'rtb'
-        n = self.numberOfModes.get()
+        self.nzeros = 6 if self.zeros.get() else 0
 
-        self._insertFunctionStep('computeModesStep', inputFn, n)
-        self._insertFunctionStep('animateModesStep', n,
-                                 self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
-        self._insertFunctionStep('qualifyModesStep', n,
-                                 self.collectivityThreshold.get(),
-                                 self.structureEM)
-        self._insertFunctionStep('computeAtomShiftsStep', n)
+        self._insertFunctionStep('computeModesStep', inputFn, numModes)
+        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
+                                 self.neg.get(), self.pos.get(), self.nzeros)
+        self._insertFunctionStep('qualifyModesStep', numModes,
+                                 self.collectivityThreshold.get())
+        self._insertFunctionStep('computeAtomShiftsStep', numModes, self.nzeros)
         self._insertFunctionStep('createOutputStep')
 
-    def computeModesStep(self, inputFn, n):
-        # configure ProDy to automatically handle secondary structure information and verbosity
-        self.oldSecondary = prody.confProDy("auto_secondary")
-        self.oldVerbosity = prody.confProDy("verbosity")
-        from pyworkflow import Config
-        prodyVerbosity =  'none' if not Config.debugOn() else 'debug'
-        prody.confProDy(auto_secondary=True, verbosity='{0}'.format(prodyVerbosity))
-        
-        if self.structureEM:
-            self.pdbFileName = self._getPath('pseudoatoms.pdb')
-        else:
-            self.pdbFileName = self._getPath('atoms.pdb')
-
-        atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
+    def computeModesStep(self, inputFn='', n=20):       
+        self.pdbFileName = self._getPath('atoms.pdb')
+        self.atoms = prody.parsePDB(inputFn, alt='all', secondary=True)
 
         if self.blockDef.get() == BLOCKS_FROM_RES:
-            self.blocks, self.amap = prody.assignBlocks(atoms, res_per_block=self.res_per_block.get(),
+            self.blocks, self.amap = prody.assignBlocks(self.atoms, res_per_block=self.res_per_block.get(),
                                                         shortest_block=self.shortest_block.get(),
                                                         longest_block=self.longest_block.get(),
                                                         min_dist_cutoff=self.min_dist_cutoff.get())
         else:
-            self.blocks, self.amap = prody.assignBlocks(atoms, secstr=True,
+            self.blocks, self.amap = prody.assignBlocks(self.atoms, secstr=True,
                                                         shortest_block=self.shortest_block.get(),
                                                         longest_block=self.longest_block.get(),
                                                         min_dist_cutoff=self.min_dist_cutoff.get())
 
         prody.writePDB(self.pdbFileName, self.amap)
 
-        self.rtb = prody.RTB()
+        self.outModes = prody.RTB()
         try:
-            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
                                 gamma=self.gamma.get())
         except MemoryError as err:
             prody.LOGGER.warn("{0} so using sparse matrix".format(err))
-            self.rtb.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
+            self.outModes.buildHessian(self.amap, self.blocks, cutoff=self.cutoff.get(),
                                     gamma=self.gamma.get(), sparse=True)
 
         try:
-            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
+            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=self.turbo.get())
         except MemoryError as err:
             prody.LOGGER.warn("{0} so using not using turbo decomposition".format(err))
-            self.rtb.calcModes(n, zeros=self.zeros.get(), turbo=False)
+            self.outModes.calcModes(n, zeros=self.zeros.get(), turbo=False)
 
         if self.zeros.get():
             self.startMode = 6
         else:
             self.startMode = 0
         
-        prody.writeScipionModes(self._getPath(), self.rtb)
-        prody.writeNMD(self._getPath('modes.nmd'), self.rtb, self.amap)
-        prody.saveModel(self.rtb, self._getPath('modes.rtb.npz'), matrices=True)
+        prody.writeScipionModes(self._getPath(), self.outModes)
+        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.amap)
+        prody.saveModel(self.outModes, self._getPath('modes.rtb.npz'), matrices=True)
 
-    def animateModesStep(self, numberOfModes, rmsd, n_steps, pos, neg):
-
-        animations_dir = self._getExtraPath('animations')
-        makePath(animations_dir)
-        for i, mode in enumerate(self.rtb[self.startMode:]):
-            modenum = i+self.startMode+1
-            fnAnimation = join(animations_dir, "animated_mode_%03d"
-                               % modenum)
-             
-            self.outAtoms = prody.traverseMode(mode, self.amap, rmsd=rmsd,
-                                               n_steps=n_steps,
-                                               pos=pos, neg=neg)
-            prody.writePDB(fnAnimation+".pdb", self.outAtoms)
-
-            fhCmd=open(fnAnimation+".vmd",'w')
-            fhCmd.write("mol new %s.pdb\n" % fnAnimation)
-            fhCmd.write("animate style Rock\n")
-            fhCmd.write("display projection Orthographic\n")
-            if self.structureEM:
-                fhCmd.write("mol modcolor 0 0 Beta\n")
-                fhCmd.write("mol modstyle 0 0 Beads 1.0 8.000000\n")
-            else:
-                fhCmd.write("mol modcolor 0 0 Index\n")
-
-                if self.amap.select('name P') is not None:
-                    num_p_atoms = self.amap.select('name P').numAtoms()
-                else:
-                    num_p_atoms = 0
-
-                if self.amap.ca is not None:
-                    num_ca_atoms = self.amap.ca.numAtoms()
-                else:
-                    num_ca_atoms = 0
-
-                num_rep_atoms = num_ca_atoms + num_p_atoms
-                if num_rep_atoms == self.amap.numAtoms():
-                    fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-                    # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-                    #         "2.600000 0\n")
-                else:
-                    fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                            "2.600000 0\n")
-            fhCmd.write("animate speed 0.5\n")
-            fhCmd.write("animate forward\n")
-            fhCmd.close()    
-
-    def qualifyModesStep(self, numberOfModes, collectivityThreshold, structureEM, suffix=''):
+    def qualifyModesStep(self, numberOfModes, collectivityThreshold=0.15, suffix=''):
         self._enterWorkingDir()
-
         fnVec = glob("modes/vec.*")
 
         if len(fnVec) < numberOfModes:
             msg = "There are only %d modes instead of %d. "
             msg += "Check the number of modes you asked to compute and/or consider increasing cut-off distance."
-            msg += "The maximum number of modes allowed by the method for atomic normal mode analysis is "
-            msg += "3 times the number of nodes (pseudoatoms or Calphas). "
-            self._printWarnings(redStr(msg % (len(fnVec), numberOfModes)))
+            msg += "The maximum number of modes allowed by the method for RTB normal mode analysis is "
+            msg += "3 times the number of nodes (atoms or pseudoatoms; %d). "
+            self.warning(redStr(msg % (len(fnVec), numberOfModes, self.atoms.numAtoms()*3)))
 
         mdOut = MetaData()
-        collectivityList = list(prody.calcCollectivity(self.rtb))
-        eigvals = self.rtb.getEigvals()
+        collectivityList = list(prody.calcCollectivity(self.outModes))
+        eigvals = self.outModes.getEigvals()
+
+        vecStr = "vec.%d"
 
         for n in range(len(fnVec)):
             collectivity = collectivityList[n]
 
             objId = mdOut.addObject()
-            modefile = self._getPath("modes", "vec.%d" % (n + 1))
+            modefile = self._getPath("modes", vecStr % (n + 1))
             mdOut.setValue(MDL_NMA_MODEFILE, modefile, objId)
             mdOut.setValue(MDL_ORDER, int(n + 1), objId)
 
@@ -321,7 +552,7 @@ class ProDyRTB(EMProtocol):
         idxSorted = [i[0] for i in sorted(enumerate(collectivityList), key=lambda x: x[1], reverse=True)]
 
         score = []
-        for j in range(len(fnVec)):
+        for _ in range(len(fnVec)):
             score.append(0)
 
         modeNum = []
@@ -341,47 +572,8 @@ class ProDyRTB(EMProtocol):
 
         self._leaveWorkingDir()
         
-        prody.writeScipionModes(self._getPath(), self.rtb, scores=score, only_sqlite=True,
+        prody.writeScipionModes(self._getPath(), self.outModes, scores=score, only_sqlite=True,
                                 collectivityThreshold=collectivityThreshold)
-
-    def computeAtomShiftsStep(self, numberOfModes):
-        fnOutDir = self._getExtraPath("distanceProfiles")
-        makePath(fnOutDir)
-        maxShift=[]
-        maxShiftMode=[]
-        
-        for n in range(self.startMode+1, numberOfModes+1):
-            fnVec = self._getPath("modes", "vec.%d" % n)
-            if exists(fnVec):
-                fhIn = open(fnVec)
-                md = MetaData()
-                atomCounter = 0
-                for line in fhIn:
-                    x, y, z = map(float, line.split())
-                    d = math.sqrt(x*x+y*y+z*z)
-                    if n==self.startMode+1:
-                        maxShift.append(d)
-                        maxShiftMode.append(self.startMode+1)
-                    else:
-                        if d>maxShift[atomCounter]:
-                            maxShift[atomCounter]=d
-                            maxShiftMode[atomCounter]=n
-                    atomCounter+=1
-                    md.setValue(MDL_NMA_ATOMSHIFT,d,md.addObject())
-                md.write(join(fnOutDir,"vec%d.xmd" % n))
-                fhIn.close()
-        md = MetaData()
-        for i, _ in enumerate(maxShift):
-            fnVec = self._getPath("modes", "vec.%d" % (maxShiftMode[i]+1))
-            if exists(fnVec):
-                objId = md.addObject()
-                md.setValue(MDL_NMA_ATOMSHIFT, maxShift[i],objId)
-                md.setValue(MDL_NMA_MODEFILE, fnVec, objId)
-        md.write(self._getExtraPath('maxAtomShifts.xmd'))
-        
-        # configure ProDy to restore secondary structure information and verbosity
-        prody.confProDy(auto_secondary=self.oldSecondary, 
-                        verbosity='{0}'.format(self.oldVerbosity))
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')

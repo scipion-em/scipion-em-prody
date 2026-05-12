@@ -36,6 +36,12 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
+*PRODY_ENV_ACT*: If undefined, it will point to the prody-github as the default:
+PRODY_ENV_ACT = conda activate prody-github
+
+It could be changed as follows:
+PRODY_ENV_ACT = conda activate prody-2.4.1
+
 
 Protocols
 ----------
