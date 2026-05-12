@@ -44,101 +44,55 @@ class ProDyPDBFixer(EMProtocol):
     """
     This module will provide the ProDy wrapper for OpenMM PDBFixer
     """
-    """
-    This protocol serves as a wrapper for the OpenMM PDBFixer tool, providing
-    automated structural repair and preparation for macromolecular models.
+    _label = 'PDBFixer'
+    _possibleOutputs = {'outputStructure': AtomStruct}
 
-    AI Generated:
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params.
+        """
+        form.addSection(label='ProDy PDBFixer modelling')
+        
+        form.addParam('inputStructure', PointerParam, label="Input structure",
+                      important=True,
+                      pointerClass='AtomStruct',
+                      help='The input structure should be an AtomStruct. '
+                      'Any AtomStruct from ProDy can be used for adding hydrogens '
+                      'but one corresponding to an original PDB or mmCIF file with '
+                      'SEQRES header data is needed to add missing residues.')
 
-    PDBFixer Modeling (ProDyPDBFixer) — User Manual
-        Overview
+        form.addParam('pH', FloatParam, label="pH", default=7.4,
+                      important=True, expertLevel=LEVEL_ADVANCED,
+                      help='The pH to use for adding hydrogens.')
 
-        The PDBFixer protocol is designed to address common structural deficiencies in
-        Protein Data Bank (PDB) files, such as missing atoms, incomplete residues,
-        and the absence of hydrogen atoms. Its main purpose is to prepare "simulation-ready"
-        models by ensuring structural integrity and proper protonation states. In
-        typical structural biology workflows, this step is essential before performing
-        energy minimization, molecular dynamics, or advanced flexibility analysis,
-        where physical consistency is paramount.
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        # Insert processing steps
+        self._insertFunctionStep('computeStep')
+        self._insertFunctionStep('createOutputStep')
 
-        For a biological user, the most common applications include repairing
-        loops that were not resolved in an experiment, standardizing a model
-        for molecular simulations, or adding hydrogens to explore hydrogen-bonding
-        networks. The protocol streamlines the transition from raw experimental
-        coordinates to refined models suitable for biophysical computation.
+    def computeStep(self):
+        inputFn = self.inputStructure.get().getFileName()
+        self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
 
-        Inputs and General Workflow
+        args = '--inputFn {0} --pH {1} --outputFn {2}'.format(inputFn, self.pH.get(), self.outputFn)
+        self.runJob(Plugin.getProgram('fixer.py', script=True), args)
 
-        The protocol requires an input atomic structure (AtomStruct). While any
-        standard model can be processed for hydrogen addition, the protocol
-        reaches its full potential when provided with files containing original
-        SEQRES header data (from PDB or mmCIF sources). This header data is
-        biologically vital as it defines the complete sequence, allowing the
-        software to identify and reconstruct residues that were missing from the
-        experimental density.
+    def createOutputStep(self):
+        outAS = AtomStruct(self.outputFn)
+        self._defineOutputs(outputStructure=outAS)
 
-        The workflow is automated and direct: the user provides the structure
-        and specifies the environmental conditions. The protocol then invokes
-        the OpenMM PDBFixer engine to analyze the structure, identify gaps,
-        add heavy atoms, and finally protonate the molecule.
-
-        Environmental Context: pH Sensitivity
-
-        Protonation is a biologically critical process because the presence and
-        position of hydrogen atoms depend heavily on the chemical environment.
-        The protocol allows the user to specify a pH value, which defaults to
-        physiological conditions (7.4).
-
-        From a biological perspective, adjusting the pH is necessary when
-        studying proteins that function in specific organelles (like the acidic
-        lumen of a lysosome) or under non-standard experimental conditions.
-        Correctly assigning hydrogen atoms based on pH ensures that the
-        electrostatic properties and ionization states of amino acid side
-        chains—such as Histidine, Lysine, and Glutamate—are accurately
-        represented.
-
-        Structural Reconstruction and Modeling
-
-        Beyond simple atom addition, PDBFixer acts as a modeling tool. By
-        reconciling the observed coordinates with the expected sequence, it
-        can fill in missing side chains and loops. This reconstruction
-        eliminates "gaps" in the protein backbone that would otherwise
-        cause instabilities in downstream physics-based analyses.
-
-        The protocol produces a repaired model that maintains the original
-        spatial orientation while significantly increasing the total atom count.
-        This "fixed" structure serves as the definitive reference for
-        subsequent dynamic or static modeling steps.
-
-        Outputs and Their Interpretation
-
-        After execution, the protocol produces a new AtomStruct labeled as "fixed."
-        This output is a complete PDB file containing all repaired atoms and
-        newly added hydrogens.
-
-        The protocol summary provides an immediate comparison of the atom and
-        residue counts before and after the process. Biologically, an increase
-        in the protein residue count (tracked via Alpha Carbons) confirms that
-        missing segments have been successfully modeled, while the total atom
-        count change reflects the addition of heavy atoms and the complete
-        protonation of the system.
-
-        Practical Recommendations
-
-        In routine practice, it is advisable to inspect the resulting "fixed" PDB
-        visually, particularly in regions where large loops were missing. If
-        the reconstructed regions appear too extended or energetically
-        unfavorable, subsequent energy minimization is highly recommended.
-
-        When working with high-resolution structures that already contain some
-        hydrogens, the protocol will intelligently handle the existing data to
-        ensure a consistent protonation state across the entire complex.
-
-        Final Perspective
-
-        For most Scipion users, PDBFixer is a necessary bridge between experimental
-        maps and theoretical models. Careful attention to the input pH and the
-        inclusion of sequence metadata are the key elements for ensuring that
-        the final model is not just mathematically complete, but biologically
-        accurate for further scientific investigation.
-    """
+    def _summary(self):
+        if not hasattr(self, 'outputStructure'):
+            summ = ['Output structure not ready yet']
+        else:
+            inputAg = prody.parsePDB(self.inputStructure.get().getFileName())
+            outputAg = prody.parsePDB(self.outputStructure.getFileName())
+            summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
+                   outputAg.numAtoms(), inputAg.numAtoms())]
+            summ.append('The new structure has *{0}* protein residues '
+                        'from original *{1}* protein residues'.format(
+                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+        return summ

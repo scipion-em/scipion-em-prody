@@ -53,41 +53,219 @@ class ProDyRmsd(EMProtocol):
     """
     This protocol will perform ProDy principal component analysis (PCA) using atomic structures
     """
-    """
-    The ProDy RMSD protocol performs principal component analysis (PCA) and clustering
-    on atomic structure ensembles using RMSD metrics. Its primary goal is to analyze
-    structural variability, detect representative conformations, and optionally reorder
-    or cluster the ensemble for downstream analyses. This protocol is particularly
-    useful when handling multiple structures derived from simulations, experimental
-    conditions, or modeling pipelines, as it helps extract biologically meaningful
-    conformational differences.
+    _label = 'RMSD Cluster'
+    _possibleOutputs = {'outputEnsemble': ProDyNpzEnsemble}
 
-    The protocol requires an input ensemble, which can be either a SetOfAtomStructs
-    or a ProDyNpzEnsemble. All structures must contain the same number of atoms to
-    ensure meaningful RMSD computations. Users can choose to cluster the ensemble
-    using hierarchical clustering or k-medoids. Hierarchical clustering optionally
-    reorders structures based on RMSD trees and allows defining subgroups via an RMSD
-    threshold, while k-medoids partitions the ensemble into a fixed number of clusters
-    and identifies representative medoids. Cluster weights are assigned proportionally
-    based on subgroup sizes, reflecting the relative importance of each conformer.
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params.
+        """
 
-    During execution, the protocol calculates pairwise RMSDs, generates clustering trees
-    or medoid assignments, computes representative structures, and can reorder the
-    ensemble according to similarity. Users may also generate representative PDB files
-    for individual structures. Outputs include sets of clustered structures, each
-    represented by a ClassTraj object, and optionally the reordered ensemble and
-    PDB structures. Representative structures are weighted to preserve ensemble statistics,
-    enabling downstream PCA or comparative analysis.
+        form.addSection(label='ProDy RMSD')
+        form.addParam('inputEnsemble', PointerParam, label="Input ensemble",
+                      important=True,
+                      pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
+                      help='The input ensemble should be a SetOfAtomStructs '
+                      'where all structures have the same number of atoms.')
 
-    For practical use, hierarchical clustering is recommended to explore relationships
-    between conformers, while k-medoids is suited for fixed-size clustering. Generating
-    representative PDB files facilitates visualization and integration with other
-    modeling workflows. Proper selection of RMSD thresholds, cluster numbers, and tree
-    methods ensures biologically meaningful grouping without losing structural detail.
+        form.addParam('doCluster', BooleanParam, default=True,
+                      label="Cluster ensemble?",
+                      help='Whether to cluster ensemble')
 
-    ProDy RMSD is not just a computational protocol but a tool to extract biologically
-    relevant conformational information from atomic ensembles. Thoughtful application
-    of clustering, weighting, and optional reordering provides insight into molecular
-    flexibility, dominant states, and representative structures suitable for further
-    analysis or publication-quality figures.
-    """
+        form.addParam('clusteringMethod', EnumParam, choices=['hierarchical', 'kmedoids'],
+                      default=0,
+                      display=EnumParam.DISPLAY_HLIST,
+                      label="Clustering method",
+                      condition='doCluster',
+                      help='Method used for clustering using RMSD')
+                
+        form.addParam('doReorder', BooleanParam, default=False,
+                      label="Reorder ensemble?",
+                      condition='clusteringMethod==0',
+                      help='Whether to reorder ensemble based on RMSD tree')
+        
+        form.addParam('treeMethod', EnumParam, choices=['upgma', 'nj',
+                                                        'single', 'average',
+                                                        'ward', 'other'],
+                      condition='clusteringMethod==0',
+                      label="RMSD tree method", default=0,
+                      display=EnumParam.DISPLAY_HLIST,
+                      help='Method for calculating RMSD tree.\n'
+                           'Acceptable options are ``"upgma"``, ``"nj"``, or methods '
+                           'supported by :func:`~scipy.cluster.hierarchy.linkage` such as '
+                           '``"single"``, ``"average"``, ``"ward"``, etc.')
+        
+        form.addParam('otherMethod', StringParam, default="None",
+                      condition="treeMethod==5",
+                      label="Other tree method",
+                      help='You can type another tree method here')
+
+        form.addParam('rmsdThreshold', FloatParam, default=1.,
+                      condition="doCluster==True and clusteringMethod==0",
+                      label='RMSD threshold',
+                      help='RMSD threshold for clustering the tree')
+        
+        form.addParam('nClusters', IntParam, default=2,
+                      condition="doCluster==True and clusteringMethod==1",
+                      label='Number of clusters',
+                      help='Kmedoids will create this many clusters')
+        
+        form.addParam('writePDBFiles', BooleanParam, default=False,
+                      label="Write representative PDB files",
+                      help='These will be registered as output too')
+
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        # Insert processing steps
+
+        self._insertFunctionStep('convertInputStep')
+        self._insertFunctionStep('ensembleModificationStep')
+        self._insertFunctionStep('createOutputStep')
+
+    def convertInputStep(self):
+
+        inputEnsemble = self.inputEnsemble.get()
+        if isinstance(inputEnsemble, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        else:
+            self.ens = inputEnsemble.loadEnsemble()
+
+    def ensembleModificationStep(self):
+
+        self.ensBaseName = self._getExtraPath('ensemble')
+        ensFn = prody.saveEnsemble(self.ens, self.ensBaseName)
+
+        allWeights = self.ens.getData('size')
+        if allWeights is None:
+            allWeights = np.ones(self.ens.numConfs(), dtype=float)
+        
+        if not self.doCluster.get():
+            repIdx = range(self.ens.numConfs())
+        elif self.clusteringMethod.get() == 0:
+            matrix = self.ens.getRMSDs(pairwise=True)
+            labels = self.ens.getLabels()
+
+            tree = prody.calcTree(labels, matrix)
+            _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
+
+            classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
+            subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
+            self.weights = np.zeros(len(subgroups), dtype=float)
+            repIdx = np.zeros(len(subgroups), dtype=int)
+            sgIdx = []
+            for i, sg in enumerate(subgroups):
+                sgIdx.append([labels.index(label) for label in sg])
+                submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
+                repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
+
+                weight = len(sg)/self.ens.numCoordsets()
+                self.weights[i] = allWeights[repIdx[i]] * weight
+                allWeights[sgIdx[i]] *= weight
+                classLabels[sgIdx[i]] = i
+        else:
+            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
+                                                                            self._getExtraPath())
+            self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
+
+            classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
+            repIdx = np.loadtxt(self._getExtraPath("cluster_medoids.txt"), dtype=int)
+            weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
+            
+            sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
+            self.weights = np.zeros(len(weights), dtype=float)
+            for i, weight in enumerate(weights):
+                weight /= weights.sum()
+                allWeights[sgIdx[i]] *= weight
+                self.weights[i] = allWeights[repIdx[i]]
+
+        prody.writePDB(self.ensBaseName, self.ens)
+        self.ens.setData('size', allWeights)
+        prody.saveEnsemble(self.ens, self.ensBaseName)
+
+        if self.writePDBFiles.get():
+            ag = self.ens.getAtoms().copy()
+            self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
+
+        self.npzClasses = SetOfClassesTraj().create(self._getExtraPath())
+        frames = ProDyNpzEnsemble().create(self._getExtraPath())
+        for i, label in enumerate(self.ens.getLabels()):
+            frames.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
+                                    objLabel=label, weight=allWeights[i]))
+
+        for i, sg in enumerate(sgIdx):
+            newClass = ClassTraj().create(self._getExtraPath(), suffix=i+1)
+            repId = int(repIdx[i])
+            newClass.setRef(frames[repId+1])
+            self.npzClasses.append(newClass)
+            for j in sg:
+                newClass.append(frames[int(j+1)])
+            self.npzClasses.update(newClass)
+            
+            if self.writePDBFiles.get():
+                ag.setCoords(self.ens.getCoordsets()[repId])
+                filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(repId+1,
+                                                                       self.ens.getLabels()[repId]))
+                prody.writePDB(filename, ag)
+                pdb = AtomStruct(filename)
+                self.pdbs.append(pdb)
+
+        self.npzClasses.write()
+
+        if self.doReorder.get():
+            self.ens = self.ens[reordIndices]
+            allWeights = allWeights[reordIndices]
+
+            self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix='_reordered')
+            for i, label in enumerate(self.ens.getLabels()):
+                self.npz.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
+                                objLabel=label, weight=allWeights[i]))
+
+            prody.saveEnsemble(self.ens, self.ensBaseName)
+
+    def createOutputStep(self):
+        args = {}
+        args["outputClasses"] = self.npzClasses
+
+        if self.writePDBFiles.get():
+            outSetAS = SetOfAtomStructs().create(self._getPath())
+            outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
+            args["outputStructures"] = outSetAS
+
+        if self.doReorder.get():
+            args['outputEnsemble'] = self.npz
+
+        self._defineOutputs(**args)
+        
+    def _summary(self):
+        if not hasattr(self, 'outputNpz'):
+            summ = ['Output ensemble not ready yet']
+        else:
+            ens = self.outputNpz.loadEnsemble()
+            summ = ['Output ensemble has *{0}* structures of *{1}* atoms'.format(
+                   ens.numConfs(), ens.numAtoms())]
+        return summ
+
+    def _setWeights(self, item, row=None):
+            weight = pwobj.Float(self.weights[item.getObjId()-1])
+            setattr(item, ENSEMBLE_WEIGHTS, weight)
+
+    def _createSetOfClassesTraj(self, frameSet, suffix=''):
+        classes = self.__createSet(SetOfClassesTraj,
+                                   self._getExtraPath('classesTraj%s.sqlite'), 
+                                   suffix)
+        classes.setImages(frameSet)
+        return classes
+
+    def __createSet(self, SetClass, template, suffix, **kwargs):
+        """ Create a set and set the filename using the suffix.
+        If the file exists, it will be delete. """
+        setFn = self._getPath(template % suffix)
+        # Close the connection to the database if
+        # it is open before deleting the file
+        pwutils.cleanPath(setFn)
+        setObj = SetClass(filename=setFn, **kwargs)
+        return setObj

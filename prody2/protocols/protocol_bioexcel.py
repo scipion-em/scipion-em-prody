@@ -52,150 +52,85 @@ class ProDyBioExcelCV19(EMProtocol):
     This module will provide the ProDy interface for parsing files from 
     the BioExcel CV19 database
     """
-    """
-    Downloads and parses molecular dynamics trajectories from the BioExcel COVID-19 database.
-    The protocol provides an automated interface between ProDy and BioExcel simulation repositories,
-    allowing users to retrieve trajectory datasets together with their associated topology and
-    structural information for downstream structural biology and molecular dynamics analysis.
+    _label = 'BioExcelCV19'
+    _possibleOutputs = {'outputTrajectory': ProDyMDSystem}
 
-    AI Generated:
+    selections = [None, '_C', 'backbone', 'backbone and _C']
+    NONE = 0
+    _C = 1
 
-    BioExcel CV19 Parser (ProDyBioExcelCV19) — User Manual
+    # -------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        """ Define the input parameters that will be used.
+        Params:
+            form: this is the form to be populated with sections and params.
+        """
+        form.addSection(label='ProDy BioExcelCV19 parsing')
 
-        Overview
+        form.addParam('accession', params.StringParam, label="Simulation accession",
+                      important=True, help='Simulation accession or ID number.')
 
-        The ProDyBioExcelCV19 protocol is designed to retrieve and prepare molecular dynamics
-        simulations hosted in the BioExcel COVID-19 database. Its primary objective is to simplify
-        the access to curated MD trajectories associated with biologically relevant systems,
-        particularly viral proteins and biomolecular complexes studied during the COVID-19 pandemic.
+        form.addParam('selection', params.EnumParam, choices=self.selections,
+                      label="Atom selection",
+                      default=self._C,
+                      help='Select carbon atoms or backbone or only backbone carbon atoms')
+        
+        form.addParam('frames', params.StringParam, label='Frame selection',
+                      default='1-5,11-15', help='Please specify frames as ranges like '
+                                                '1-5 or 10:20:2 separated by commas')
+        
+        form.addParam('useMDSystem', params.BooleanParam, label='Output MDSystem',
+                      condition=HAVE_CHEM, default=HAVE_CHEM, 
+                      help='Select whether to output an MDSystem object. If not, a SetOfTrajFrames will be used.')
 
-        In practical workflows, this protocol enables researchers to import simulation trajectories
-        directly into Scipion and ProDy-based environments without manually downloading,
-        organizing, or converting trajectory files. The protocol automatically generates the
-        structural topology, coordinate files, and trajectory representations needed for
-        downstream analysis such as conformational exploration, flexibility studies,
-        principal component analysis, or ensemble characterization.
+    # --------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        # Insert processing steps
+        self._insertFunctionStep('computeStep')
+        self._insertFunctionStep('createOutputStep')
 
-        For biological users, this protocol is especially useful when studying protein dynamics,
-        ligand interactions, conformational transitions, or large-scale structural fluctuations
-        extracted from publicly available simulation datasets. It provides a reproducible and
-        automated mechanism for integrating BioExcel resources into structural biology workflows.
+    def computeStep(self):
+        accession = self.accession.get()
+        args = '--accession {0} --folder {1}'.format(accession, 
+                                                     self._getExtraPath())
+        
+        if self.selection.get() != self.NONE:
+            selection = self.selections[self.selection.get()]
+            args += ' --selection {0}'.format(selection)
 
-        Inputs and Simulation Retrieval
+        if self.frames.get() != self.NONE:
+            args += ' --frames {0}'.format(self.frames.get())
 
-        The protocol requires a simulation accession identifier corresponding to an entry in the
-        BioExcel COVID-19 database. This accession uniquely defines the simulation dataset to
-        retrieve and determines which trajectory, topology, and coordinate files will be parsed.
+        self.runJob(Plugin.getProgram('bioexcel.py', script=True), args)
 
-        During execution, the protocol launches the BioExcel parsing utility and stores all
-        retrieved files inside the protocol working directory. The generated files include a PDB
-        structure file, a PSF topology file, and a DCD trajectory file. Together, these files
-        describe both the static molecular architecture and the temporal evolution of the system.
+        self.PDB_FILENAME = self._getExtraPath('{0}.pdb'.format(accession))
+        self.PSF_FILENAME = self._getExtraPath('{0}.psf'.format(accession))
+        self.DCD_FILENAME = self._getExtraPath('{0}.dcd'.format(accession))
 
-        From a biological perspective, the accession number represents a complete simulation
-        experiment. Different accessions may correspond to distinct proteins, variants,
-        ligand-binding conditions, solvent environments, or simulation protocols. Careful
-        selection of the dataset is therefore essential for biologically meaningful analysis.
+    def createOutputStep(self):
+        if self.useMDSystem:
+            outputTrajectory = ProDyMDSystem(filename=self.PDB_FILENAME)
+            outputTrajectory.setTopologyFile(self.PSF_FILENAME)
+            outputTrajectory.setTrajectoryFile(self.DCD_FILENAME)
+        else:
+            numFrames = prody.DCDFile(self.DCD_FILENAME).numFrames()
 
-        Atom Selection and Structural Reduction
+            outputTrajectory = SetOfTrajFrames().create(self._getExtraPath())
+            outputTrajectory.setTopologyFile(self.PSF_FILENAME)
+            outputTrajectory.setTrajectoryFile(self.DCD_FILENAME)
+            for j in range(numFrames):
+                frame = TrajFrame((j+1, self.DCD_FILENAME), objLabel=str(j+1))
+                setattr(frame, ENSEMBLE_WEIGHTS, Float(1/numFrames))
+                outputTrajectory.append(frame)
 
-        One of the most important features of this protocol is the ability to reduce the trajectory
-        to specific atom subsets before importing it into the workflow environment. This greatly
-        decreases computational cost and simplifies downstream analyses.
+        self._defineOutputs(outputTrajectory=outputTrajectory)
 
-        The protocol supports several atom selection modes, including carbon-only selections,
-        backbone atoms, or backbone carbon atoms. These reduced representations are commonly used
-        in large-scale conformational studies where the global protein motion is more relevant than
-        atomistic side-chain detail.
-
-        Selecting only backbone atoms is particularly useful for coarse-grained analyses,
-        normal mode calculations, trajectory clustering, or essential dynamics studies.
-        Carbon-alpha selections are frequently employed when comparing conformational landscapes
-        across multiple trajectories because they provide a compact representation of protein
-        geometry while preserving the major structural transitions.
-
-        From a computational perspective, reduced atom selections significantly improve memory
-        efficiency and analysis speed, especially when working with long trajectories or large
-        molecular assemblies.
-
-        Frame Selection and Temporal Sampling
-
-        The protocol also allows selective extraction of trajectory frames. Instead of loading
-        the entire simulation, users may specify frame ranges or intervals using compact range
-        expressions such as "1-5" or "10:20:2".
-
-        This functionality is biologically important because molecular dynamics trajectories often
-        contain thousands or millions of frames, many of which may be redundant for a particular
-        analysis. Temporal subsampling enables efficient exploration of conformational states
-        while reducing storage and processing requirements.
-
-        In practical applications, users commonly extract representative frame intervals for
-        visualization, ensemble averaging, conformational clustering, or flexible fitting.
-        Sparse sampling may also be useful for identifying slow collective motions or monitoring
-        large conformational transitions over time.
-
-        Care should nevertheless be taken when selecting only a subset of frames, since excessive
-        reduction may remove transient intermediate states or rare biologically relevant events.
-
-        Output Formats and Trajectory Representation
-
-        After processing, the protocol generates a trajectory object that can be represented in
-        two different ways depending on the selected configuration.
-
-        When MDSystem output is enabled, the protocol creates a ProDyMDSystem object that stores
-        the structural coordinates, topology, and trajectory in a unified representation. This
-        format is particularly suitable for downstream molecular dynamics analysis pipelines,
-        including flexibility studies, ensemble calculations, and structural motion analysis.
-
-        Alternatively, the protocol can generate a SetOfTrajFrames object, where each frame of
-        the trajectory is represented independently. This representation is useful for workflows
-        focused on frame-by-frame processing, classification, scoring, or visualization.
-
-        Each generated frame is associated with a normalized ensemble weight, allowing the
-        trajectory to be interpreted as a statistical ensemble of conformational states.
-
-        Biological Interpretation of the Outputs
-
-        The resulting trajectories provide a dynamic description of biomolecular behavior rather
-        than a single static structure. Unlike crystallographic or cryo-EM models, molecular
-        dynamics trajectories capture fluctuations, transitions, and transient interactions that
-        may be essential for biological function.
-
-        Protein flexibility, domain rearrangements, loop dynamics, and ligand-binding events can
-        often be studied more effectively through trajectory analysis than through static models
-        alone. For viral systems, these motions may reveal mechanisms related to infectivity,
-        immune escape, or drug recognition.
-
-        The protocol summary reports the total number of atoms together with the number of protein
-        residues contained in the parsed trajectory. These values provide a quick estimate of the
-        system size and complexity before downstream processing begins.
-
-        Practical Recommendations
-
-        In routine biological workflows, backbone or carbon-alpha selections are generally the
-        best starting point for exploratory analyses because they substantially reduce
-        computational cost while preserving the dominant structural motions.
-
-        Full-atom trajectories are more appropriate when studying detailed intermolecular
-        interactions, ligand binding, hydrogen-bond networks, or local conformational effects.
-        However, these trajectories require significantly larger computational resources.
-
-        Frame subsampling should be selected carefully depending on the biological question.
-        Dense frame sampling is preferable for kinetic or transition-state analyses, whereas
-        sparse sampling is often sufficient for visualization or global conformational studies.
-
-        When working with large MD datasets, it is usually advisable to begin with reduced atom
-        selections and limited frame ranges before scaling to full trajectories.
-
-        Final Perspective
-
-        Molecular dynamics simulations provide a time-resolved view of biomolecular systems that
-        complements experimental structural biology techniques. The ProDyBioExcelCV19 protocol
-        simplifies access to these datasets by integrating BioExcel simulation repositories
-        directly into ProDy and Scipion workflows.
-
-        For most structural biology users, the protocol serves as a bridge between public
-        molecular simulation databases and advanced conformational analysis tools, enabling
-        efficient exploration of protein flexibility, structural heterogeneity, and dynamic
-        biological mechanisms.
-    """
+    def _summary(self):
+        if not hasattr(self, 'outputTrajectory'):
+            summ = ['Output trajectory not ready yet']
+        else:
+            outputAg = prody.parsePDB(self._getExtraPath(
+                '{0}.pdb'.format(self.accession.get())))
+            summ = ['Trajectory has *{0}* atoms including *{1}* protein residues'.format(
+                outputAg.numAtoms(), outputAg.ca.numAtoms())]
+        return summ
