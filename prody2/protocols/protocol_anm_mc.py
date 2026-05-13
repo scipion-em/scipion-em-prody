@@ -81,14 +81,29 @@ class ProDyANMMC(EMProtocol):
                       help='If using a target, steps will be accepted depending on approaching it')
 
         form.addParam('targetStructure', params.PointerParam,
-                      label="Target structure (optional)",
-                      allowsNull=True,
+                      label="Target structure",
                       condition='useTarget==True',
                       pointerClass='AtomStruct',
-                      help='The target structure, if provided, should have matching atoms '
+                      help='The target structure should have matching atoms '
                             'to the starting structure. Steps will be accepted or rejected '
                             'with a certain probability based on an energy from '
                             'contacts agreeing with the target (depending on the acceptance ratio)')
+
+        form.addParam('anmmcSteps', params.IntParam,
+                      label="Number of ANM MC steps",
+                      default=1000000,
+                      help='This is a very large number of steps and should probably be reduced when combining with CoMD')
+
+        form.addParam('useCoMD', params.BooleanParam, default=False,
+                      label='Whether to use the collective MD algorithm with targeted MD for all-atom relaxation.',
+                      help='This could be much slower and may reduce conformational changes')
+
+        form.addParam('comdGens', params.IntParam,
+                      label="Number of CoMD generations",
+                      default=5,
+                      condition='useCoMD==True',
+                      help='Each generation runs many steps of ANM MC and then runs targeted MD towards the '
+                           'resulting structure and then minimises the output')
 
         form.addParam('devi', params.FloatParam,
                       label="Maximum deviation per step (A)",
@@ -155,10 +170,13 @@ class ProDyANMMC(EMProtocol):
         args = f"{startingStructureFn} {targetStructureFn} "*2 # repeats make sense with CoMD code
 
         args += f"{i+1} {self.devi.get()} {self.stepcutoff.get()} {self.acceptance_ratio.get()} "
-        args += f"{self.cutoff.get()} 1000000 " # enough steps that RMSD dominates 
+        args += f"{self.cutoff.get()} {self.anmmcSteps.get()} "
 
         args += f"{os.path.join(direc, f'run_{i+1}_final_structure.dcd')} "
-        args += f"{int(self.useAllAtoms.get())} 1 1"  # these numbers 1 are for saving all coordinate sets and writing pdbs
+        args += f"{int(self.useAllAtoms.get())} 1 1 "  # these numbers 1 are for saving all coordinate sets and writing pdbs
+        args += f"{self.useCoMD.get()} "
+        if self.useCoMD.get():
+            args += f"{self.comdGens.get()} "
 
         self.runJob(
             Plugin.getProgram(
