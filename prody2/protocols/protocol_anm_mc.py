@@ -101,7 +101,7 @@ class ProDyANMMC(EMProtocol):
 
         form.addParam('comdGens', params.IntParam,
                       label="Number of CoMD generations",
-                      default=5,
+                      default=6,
                       condition='useCoMD==True',
                       help='Each generation runs many steps of ANM MC and then runs targeted MD towards the '
                            'resulting structure and then minimises the output')
