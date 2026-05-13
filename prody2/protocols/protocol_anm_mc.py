@@ -95,8 +95,9 @@ class ProDyANMMC(EMProtocol):
                       help='This is a very large number of steps and should probably be reduced when combining with CoMD')
 
         form.addParam('useCoMD', params.BooleanParam, default=False,
-                      label='Whether to use the collective MD algorithm with targeted MD for all-atom relaxation.',
-                      help='This could be much slower and may reduce conformational changes')
+                      label='Whether to use the collective MD.',
+                      help='This algorithm adds targeted MD and energy minimisation for all-atom relaxation. '
+                            'This could be much slower and may reduce conformational changes')
 
         form.addParam('comdGens', params.IntParam,
                       label="Number of CoMD generations",
