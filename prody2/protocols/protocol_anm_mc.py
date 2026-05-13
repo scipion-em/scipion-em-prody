@@ -237,11 +237,3 @@ class ProDyANMMC(EMProtocol):
     def _cleanIds(self, item, row=None):
         item.cleanObjId()
         setattr(item, ENSEMBLE_WEIGHTS, Float(1))
-
-    def _validate(self):
-        errors = []
-        if not (self.tarStructure.hasValue() or (self.use_trans.get() 
-                                                 and self.transformation.hasValue())):
-            errors.append('A target structure or transformation matrix must be provided')
-
-        return errors
