@@ -41,6 +41,10 @@ from pwem.protocols import EMProtocol
 
 from pyworkflow.protocol import params
 
+ALTERNATING = 0
+ONEWAY = 1
+SERIAL = 2
+
 class ProDyANMMC(EMProtocol):
     """
     This protocol will generate random walks in normal mode space using ANM Monte Carlo
@@ -105,6 +109,14 @@ class ProDyANMMC(EMProtocol):
                       condition='useCoMD==True',
                       help='Each generation runs many steps of ANM MC and then runs targeted MD towards the '
                            'resulting structure and then minimises the output')
+
+        form.addParam('comdDirectionMode', params.EnumParam,
+                      choices=['Alternating', 'One way', 'Serial'],
+                      label="CoMD direction mode",
+                      default=ALTERNATING,
+                      condition='useCoMD==True and useTarget==True',
+                      help="Direction scheduling mode for runs starting from initial and target structures. "
+                            "Alternating is classical in CoMD and Adaptive ANM, but other modes should be good too.")
 
         form.addParam('devi', params.FloatParam,
                       label="Maximum deviation per step (A)",
@@ -178,6 +190,10 @@ class ProDyANMMC(EMProtocol):
         args += f"{self.useCoMD.get()} "
         if self.useCoMD.get():
             args += f"{self.comdGens.get()} "
+            if self.useTarget.get():
+                args += f"{self.comdDirectionMode.get()}"
+            else:
+                args += f"{ONEWAY}"
 
         self.runJob(
             Plugin.getProgram(
@@ -221,3 +237,11 @@ class ProDyANMMC(EMProtocol):
     def _cleanIds(self, item, row=None):
         item.cleanObjId()
         setattr(item, ENSEMBLE_WEIGHTS, Float(1))
+
+    def _validate(self):
+        errors = []
+        if not (self.tarStructure.hasValue() or (self.use_trans.get() 
+                                                 and self.transformation.hasValue())):
+            errors.append('A target structure or transformation matrix must be provided')
+
+        return errors
