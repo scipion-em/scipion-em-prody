@@ -41,7 +41,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 from pyworkflow.utils import getListFromRangeString, glob, redStr
 
 import prody
-from prody2.constants import PROJ_COEFFS, PRODY_WEIGHTS
+from prody2.constants import PROJ_COEFFS, ENSEMBLE_WEIGHTS
 from prody2.objects import SetOfClassesTraj, ProDyNpzEnsemble
 
 ONE = 0
@@ -192,7 +192,7 @@ class ProDyProject(EMProtocol):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
             ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
             item = ensGot[1]
-            if hasattr(item, PRODY_WEIGHTS):
+            if hasattr(item, ENSEMBLE_WEIGHTS):
                 weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
             else:
                 weights = np.ones(len(ensGot))
@@ -231,7 +231,7 @@ class ProDyProject(EMProtocol):
         else:
             ens = ensGot.loadEnsemble()
             item = ensGot[1]
-            if hasattr(item, PRODY_WEIGHTS):
+            if hasattr(item, ENSEMBLE_WEIGHTS):
                 weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
             else:
                 weights = np.ones(len(ensGot))
