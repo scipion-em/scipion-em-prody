@@ -41,7 +41,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 from pyworkflow.utils import getListFromRangeString, glob, redStr
 
 import prody
-from prody2.constants import PROJ_COEFFS
+from prody2.constants import PROJ_COEFFS, PRODY_WEIGHTS
 from prody2.objects import SetOfClassesTraj, ProDyNpzEnsemble
 
 ONE = 0
@@ -191,7 +191,11 @@ class ProDyProject(EMProtocol):
         if isinstance(ensGot, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
             ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
-            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            item = ensGot[1]
+            if hasattr(item, PRODY_WEIGHTS):
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            else:
+                weights = np.ones(len(ensGot))
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         elif isinstance(ensGot, SetOfClassesTraj):
             firstItems = [class_.getFirstItem() for class_ in ensGot]
@@ -226,6 +230,10 @@ class ProDyProject(EMProtocol):
                 self.newNpzEns.append(frame)
         else:
             ens = ensGot.loadEnsemble()
-            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            item = ensGot[1]
+            if hasattr(item, PRODY_WEIGHTS):
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            else:
+                weights = np.ones(len(ensGot))
 
         return ens, weights
