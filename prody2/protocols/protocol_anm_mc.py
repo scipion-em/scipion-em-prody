@@ -184,7 +184,7 @@ class ProDyANMMC(EMProtocol):
         args += f"{os.path.join(direc, f'run_{i+1}_final_structure.dcd')} "
         args += "0 1 1 "  # the number 0 is for not overriding selection,
                           # numbers 1 are for saving all coordinate sets and writing pdbs
-        args += f"int({self.useCoMD.get()}) "
+        args += f"{int(self.useCoMD.get())} "
         if self.useCoMD.get():
             args += f"{self.comdGens.get()} "
             if self.useTarget.get():
