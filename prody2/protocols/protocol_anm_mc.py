@@ -146,6 +146,7 @@ class ProDyANMMC(EMProtocol):
 
         form.addParam('useAllAtoms', params.BooleanParam, default=True,
                       label='Whether to use all atoms.',
+                      condition='useCoMD==True',
                       help='Otherwise, CA atoms are selected')
 
 
