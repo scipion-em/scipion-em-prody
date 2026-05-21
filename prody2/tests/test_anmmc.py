@@ -48,6 +48,10 @@ class TestProDyANMMC(TestWorkflow):
         protMC.targetStructure.set(cls.protSel2.outputStructure)
         cls.launchProtocol(protMC)
 
+    def testProDyANMMC_comd(cls):
+        protMC = cls.newProtocol(ProDyANMMC, useComd=True)
+        protMC.startingStructure.set(cls.protSel.outputStructure)
+        cls.launchProtocol(protMC)
 
 def importSelect(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 
