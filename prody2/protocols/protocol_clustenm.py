@@ -83,6 +83,16 @@ class ProDyClustENM(EMProtocol):
                       important=True,
                       pointerClass='AtomStruct',
                       help='Each input structures should be an atomic model')
+        form.addParam('mergeInputs', EnumParam,
+                      choices=['Separate run per structure', 'Merge into one multi-start run'],
+                      default=0, display=EnumParam.DISPLAY_HLIST,
+                      label="Handling of multiple input structures",
+                      help='Separate: run ClustENM(D) independently on each input structure, giving one '
+                           'output ensemble per structure (the original behaviour).\n'
+                           'Merge: seed a single ClustENM(D) run with all the input structures at once '
+                           '(multi-start) -- they form the initial population together and the generations '
+                           'then proceed jointly -- giving one combined output ensemble. The inputs must '
+                           'share the same topology (same atoms after fixing) to be merged.')
         form.addParam('numberOfModes', IntParam, default=3,
                       label='Number of modes',
                       help='The maximum number of modes allowed by the method for '
@@ -177,7 +187,17 @@ class ProDyClustENM(EMProtocol):
                       expertLevel=LEVEL_ADVANCED,
                       label="Maximum number of iterations to perform during energy minimization",
                       help='If this is 0 (default), minimization is continued until the results converge without '
-                           'regard to how many iterations it takes') 
+                           'regard to how many iterations it takes')
+
+        form.addParam('parallelSim', IntParam, default=1,
+                      condition="mergeInputs==1",
+                      label="Parallel simulation workers",
+                      help='Only for a merged (multi-start) run. Number of worker processes to run the '
+                           'per-conformer energy minimisation/MD in parallel (1 = off, the default; 0 = as '
+                           'many as CPUs). This is independent of the conformer-generation "parallel" option. '
+                           'When GPUs are selected the workers are spread one-per-GPU across the chosen GPUs. '
+                           'Most useful for MD or large merged ensembles; for short minimisation the '
+                           'per-worker start-up (a fresh OpenMM/CUDA context) can outweigh the gain.')
 
         simTrue = "sim==True"
         form.addParam('temp', FloatParam, default=303.15,
@@ -249,9 +269,7 @@ class ProDyClustENM(EMProtocol):
 
         # Insert processing steps
         pdbs = [struct.get().getFileName() for struct in self.inputStructures]
-
-        if len(pdbs) == 1:
-            self.stepsExecutionMode = STEPS_SERIAL
+        merge = self.mergeInputs.get() == 1
 
         if self.doFitting.get():
             if self.inputVolumes is not None:
@@ -263,19 +281,29 @@ class ProDyClustENM(EMProtocol):
                 if len(self.volumes) != 0:
                     logger.warning("Ignoring volumes as the number of them does not match structures.")
                 self.volumes = None
-            
-            if len(pdbs) == 1 and len(self.volumes) > 1:
+
+            if not merge and len(pdbs) == 1 and self.volumes and len(self.volumes) > 1:
                 pdbs = [pdbs[0] for _ in self.volumes]
 
+        # merged multi-start: a single run seeded with all structures (comma-separated, parsed by the
+        # clustenm app); otherwise one run per structure (the original behaviour).
+        if merge:
+            runInputs = [",".join(pdbs)]
+            self.stepsExecutionMode = STEPS_SERIAL
+        else:
+            runInputs = pdbs
+            if len(runInputs) == 1:
+                self.stepsExecutionMode = STEPS_SERIAL
+
         stepIds = []
-        for i, pdb in enumerate(pdbs):
+        for i, pdb in enumerate(runInputs):
             comp = self._insertFunctionStep('computeStep', i, pdb,
                                             prerequisites=[],
                                             needsGPU=self.useGpu)
             outputs = self._insertFunctionStep('createOutputsStep', i,
-                                               prerequisites=comp, 
+                                               prerequisites=comp,
                                                needsGPU=False)
-            
+
             stepIds.append(outputs)
 
         self._insertFunctionStep('createOutputStep',
@@ -336,6 +364,15 @@ class ProDyClustENM(EMProtocol):
             args += ' --platform CUDA --gpu-ids {0}'.format(gpuStr)
         else:
             args += ' --platform CPU'
+
+        # merged multi-start run: optionally parallelise the per-conformer minimisation/MD across
+        # worker processes, spread one-per-GPU over the selected GPUs (0-based DeviceIndex within the
+        # visible set that Scipion exposes via CUDA_VISIBLE_DEVICES).
+        if self.mergeInputs.get() == 1 and self.parallelSim.get() != 1:
+            args += ' --parallel_sim {0}'.format(self.parallelSim.get())
+            if self.useGpu:
+                ngpu = len(gpuStr.split(','))
+                args += ' --sim_devices {0}'.format(','.join(str(k) for k in range(ngpu)))
 
         if not os.path.exists(os.path.join(direc, 'pdbs.ens.npz')):
             self.runJob('export OPENMM_CPU_THREADS={0} && '.format(
@@ -406,6 +443,9 @@ class ProDyClustENM(EMProtocol):
     def _summary(self):
         if not hasattr(self, 'outputStructures1'):
             summ = ['Output not ready yet']
+        elif self.mergeInputs.get() == 1:
+            summ = ['ClustENM completed *{0}* generations for a single merged (multi-start) run of '
+                    '*{1}* input structures'.format(self.n_gens.get(), len(self.inputStructures))]
         else:
             numStructs = (self.numberOfSteps-1)//2 # 1 collect output step, 2 steps per struct
             if numStructs == 1:

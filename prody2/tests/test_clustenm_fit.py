@@ -90,3 +90,27 @@ class TestProDyClustenmFit(TestWorkflow):
 
         cls.assertTrue(cc[-1] > cc[0],
                        "Last CC should be more than starting CC")
+
+    def testProDyClustENMmergeFitParallel(cls):
+
+        # Merge two structures into ONE multi-start run, with fitting and parallel simulation workers.
+        # Two copies of the same input guarantee a matching topology for the merge.
+        protMerge = cls.newProtocol(ProDyClustENM, n_gens=1, numberOfModes=3,
+                                    clusterMode=0, maxclust=2, rmsd=5,
+                                    n_confs=10, sim=False, doFitting=True,
+                                    mergeInputs=1, parallelSim=2)
+        protMerge.inputStructures.set([cls.protPdb4ake.outputPdb,
+                                       cls.protPdb4ake.outputPdb])
+        protMerge.inputVolumes.set([cls.protImportVol.outputVolume])
+        protMerge.setObjLabel('ClustENM_merge_fit_parallel')
+        cls.launchProtocol(protMerge)
+
+        # a single combined output ensemble, with cross-correlations recorded from the fitting
+        cls.assertTrue(hasattr(protMerge, 'outputStructures1'),
+                       "Merged fitting run should produce a single outputStructures1")
+        cls.assertFalse(hasattr(protMerge, 'outputStructures2'),
+                        "Merged run should NOT produce a second output")
+        cc = [struct.getAttributeValue(ENSEMBLE_CCS)
+              for struct in protMerge.outputStructures1]
+        cls.assertTrue(len(cc) > 0 and cc[-1] is not None,
+                       "Merged fitting run should record cross-correlations")

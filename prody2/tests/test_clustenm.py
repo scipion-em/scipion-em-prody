@@ -75,6 +75,39 @@ class TestProDyClustENMmulti(TestWorkflow):
         protClustenm2.setObjLabel('ClustENM_2_structs')
         cls.launchProtocol(protClustenm2)
 
+    def testProDyClustENMmerge(cls):
+        """Merge 4ake and 1ake chain A into a single multi-start run (minimise only)"""
+        protMerge = cls.newProtocol(ProDyClustENM, n_gens=0,
+                                    n_confs=2, sim=False, outlier=False,
+                                    mergeInputs=1)
+        protMerge.inputStructures.set([cls.protSelA.outputStructure,
+                                       cls.protSelB.outputStructure])
+        protMerge.setObjLabel('ClustENM_merge_2_structs')
+        cls.launchProtocol(protMerge)
+
+        # one combined output ensemble seeded by both structures (gen-0 keeps both)
+        cls.assertTrue(hasattr(protMerge, 'outputStructures1'),
+                       "Merged run should produce a single outputStructures1")
+        cls.assertFalse(hasattr(protMerge, 'outputStructures2'),
+                        "Merged run should NOT produce a second output")
+        cls.assertEqual(len(protMerge.outputStructures1), 2,
+                        "Merged gen-0 run of two structures should give two conformers")
+
+    def testProDyClustENMmergeParallelSim(cls):
+        """Merged multi-start run with parallel simulation workers (parallel_sim)"""
+        protMergePar = cls.newProtocol(ProDyClustENM, n_gens=0,
+                                       n_confs=2, sim=False, outlier=False,
+                                       mergeInputs=1, parallelSim=2)
+        protMergePar.inputStructures.set([cls.protSelA.outputStructure,
+                                          cls.protSelB.outputStructure])
+        protMergePar.setObjLabel('ClustENM_merge_parallelSim')
+        cls.launchProtocol(protMergePar)
+
+        cls.assertTrue(hasattr(protMergePar, 'outputStructures1'),
+                       "Merged parallel-sim run should produce outputStructures1")
+        cls.assertEqual(len(protMergePar.outputStructures1), 2,
+                        "Merged parallel-sim gen-0 run of two structures should give two conformers")
+
 
 class TestProDyClustenmFit(TestWorkflow):
     @classmethod
