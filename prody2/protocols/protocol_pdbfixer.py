@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -32,13 +32,16 @@ This module will provide the ProDy wrapper for OpenMM PDBFixer
 
 from os.path import basename, splitext
 
-from pwem.objects import AtomStruct
+from pwem.objects import AtomStruct, Integer
 from pwem.protocols import EMProtocol
 
 from pyworkflow.protocol.params import PointerParam, FloatParam, LEVEL_ADVANCED
+from pyworkflow.utils import exists
 
-import prody
+from prody2.constants import N_ATOMS, N_RESIDUES, N_CHAINS
 from prody2 import Plugin
+
+SUMMARY_NO_OUTPUT = 'Output structure not ready yet'
 
 class ProDyPDBFixer(EMProtocol):
     """
@@ -258,22 +261,30 @@ class ProDyPDBFixer(EMProtocol):
         inputFn = self.inputStructure.get().getFileName()
         self.outputFn = self._getPath(splitext(basename(inputFn))[0] + '_fixed.pdb')
 
-        args = '--inputFn {0} --pH {1} --outputFn {2}'.format(inputFn, self.pH.get(), self.outputFn)
+        args = '--inputFn {0} --pH {1} --outputFn {2} --folder {3}'.format(
+            inputFn, self.pH.get(), self.outputFn, self._getPath())
         self.runJob(Plugin.getProgram('fixer.py', script=True), args)
 
     def createOutputStep(self):
-        outAS = AtomStruct(self.outputFn)
-        self._defineOutputs(outputStructure=outAS)
+        with open(self._getPath('pdb_data.txt'), 'r') as fi:
+            line = fi.readlines()[0]
+
+        self.pdbFileName, numAtoms, numResidues, numChains = line.split('\t')
+        if exists(self.pdbFileName):
+            outputPdb = AtomStruct()
+            setattr(outputPdb, N_ATOMS, Integer(numAtoms))
+            setattr(outputPdb, N_RESIDUES, Integer(numResidues))
+            setattr(outputPdb, N_CHAINS, Integer(numChains))
+            outputPdb.setFileName(self.pdbFileName)
+            self._defineOutputs(outputStructure=outputPdb)
 
     def _summary(self):
         if not hasattr(self, 'outputStructure'):
-            summ = ['Output structure not ready yet']
+            summ = [SUMMARY_NO_OUTPUT]
         else:
-            inputAg = prody.parsePDB(self.inputStructure.get().getFileName())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName())
-            summ = ['The new structure has *{0}* atoms from original *{1}* atoms'.format(
-                   outputAg.numAtoms(), inputAg.numAtoms())]
-            summ.append('The new structure has *{0}* protein residues '
-                        'from original *{1}* protein residues'.format(
-                        outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+            summ = ['The new structure has *{0}* residues '
+                     'and *{1}* atoms in *{2}* chains'.format(
+                     self.outputStructure.getAttributeValue(N_RESIDUES),
+                     self.outputStructure.getAttributeValue(N_ATOMS),
+                     self.outputStructure.getAttributeValue(N_CHAINS))]
         return summ

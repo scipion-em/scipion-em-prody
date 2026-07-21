@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -32,7 +32,7 @@ This module will provide ProDy mode editing tools.
 import os
 import numpy as np
 
-from pwem.objects import AtomStruct, SetOfNormalModes, SetOfPrincipalComponents, String
+from pwem.objects import Integer, String
 
 from pyworkflow.utils import glob, logger
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
@@ -40,6 +40,7 @@ from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
 
 import prody
 from prody2.protocols.protocol_modes_base import ProDyModesBase
+from prody2.constants import ZERO
 
 NMA_SLICE = 0
 NMA_REDUCE = 1
@@ -302,9 +303,10 @@ class ProDyEdit(ProDyModesBase):
     # This is inherited from modes base protocol
     def _insertAllSteps(self):
         modes = prody.parseScipionModes(self.modes.get().getFileName())
-        self.nzero = len(np.nonzero(modes.getEigvals() < prody.utilities.ZERO)[0])
+        self.numberOfModes = Integer(len(self.modes.get()))
+        self.zeros = Integer(len(np.nonzero(modes.getEigvals() < ZERO)[0]))
 
-        super(ProDyEdit, self)._insertAllSteps(len(self.modes.get()), self.nzero)
+        super(ProDyEdit, self)._insertAllSteps()
 
     def computeModesStep(self):
         self.inputStructure = self.modes.get().getPdb()
@@ -332,7 +334,7 @@ class ProDyEdit(ProDyModesBase):
             if fromPrody:
                 modes = prody.loadModel(glob(modesPath+"/*npz")[0])
                 self.outModes, self.atoms = prody.reduceModel(modes, bigger, amap)
-                zeros = bool(np.any(modes.getEigvals() < prody.utilities.ZERO))
+                zeros = bool(np.any(modes.getEigvals() < ZERO))
                 self.outModes.calcModes(modes.numModes(), zeros=zeros)
             else:
                 logger.warn('ContinuousFlex modes cannot be reduced at this time. Slicing instead')
@@ -347,12 +349,17 @@ class ProDyEdit(ProDyModesBase):
         prody.writePDB(self._getPath('atoms.pdb'), self.atoms)
         prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
 
-        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
-        self.nmdFileName = self._getPath('modes.{0}.nmd'.format(typeStr))
+        prefix = self.getPrefix()
+        self.nmdFileName = self._getPath('{0}.nmd'.format(prefix))
         prody.writeNMD(self.nmdFileName, self.outModes, self.atoms)
+
+        self.npzFileName = self._getPath('{0}.npz'.format(prefix))
+        prody.saveModel(self.outModes, self.npzFileName)
 
         if isinstance(self.outModes, prody.GNM):
             self.gnm = True
+        else:
+            self.gnm = False
 
     def createOutputStep(self):
         fnSqlite = self._getPath('modes.sqlite')
@@ -364,3 +371,7 @@ class ProDyEdit(ProDyModesBase):
 
         self._defineOutputs(outputModes=nmSet)
         self._defineSourceRelation(self.newNodes, nmSet)
+
+    def getPrefix(self):
+        typeStr = str(type(self.outModes)).lower().split('.')[-1].split("'")[0]
+        return 'modes.{0}'.format(typeStr)

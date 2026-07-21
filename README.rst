@@ -2,7 +2,7 @@
 Scipion ProDy plugin
 =======================
 
-This plugin provide a wrapper around `ProDy <https://github.com/prody/prody>`_ software: A Python Package for Protein Dynamics Analysis
+This plugin provides a wrapper around `ProDy <https://github.com/prody/prody>`_ software: A Python Package for Protein Dynamics Analysis
 
 Installation
 -------------
@@ -72,7 +72,7 @@ Protocols
 
 * ProDyClustENM for ClustENM and ClustENMD hybrid Simulations
 
-* ProDyRMSD for RMSD clustering and reordering
+* ProDyRmsd for RMSD clustering and reordering
 
 Viewers
 ----------

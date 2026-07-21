@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -28,13 +28,12 @@
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
+from prody2.constants import N_FRAMES, N_ATOMS
 from prody2.protocols import ProDyBioExcelCV19
 from prody2.objects import SetOfTrajFrames
 
-import prody
-
 SELE_N_ATOMS = 16860
-N_FRAMES = 10
+NUM_FRAMES = 10
 
 class TestProDyBioExcel(TestWorkflow):
     @classmethod
@@ -45,6 +44,7 @@ class TestProDyBioExcel(TestWorkflow):
     def testProDyBioExcelDefault(cls):
         protFetch = cls.newProtocol(ProDyBioExcelCV19)
         protFetch.accession.set('MCV1900370')
+        protFetch.setObjLabel('fetchBioExcel MDSystem')
         cls.launchProtocol(protFetch)
 
         from prody2.objects import HAVE_CHEM
@@ -56,29 +56,28 @@ class TestProDyBioExcel(TestWorkflow):
             cls.assertIsInstance(protFetch.outputTrajectory, SetOfTrajFrames,
                 'fetchBioexcelTrajectory protocol with useMDSystem False failed to return a SetOfTrajFrames')            
 
-        ens = prody.parseDCD(protFetch.outputTrajectory.getTrajectoryFile())
+        cls.assertTrue(protFetch.outputTrajectory.getTrajectoryFile().endswith('.dcd'),
+            'fetchBioexcelTrajectory protocol with useMDSystem False failed to return a DCD trajectory file')
 
-        cls.assertIsInstance(ens, prody.Ensemble,
-            'parseDCD failed to return an Ensemble from fetchBioexcelTrajectory protocol')
-        cls.assertEqual(ens.numAtoms(), SELE_N_ATOMS, 
+        cls.assertEqual(protFetch.outputTrajectory.getAttributeValue(N_ATOMS), SELE_N_ATOMS,
                         'fetchBioexcelTrajectory output does not have correct number of atoms')
-        cls.assertEqual(ens.numCoordsets(), N_FRAMES, 
+        cls.assertEqual(protFetch.outputTrajectory.getAttributeValue(N_FRAMES), NUM_FRAMES,
                         'fetchBioexcelTrajectory with example frames does not have correct number of frames')
 
     def testProDyBioExcelTrajFrames(cls):
         protFetch = cls.newProtocol(ProDyBioExcelCV19)
         protFetch.accession.set('MCV1900370')
         protFetch.useMDSystem.set(False)
+        protFetch.setObjLabel('fetchBioExcel TrajFrames')
         cls.launchProtocol(protFetch)
 
         cls.assertIsInstance(protFetch.outputTrajectory, SetOfTrajFrames,
             'fetchBioexcelTrajectory protocol with useMDSystem False failed to return a SetOfTrajFrames')
 
-        ens = prody.parseDCD(protFetch.outputTrajectory.getTrajectoryFile())
+        cls.assertTrue(protFetch.outputTrajectory.getTrajectoryFile().endswith('.dcd'),
+            'fetchBioexcelTrajectory protocol with useMDSystem False failed to return a DCD trajectory file')
 
-        cls.assertIsInstance(ens, prody.Ensemble,
-            'parseDCD failed to return an Ensemble from fetchBioexcelTrajectory protocol')
-        cls.assertEqual(ens.numAtoms(), SELE_N_ATOMS, 
+        cls.assertEqual(protFetch.outputTrajectory.getAttributeValue(N_ATOMS), SELE_N_ATOMS,
                         'fetchBioexcelTrajectory output does not have correct number of atoms')
-        cls.assertEqual(ens.numCoordsets(), N_FRAMES, 
+        cls.assertEqual(protFetch.outputTrajectory.getAttributeValue(N_FRAMES), NUM_FRAMES,
                         'fetchBioexcelTrajectory with example frames does not have correct number of frames')

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *              Ricardo Serrano Gutiérrez (rserranogut@hotmail.com)   
 # *
 # * Centro Nacional de Biotecnologia, CSIC
@@ -31,16 +31,13 @@ from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
 from prody2.protocols import (ProDySelect, ProDyGNM, ProDyEdit, ProDyCompare,
-                              ProDyDomainDecomp, ProDyImportModes)
+                              ProDyDomainDecomp, ProDyImportModes,
+                              ProDyAlgebra)
 from prody2.protocols.protocol_import import NMD, SCIPION, MODES_NPZ
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND
-from prody2.objects import SetOfGnmModes
 
-import prody
 from os.path import split, join
-
-gnmModesTypeWarning = "GNM modes should be parsed as a SetOfGnmModes, not {0}"
 
 class TestProDyGNM(TestWorkflow):
     """ Test protocol for ProDy Gaussian Normal Model Analysis. """
@@ -57,7 +54,8 @@ class TestProDyGNM(TestWorkflow):
         # ------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
+                                         pdbId="4ake",
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -72,9 +70,6 @@ class TestProDyGNM(TestWorkflow):
         protGNM1.inputStructure.set(protSel1.outputStructure)
         protGNM1.setObjLabel('GNM_all')
         cls.launchProtocol(protGNM1)
-
-        cls.assertTrue(isinstance(protGNM1.outputModes, SetOfGnmModes),
-                        gnmModesTypeWarning.format(type(protGNM1.outputModes)))
 
         # ------------------------------------------------
         # Step 2. Select CA -> GNM NMA
@@ -120,9 +115,6 @@ class TestProDyGNM(TestWorkflow):
         protEdit1.setObjLabel('Slice_to_CA')
         cls.launchProtocol(protEdit1)
 
-        cls.assertTrue(isinstance(protEdit1.outputModes, SetOfGnmModes),
-                        gnmModesTypeWarning.format(type(protEdit1.outputModes)))
-
         # Compare sliced and original CA NMA
         protComp1 = cls.newProtocol(ProDyCompare)
         protComp1.modes1.set(protGNM2.outputModes)
@@ -165,9 +157,6 @@ class TestProDyGNM(TestWorkflow):
         protComp3.setObjLabel('Compare_AA_to_extCA')
         cls.launchProtocol(protComp3)
 
-        cls.assertTrue(isinstance(protComp3.outputModes, SetOfGnmModes),
-                        gnmModesTypeWarning.format(type(protComp3.outputModes)))
-
         # ------------------------------------------------
         # Step 6. CA -> Domain Decomposition
         # ------------------------------------------------
@@ -177,6 +166,9 @@ class TestProDyGNM(TestWorkflow):
         protDomDec1.setObjLabel('DomainDecomp_CA')
         cls.launchProtocol(protDomDec1)
 
+        # ------------------------------------------------
+        # Step 7. Confirm Imports work
+        # ------------------------------------------------
         # Import scipion GNM modes
         protImportModes2 = cls.newProtocol(ProDyImportModes)
         protImportModes2.importType.set(SCIPION)
@@ -184,9 +176,6 @@ class TestProDyGNM(TestWorkflow):
         protImportModes2.inputStructure.set(protSel2.outputStructure)
         protImportModes2.setObjLabel('import_scipion_GNM_n_ca')
         cls.launchProtocol(protImportModes2)
-
-        cls.assertTrue(isinstance(protImportModes2.outputModes, SetOfGnmModes),
-                       gnmModesTypeWarning.format(type(protImportModes2.outputModes))) 
 
         # Import NMD GNM modes
         protImportModes3 = cls.newProtocol(ProDyImportModes)
@@ -197,9 +186,6 @@ class TestProDyGNM(TestWorkflow):
         protImportModes3.setObjLabel('import_GNM_NMD_n_ca')
         cls.launchProtocol(protImportModes3)
 
-        cls.assertTrue(isinstance(protImportModes3.outputModes, SetOfGnmModes),
-                       gnmModesTypeWarning.format(type(protImportModes3.outputModes)))
-
         # Import MODES_NPZ GNM modes
         protImportModes4 = cls.newProtocol(ProDyImportModes)
         protImportModes4.importType.set(MODES_NPZ)
@@ -209,5 +195,11 @@ class TestProDyGNM(TestWorkflow):
         protImportModes4.setObjLabel('import_GNM_NPZ_n_ca')
         cls.launchProtocol(protImportModes4)
 
-        cls.assertTrue(isinstance(protImportModes4.outputModes, SetOfGnmModes),
-                       gnmModesTypeWarning.format(type(protImportModes4.outputModes)))
+        # ------------------------------------------------
+        # Step 8. Confirm mode algebra works for GNM
+        # ------------------------------------------------
+        protAlgebra = cls.newProtocol(ProDyAlgebra)
+        protAlgebra.modes.set(protGNM1.outputModes)
+        protAlgebra.coeffString.set("1,2")
+        protAlgebra.setObjLabel('mode algebra')
+        cls.launchProtocol(protAlgebra)

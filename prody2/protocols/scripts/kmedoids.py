@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     np.savetxt(os.path.join(args.outputDir, "cluster_labels.txt"), 
                labels, fmt="%d")      # save cluster labels for each frame
-    np.savetxt(os.path.join(args.outputDir, "cluster_medoids.txt"), 
+    np.savetxt(os.path.join(args.outputDir, "cluster_reps.txt"), 
                medoids, fmt="%d")    # save the medoids as frame numbers
     np.savetxt(os.path.join(args.outputDir, "cluster_counts.txt"), 
                counts, fmt="%d")      # save the number of members in each cluster

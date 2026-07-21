@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -38,10 +38,11 @@ from pwem.protocols import EMProtocol
 import pyworkflow.object as pwobj
 from pyworkflow.protocol.params import (PointerParam, EnumParam, BooleanParam,
                                         MultiPointerParam, NumericRangeParam)
-from pyworkflow.utils import getListFromRangeString, glob
+from pyworkflow.utils import getListFromRangeString, glob, redStr
 
 import prody
-from prody2.constants import PROJ_COEFFS
+from prody2.constants import PROJ_COEFFS, ENSEMBLE_WEIGHTS
+from prody2.objects import SetOfClassesTraj, ProDyNpzEnsemble
 
 ONE = 0
 TWO = 1
@@ -315,9 +316,9 @@ class ProDyProject(EMProtocol):
         form.addSection(label='ProDy Projection')
         form.addParam('inputEnsemble', MultiPointerParam, label="Input ensemble(s)",
                       important=True,
-                      pointerClass='SetOfAtomStructs,ProDyNpzEnsemble',
-                      help='The input ensemble should be SetOfAtomStructs or ProDyNpzEnsemble '
-                      'objects where all structures have the same number of atoms.')
+                      pointerClass='SetOfAtomStructs,ProDyNpzEnsemble,SetOfClassesTraj',
+                      help='The input ensemble should be one or more SetOfAtomStructs, ProDyNpzEnsemble '
+                      'or SetOfClassesTraj objects where all structures have the same number of atoms.')
 
         form.addParam('inputModes', PointerParam, label="Input set of modes",
                       important=True,
@@ -383,12 +384,8 @@ class ProDyProject(EMProtocol):
         for i, inputEnsemble in enumerate(self.inputEnsemble):
             ensGot = inputEnsemble.get()
             idSet = ensGot.getIdSet()
-            if isinstance(ensGot, SetOfAtomStructs):
-                ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
-                ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
-                # the ensemble gets built exactly as the input is setup and nothing gets rejected
-            else:
-                ens = ensGot.loadEnsemble()
+
+            ens, weights = self.parseEnsemble(ensGot)
 
             projection = prody.calcProjection(ens, modes[:self.numModes.get()+1], rmsd=self.rmsd.get(),
                                               norm=self.norm.get())
@@ -403,7 +400,6 @@ class ProDyProject(EMProtocol):
             prody.writeArray(self._getPath('projection_{0}.csv'.format(i+1)), projection, 
                              format='%8.5f', delimiter=',')
 
-            weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
             prody.writeArray(self._getPath('weights_{0}.csv'.format(i+1)), weights,
                              format='%8.5f', delimiter=',')
 
@@ -415,6 +411,10 @@ class ProDyProject(EMProtocol):
             suffix = str(self.ensId+1)
 
             inputClass = type(ensGot)
+            if inputClass == SetOfClassesTraj:
+                inputClass = ProDyNpzEnsemble
+                ensGot = self.newNpzEns
+
             outSet = inputClass().create(self._getExtraPath(), suffix=suffix)
             outSet.copyItems(ensGot, updateItemCallback=self._setCoeffs)
             name = "outputEns" + suffix
@@ -438,3 +438,55 @@ class ProDyProject(EMProtocol):
             summ = ['Projected structures onto *{0}* components'.format(self.numModes.get()+1)]
         return summ
         
+    def parseEnsemble(self, ensGot):
+        """Parse ensemble from SetOfAtomStructs, SetOfClassesTraj or ProDyNpzEnsemble"""
+
+        if isinstance(ensGot, SetOfAtomStructs):
+            ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in ensGot])
+            ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False, mapping=None)
+            item = ensGot[1]
+            if hasattr(item, ENSEMBLE_WEIGHTS):
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            else:
+                weights = np.ones(len(ensGot))
+            # the ensemble gets built exactly as the input is setup and nothing gets rejected
+        elif isinstance(ensGot, SetOfClassesTraj):
+            firstItems = [class_.getFirstItem() for class_ in ensGot]
+            ensFiles = list(set([item.getFileName() for item in firstItems]))
+            ensembles = [prody.loadEnsemble(filename) for filename in ensFiles]
+
+            ens = prody.PDBEnsemble()
+            for j, item in enumerate(firstItems):
+                ensemble = ensembles[ensFiles.index(item.getFileName())]
+                labels = ensemble.getLabels()
+
+                if j == 0:
+                    ens.setAtoms(ensemble.getAtoms())
+                    ens.setCoords(ensemble.getCoords())
+
+                ens.addCoordset(ensemble[
+                        labels.index(item.getNameId())
+                    ].getCoords())
+
+            weights = np.array([np.array(item._size, dtype=float) for item in ensGot])
+            weights /= sum(weights)
+
+            newFilename = self._getExtraPath('ensemble_{0}.ens.npz'.format(i))
+            prody.saveEnsemble(ens, newFilename)
+
+            self.newNpzEns = ProDyNpzEnsemble().create(os.path.split(newFilename)[0])
+            frames = [frame.clone() for frame in firstItems]
+            for j, frame in enumerate(frames):
+                frame.setLocation((j+1, newFilename))
+                frame.setWeight(pwobj.Float(weights[j]))
+                frame.setObjId(j+1)
+                self.newNpzEns.append(frame)
+        else:
+            ens = ensGot.loadEnsemble()
+            item = ensGot[1]
+            if hasattr(item, ENSEMBLE_WEIGHTS):
+                weights = np.array([np.array(item._prodyWeights, dtype=float) for item in ensGot])
+            else:
+                weights = np.ones(len(ensGot))
+
+        return ens, weights

@@ -12,7 +12,8 @@ Dynamic template for normal mode analysis
         "runMode": 0,
         "inputPdbData": 0,
         "pdbId": "~Atomic Structure ID|4ake|0|pdb~",
-        "pdbFile": null
+        "pdbFile": null,
+        "skipChimera": true
     },
     {
         "object.className": "ProDySelect",

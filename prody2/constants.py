@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -40,13 +40,32 @@ PRODY_ENV_ACT = "PRODY_ENV_ACT"
 
 PROJ_COEFFS = "_prodyProjCoefficients"
 ENSEMBLE_WEIGHTS = "_prodyWeights"
+ENSEMBLE_CCS = "_prodyCCs"
 MEASURES = "_prodyMeasures"
+
+N_FRAMES = "_numFrames"
+N_ATOMS = "_numAtoms"
+N_RESIDUES = "_numResidues"
+N_CHAINS = "_numChains"
+
+FIRST_RESNUM = "_firstResnum"
+LAST_RESNUM = "_lastResnum"
+MAX_RESNUM = "_maxResnum"
+MIN_RESNUM = "_minResnum"
 
 PRODY_FRACT_VARS = "_prodyFractVars"
 
 PRODY_SCRIPTS = os.path.join(os.path.dirname(prody2.__file__),
                              "protocols", "scripts")
 
+TESTDIR = os.path.join(os.path.dirname(prody2.__file__),
+                       "tests", "datafiles")
+
+PRODY_TEST_PDB_FILE = os.path.join(TESTDIR, "4akeA_alg_map_fixed.pdb")
+PRODY_TEST_MRC_FILE = os.path.join(TESTDIR, "1ake.mrc")
+
+PRODY_TEST_TAR_PDB_FILE = os.path.join(TESTDIR, "4akeA_orig.pdb")
+PRODY_TEST_ALG_PDB_FILE = os.path.join(TESTDIR, "1akeA_alg_4akeA.pdb")
 
 # chain matching methods
 BEST_MATCH = 0
@@ -59,3 +78,5 @@ NOTHING = 0 # stop trivial mapping if trivial mapping fails
 PWALIGN = 1 # biopython pwalign local pairwise sequence alignment after trivial mapping
 CEALIGN = 2 # combinatorial extension (CE) as in PyMOL
 DEFAULT = 3 # try pwalign then CE
+
+ZERO = 1e-6

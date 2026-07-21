@@ -10,6 +10,7 @@ from .protocol_defvec import ProDyDefvec
 from .protocol_algebra import ProDyAlgebra
 from .protocol_pca import ProDyPCA
 from .protocol_logistic import ProDyLRA
+from .protocol_anm_mc import ProDyANMMC
 
 from .protocol_edit import ProDyEdit
 from .protocol_import import ProDyImportModes
@@ -18,9 +19,7 @@ from .protocol_compare import ProDyCompare
 from .protocol_domdec import ProDyDomainDecomp 
 
 from .protocol_atoms import (ProDySelect, ProDyAlign, ProDyBiomol,
-                             ProDyAddPDBs, ProDyToBiopythonMetadata,
-                             ProDyRenumber)
-
+                             ProDyAddPDBs, ProDyRenumber)
 
 from .protocol_ensemble import ProDyBuildPDBEnsemble
 from .protocol_import import ProDyImportEnsemble

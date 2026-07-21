@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -46,8 +46,12 @@ from prody2.constants import ENSEMBLE_WEIGHTS
 from prody2 import Plugin
 
 import prody
-import matplotlib.pyplot as plt
 
+TREE_METHODS = [
+    'upgma', 'nj',
+    'single', 'average',
+    'ward', 'other'
+]
 
 class ProDyRmsd(EMProtocol):
     """
@@ -245,6 +249,10 @@ class ProDyRmsd(EMProtocol):
                       pointerClass='SetOfAtomStructs, ProDyNpzEnsemble',
                       help='The input ensemble should be a SetOfAtomStructs '
                       'where all structures have the same number of atoms.')
+        
+        form.addParam('doSuperpose', BooleanParam, default=False,
+                      label="Perform structural superposition?",
+                      help='Whether to perform structural superposition after atom matching')
 
         form.addParam('doCluster', BooleanParam, default=True,
                       label="Cluster ensemble?",
@@ -262,9 +270,7 @@ class ProDyRmsd(EMProtocol):
                       condition='clusteringMethod==0',
                       help='Whether to reorder ensemble based on RMSD tree')
         
-        form.addParam('treeMethod', EnumParam, choices=['upgma', 'nj',
-                                                        'single', 'average',
-                                                        'ward', 'other'],
+        form.addParam('treeMethod', EnumParam, choices=TREE_METHODS,
                       condition='clusteringMethod==0',
                       label="RMSD tree method", default=0,
                       display=EnumParam.DISPLAY_HLIST,
@@ -295,22 +301,20 @@ class ProDyRmsd(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         # Insert processing steps
-
-        self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('ensembleModificationStep')
         self._insertFunctionStep('createOutputStep')
 
-    def convertInputStep(self):
+    def ensembleModificationStep(self):
 
         inputEnsemble = self.inputEnsemble.get()
         if isinstance(inputEnsemble, SetOfAtomStructs):
             ags = prody.parsePDB([tarStructure.getFileName() for tarStructure in inputEnsemble])
-            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos, seqid=0., overlap=0., superpose=False)
+            self.ens = prody.buildPDBEnsemble(ags, match_func=prody.sameChainPos,
+                                              seqid=0., overlap=0.,
+                                              superpose=self.doSuperpose.get())
             # the ensemble gets built exactly as the input is setup and nothing gets rejected
         else:
             self.ens = inputEnsemble.loadEnsemble()
-
-    def ensembleModificationStep(self):
 
         self.ensBaseName = self._getExtraPath('ensemble')
         ensFn = prody.saveEnsemble(self.ens, self.ensBaseName)
@@ -319,44 +323,31 @@ class ProDyRmsd(EMProtocol):
         if allWeights is None:
             allWeights = np.ones(self.ens.numConfs(), dtype=float)
         
-        if not self.doCluster.get():
-            repIdx = range(self.ens.numConfs())
-        elif self.clusteringMethod.get() == 0:
-            matrix = self.ens.getRMSDs(pairwise=True)
-            labels = self.ens.getLabels()
+        if self.clusteringMethod.get() == 0:
+            method = TREE_METHODS[self.treeMethod.get()]
+            if method == 'other':
+                method = self.otherMethod.get()
 
-            tree = prody.calcTree(labels, matrix)
-            _, reordIndices = prody.reorderMatrix(labels, matrix, tree)
-
-            classLabels = np.zeros(self.ens.numCoordsets(), dtype=int)
-            subgroups = prody.findSubgroups(tree, self.rmsdThreshold.get())
-            self.weights = np.zeros(len(subgroups), dtype=float)
-            repIdx = np.zeros(len(subgroups), dtype=int)
-            sgIdx = []
-            for i, sg in enumerate(subgroups):
-                sgIdx.append([labels.index(label) for label in sg])
-                submatrix = matrix[sgIdx[i], :][:, sgIdx[i]]
-                repIdx[i] = sgIdx[i][np.argmin(np.mean(submatrix, axis=0))]
-
-                weight = len(sg)/self.ens.numCoordsets()
-                self.weights[i] = allWeights[repIdx[i]] * weight
-                allWeights[sgIdx[i]] *= weight
-                classLabels[sgIdx[i]] = i
+            args = '--inputEns {0} --rmsdThreshold {1} --outputDir {2} --treeMethod {3}'.format(
+                 ensFn, self.rmsdThreshold.get(), self._getExtraPath(), method
+            )
+            self.runJob(Plugin.getProgram('hierarchical_clustering.py', script=True), args)
+            reordIndices = list(np.loadtxt(self._getExtraPath("reordering_indices.txt"), dtype=int))
         else:
-            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(), 
-                                                                            self._getExtraPath())
+            args = '--inputEns {0} --nClusters {1} --outputDir {2}'.format(ensFn, self.nClusters.get(),
+                                                                           self._getExtraPath())
             self.runJob(Plugin.getProgram('kmedoids.py', script=True), args)
 
-            classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
-            repIdx = np.loadtxt(self._getExtraPath("cluster_medoids.txt"), dtype=int)
-            weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
-            
-            sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
-            self.weights = np.zeros(len(weights), dtype=float)
-            for i, weight in enumerate(weights):
-                weight /= weights.sum()
-                allWeights[sgIdx[i]] *= weight
-                self.weights[i] = allWeights[repIdx[i]]
+        classLabels = np.loadtxt(self._getExtraPath("cluster_labels.txt"))
+        repIdx = np.loadtxt(self._getExtraPath("cluster_reps.txt"), dtype=int)
+        weights = np.loadtxt(self._getExtraPath("cluster_counts.txt"))
+
+        sgIdx = [np.nonzero(classLabels==label)[0] for label in np.unique(classLabels)]
+        self.weights = np.zeros(len(weights), dtype=float)
+        for i, weight in enumerate(weights):
+            weight /= weights.sum()
+            allWeights[sgIdx[i]] *= weight
+            self.weights[i] = allWeights[repIdx[i]]
 
         prody.writePDB(self.ensBaseName, self.ens)
         self.ens.setData('size', allWeights)
@@ -383,18 +374,20 @@ class ProDyRmsd(EMProtocol):
             
             if self.writePDBFiles.get():
                 ag.setCoords(self.ens.getCoordsets()[repId])
+                label = self.ens.getLabels()[repId].replace(' ', '_').replace("'", "")
                 filename = self._getExtraPath('{:06d}_{:s}.pdb'.format(repId+1,
-                                                                       self.ens.getLabels()[repId]))
+                                                                       label))
                 prody.writePDB(filename, ag)
                 pdb = AtomStruct(filename)
                 self.pdbs.append(pdb)
 
         self.npzClasses.write()
 
-        if self.doReorder.get():
+        if self.doReorder.get() and self.clusteringMethod.get() == 0:
             self.ens = self.ens[reordIndices]
             allWeights = allWeights[reordIndices]
 
+            prody.saveEnsemble(self.ens, self.ensBaseName)
             self.npz = ProDyNpzEnsemble().create(self._getExtraPath(), suffix='_reordered')
             for i, label in enumerate(self.ens.getLabels()):
                 self.npz.append(TrajFrame((i+1, self.ensBaseName+'.ens.npz'), 
@@ -411,7 +404,7 @@ class ProDyRmsd(EMProtocol):
             outSetAS.copyItems(self.pdbs, updateItemCallback=self._setWeights)
             args["outputStructures"] = outSetAS
 
-        if self.doReorder.get():
+        if self.doReorder.get() and self.clusteringMethod.get() == 0:
             args['outputEnsemble'] = self.npz
 
         self._defineOutputs(**args)
@@ -445,3 +438,10 @@ class ProDyRmsd(EMProtocol):
         pwutils.cleanPath(setFn)
         setObj = SetClass(filename=setFn, **kwargs)
         return setObj
+
+    def _validate(self):
+        errors = []
+        if not (self.doCluster or self.doReorder):
+            errors.append('You need to do at least one operation from cluster and reorder to run this protocol')
+
+        return errors

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -25,31 +25,60 @@
 # *
 # **************************************************************************
 
-import math
 import os
 
 from pwem.protocols import ProtImportPdb, exists
 from pwem.tests.workflows import TestWorkflow
 from pyworkflow.tests import setupTestProject
 
-from prody2.protocols import (ProDySelect, ProDyAlign, ProDyBiomol, ProDyRenumber,
-                              ProDyANM, ProDyRTB, ProDyDefvec, ProDyEdit, ProDyCompare, 
-                              ProDyImportModes)
+from prody2.protocols import (ProDySelect, ProDyAlign,
+                              ProDyBiomol, ProDyRenumber, ProDyAddPDBs,
+                              ProDyANM, ProDyRTB, ProDyDefvec,
+                              ProDyEdit, ProDyCompare,
+                              ProDyImportModes, ProDyAlgebra)
 
 from prody2.protocols.protocol_edit import NMA_SLICE, NMA_REDUCE, NMA_EXTEND, NMA_INTERP
 from prody2.protocols.protocol_rtb import BLOCKS_FROM_RES, BLOCKS_FROM_SECSTR
-from prody2.protocols.protocol_import import MODES_NPZ, SCIPION
+from prody2.protocols.protocol_import import MODES_NPZ, SCIPION, NMD
 
-import prody
-from prody.tests.datafiles import pathDatafile
+from prody2.constants import (PRODY_TEST_PDB_FILE, N_RESIDUES, N_CHAINS,
+                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM,
+                              PRODY_TEST_ALG_PDB_FILE,
+                              PRODY_TEST_TAR_PDB_FILE,
+                              TESTDIR)
+
+import numpy as np
 
 animationsFile7 = "animations/animated_mode_007.pdb"
 animationsFile1 = "animations/animated_mode_001.pdb"
 distProfile1 = "distanceProfiles/vec1.xmd"
 distProfile7 = "distanceProfiles/vec7.xmd"
 
-class TestProDyCore(TestWorkflow):
-    """ Test protocol for ProDy Normal Mode Analysis and Deformation Analysis. """
+renumFilename = "renum_atoms.pdb"
+
+class TestProDyDefvec(TestWorkflow):
+    """ Test protocol for ProDy Deformation Vector Analysis. """
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importOnly4akeA(cls)
+        importAligned1akeA(cls)
+
+
+    def testProDyDefvec(cls):
+        """ Run deformation vector calculation and confirm if it works """
+
+        # Defvec from same starting point as NMA
+        protDefvec5 = cls.newProtocol(ProDyDefvec, rmsd=5)
+        protDefvec5.mobStructure.set(cls.protImportPdb4akeA.outputPdb)
+        protDefvec5.tarStructure.set(cls.protImportPdb1akeA.outputPdb)
+        protDefvec5.setObjLabel('Defvec_5A_4akeA_1akeA_CA')
+        cls.launchProtocol(protDefvec5)
+
+class TestProDyCore1(TestWorkflow):
+    """ Test protocol for ProDy Anisotropic Network Model (ANM) Normal Mode Analysis (NMA) and Deformation Analysis. """
 
     @classmethod
     def setUpClass(cls):
@@ -66,7 +95,8 @@ class TestProDyCore(TestWorkflow):
         # ----------------------------------------------------------------------
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                          pdbId="4ake")
+                                         pdbId="4ake",
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -156,7 +186,8 @@ class TestProDyCore(TestWorkflow):
 
         # Import a PDB
         protImportPdb1 = cls.newProtocol(ProtImportPdb, inputPdbData=1,
-                                         pdbFile=pathDatafile("pdb4ake_fixed"))
+                                         pdbFile=PRODY_TEST_PDB_FILE,
+                                         skipChimera=True)
         protImportPdb1.setObjLabel('pwem import 4ake')
         cls.launchProtocol(protImportPdb1)
 
@@ -319,8 +350,8 @@ class TestProDyCore(TestWorkflow):
         protComp5.setObjLabel('Compare_ANM_to_Defvec')
         cls.launchProtocol(protComp5)
 
-        compMatrix5 = prody.parseArray(protComp5._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison didn't normalise")
+        compMatrix5 = np.loadtxt(protComp5._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix5) <= 1, "Default defvec comparison is normalised")
 
         # Compare original CA NMA to defvec with raw overlaps
         protComp6 = cls.newProtocol(ProDyCompare)
@@ -330,8 +361,8 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_ANM_to_Defvec_raw')
         cls.launchProtocol(protComp6)
 
-        compMatrix6 = prody.parseArray(protComp6._getExtraPath('matrix.txt'))
-        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison didn't generate large numbers")
+        compMatrix6 = np.loadtxt(protComp6._getPath('matrix.txt'))
+        cls.assertTrue(max(compMatrix6) > 1, "Raw defvec comparison generated larger numbers")
 
         # ------------------------------------------------
         # Step 8. Import ANM & compare scipion vs prody npz
@@ -339,7 +370,8 @@ class TestProDyCore(TestWorkflow):
         # ------------------------------------------------
         # Define path
         modes = protANM2.outputModes
-        modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
+        modesPath = os.path.dirname(os.path.dirname(
+            modes._getMapper().selectFirst().getModeFile()))
 
         # Import modes from prody npz
         protImportModes1 = cls.newProtocol(ProDyImportModes)
@@ -348,7 +380,7 @@ class TestProDyCore(TestWorkflow):
         protImportModes1.filesPattern.set("modes.anm.npz")
         protImportModes1.inputStructure.set(cls.protSel.outputStructure)
         protImportModes1.setObjLabel('import_npz_ANM_CA')
-        cls.launchProtocol(protImportModes1)   
+        cls.launchProtocol(protImportModes1)
 
         # Import scipion modes
         protImportModes2 = cls.newProtocol(ProDyImportModes)
@@ -363,7 +395,25 @@ class TestProDyCore(TestWorkflow):
         protComp6.modes1.set(protImportModes1.outputModes)
         protComp6.modes2.set(protImportModes2.outputModes)
         protComp6.setObjLabel('Compare_imported_ANMs')
-        cls.launchProtocol(protComp6)  
+        cls.launchProtocol(protComp6)
+
+        # ------------------------------------------------
+        # Step 9. Confirm mode algebra works for ANM
+        # ------------------------------------------------
+        protAlgebra = cls.newProtocol(ProDyAlgebra)
+        protAlgebra.modes.set(protANM1.outputModes)
+        protAlgebra.coeffString.set("1,2")
+        protAlgebra.setObjLabel('mode algebra')
+        cls.launchProtocol(protAlgebra)
+
+class TestProDyRTB(TestWorkflow):
+    """ Test protocol for ProDy Rotating and Translating Blocks (RTB) Normal Mode Analysis (NMA)"""
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
 
     def testProDyRTB(cls):
         # -------------------------------------------------------
@@ -403,6 +453,32 @@ class TestProDyCore(TestWorkflow):
         protComp6.setObjLabel('Compare_RTB1_to_RTB2')
         cls.launchProtocol(protComp6)
 
+class TestProDyAtomic(TestWorkflow):
+    """ Test protocol for other ProDy atomic operations"""
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+        importSelect1ake(cls)
+
+    def testProDyAdd(cls):
+        # extract biomol from 4ake (dimer) from id
+        protAdd = cls.newProtocol(ProDyAddPDBs)
+        protAdd.inputStructure.set([cls.protSel.outputStructure,
+                                    cls.protSel3.outputStructure])
+        protAdd.setObjLabel('Add_4akeA_1akeA')
+        cls.launchProtocol(protAdd)
+
+        struct1 = protAdd.outputStructure
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 428,
+                       "AddPDBs output should have 428 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 2,
+                       "AddPDBs output should have 2 chains, not {0}".format(nChains))
+
     def testProDyBiomol(cls):
         # extract biomol from 4ake (dimer) from id
         protBm1 = cls.newProtocol(ProDyBiomol)
@@ -414,43 +490,49 @@ class TestProDyCore(TestWorkflow):
         numStructs = len(protBm1.outputStructures)
         cls.assertTrue(numStructs == 1, "Failed to extract 1 biomol from 4ake (dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm1.outputStructures])
-        cls.assertTrue(ag.numResidues() == 575,
-                        "4ake biomol 1 should have 575 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 2,
-                        "4ake biomol 1 should have 2 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm1.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 575,
+                       "1ake biomol 1 should have 575 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 2,
+                       "1ake biomol 1 should have 2 chains, not {0}".format(nChains))
 
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains False (default)
         protBm2 = cls.newProtocol(ProDyBiomol)
         protBm2.inputPdbData.set(2)
         protBm2.inputStructure.set(cls.protImportPdb2.outputPdb)
-        protBm2.setObjLabel('Biomol_1ake_pointer')
+        protBm2.setObjLabel('Biomol_1ake_pointer_uniteChains_False')
         cls.launchProtocol(protBm2)
 
         numStructs = len(protBm2.outputStructures)
         cls.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
-        cls.assertTrue(ag.numResidues() == 456,
-                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 3,
-                       "1ake biomol 1 should have 3 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm2.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 456,
+                       "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 3,
+                       "1ake biomol 1 should have 3 chains with uniteChains False, not {0}".format(nChains))
 
         # extract biomols from 1ake (2 monomers) from pointer with uniteChains True
         protBm2b = cls.newProtocol(ProDyBiomol, uniteChains=True)
         protBm2b.inputPdbData.set(2)
         protBm2b.inputStructure.set(cls.protImportPdb2.outputPdb)
-        protBm2b.setObjLabel('Biomol_1ake_pointer')
+        protBm2b.setObjLabel('Biomol_1ake_pointer_uniteChains_True')
         cls.launchProtocol(protBm2b)
 
         numStructs = len(protBm2b.outputStructures)
         cls.assertTrue(numStructs == 2, "Failed to extract 2 biomols from 1ake (no dimer)")
 
-        ag = prody.parsePDB([struct.getFileName() for struct in protBm2.outputStructures])[0]
-        cls.assertTrue(ag.numResidues() == 456,
-                       "1ake biomol 1 should have 456 residues, not {0}".format(ag.numResidues()))
-        cls.assertTrue(ag.numChains() == 3,
-                       "1ake biomol 1 should have 1 chains, not {0}".format(ag.numChains()))
+        struct1 = protBm2b.outputStructures.getFirstItem()
+        nResidues = struct1.getAttributeValue(N_RESIDUES)
+        nChains = struct1.getAttributeValue(N_CHAINS)
+        cls.assertTrue(nResidues == 456,
+                       "1ake biomol 1 should have 456 residues, not {0}".format(nResidues))
+        cls.assertTrue(nChains == 1,
+                       "1ake biomol 1 should have 1 chains with uniteChains True, not {0}".format(nChains))
 
     def testProDyRenumberAll(cls):
         """ Run different selection options and confirm if it works """
@@ -463,16 +545,18 @@ class TestProDyCore(TestWorkflow):
         protRenum.setObjLabel('Renum_all_4akeA_ca_100')
         cls.launchProtocol(protRenum)
 
-        outputFilename = "4ake_atoms_atoms.pdb"
+        outputFilename = renumFilename
         cls.assertTrue(exists(protRenum._getPath(outputFilename)))
         cls.assertTrue(hasattr(protRenum, "outputStructure"))
 
-        ag = prody.parsePDB(protRenum._getPath(outputFilename))
-        cls.assertTrue(ag.getResnums()[0] == 101,
-                        "renumbered 4ake should have first resnum 101, not {0}".format(ag.getResnums()[0]))
-        cls.assertTrue(ag.getResnums()[-1] == 314,
-                        "renumbered 4ake should have last resnum 314, not {0}".format(ag.getResnums()[-1]))
-        
+        struct1 = protRenum.outputStructure
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 101,
+                        "renumbered 4ake should have first resnum 101, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 314,
+                        "renumbered 4ake should have last resnum 314, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
     def testProDyRenumberSome(cls):
         """ Run different selection options and confirm if it works """
 
@@ -484,26 +568,161 @@ class TestProDyCore(TestWorkflow):
         protRenum.setObjLabel('Renum_some_4akeA_ca_1000')
         cls.launchProtocol(protRenum)
 
-        outputFilename = "4ake_atoms_atoms.pdb"
+        outputFilename = renumFilename
         cls.assertTrue(exists(protRenum._getPath(outputFilename)))
         cls.assertTrue(hasattr(protRenum, "outputStructure"))
 
-        ag = prody.parsePDB(protRenum._getPath(outputFilename))
+        struct1 = protRenum.outputStructure
+
+        cls.assertTrue(struct1.getAttributeValue(N_RESIDUES) == 214,
+                       "Partially renumbered 4ake should still have 214 residues, not {0}".format(
+                           struct1.getAttributeValue(N_RESIDUES)))
+        cls.assertTrue(struct1.getAttributeValue(N_CHAINS) == 1,
+                       "Partially renumbered 4ake should still have 1 chain, not {0}".format(
+                           struct1.getAttributeValue(N_CHAINS)))
 
         # check that most of the structure stays the same
-        cls.assertTrue(ag.getResnums()[0] == 1,
-                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[0]))
-        cls.assertTrue(ag.getResnums()[98] == 99,
-                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(ag.getResnums()[98]))
-                
-        cls.assertTrue(ag.getResnums()[-1] == 214,
-                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(ag.getResnums()[-1]))
-        
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 1,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 214,
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
         # check that the part got renumbered
-        cls.assertTrue(ag.getResnums()[99] == 1100,
-                        "Partially renumbered 4ake should have 100th resnum 1100, not {0}".format(ag.getResnums()[99]))
-        cls.assertTrue(ag.getResnums()[149] == 1150,
-                        "Partially renumbered 4ake should have 150th resnum 1150, not {0}".format(ag.getResnums()[149]))
+        cls.assertTrue(struct1.getAttributeValue(MAX_RESNUM) == 1150,
+                        "Partially renumbered 4ake should have max resnum 1150, not {0}".format(
+                            struct1.getAttributeValue(MAX_RESNUM)))
+
+    def testProDyRenumberSomeChid(cls):
+        """ Run different selection options and confirm if it works """
+
+        # ----------------------------------------------------------------------
+        # Step 1a. Renumber imported selected 4akeA_ca to add 100
+        # ----------------------------------------------------------------------
+        protRenum = cls.newProtocol(ProDyRenumber, selection='resnum 100 to 150',
+                                    offset=1000, chain='B')
+        protRenum.inputStructure.set(cls.protSel.outputStructure)
+        protRenum.setObjLabel('Renum_some_4akeA_ca_1000-B')
+        cls.launchProtocol(protRenum)
+
+        outputFilename = renumFilename
+        cls.assertTrue(exists(protRenum._getPath(outputFilename)))
+        cls.assertTrue(hasattr(protRenum, "outputStructure"))
+
+        struct1 = protRenum.outputStructure
+
+        cls.assertTrue(struct1.getAttributeValue(N_RESIDUES) == 214,
+                       "Partially renumbered 4ake should still have 214 residues, not {0}".format(
+                           struct1.getAttributeValue(N_RESIDUES)))
+
+        # check that most of the structure stays the same
+        cls.assertTrue(struct1.getAttributeValue(FIRST_RESNUM) == 1,
+                        "Partially renumbered 4ake should have first resnum 1, not {0}".format(
+                            struct1.getAttributeValue(FIRST_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(LAST_RESNUM) == 214,
+                        "Partially renumbered 4ake should have last resnum 214, not {0}".format(
+                            struct1.getAttributeValue(LAST_RESNUM)))
+
+        # check that the part got renumbered
+        cls.assertTrue(struct1.getAttributeValue(MAX_RESNUM) == 1150,
+                        "Partially renumbered 4ake should have max resnum 1150, not {0}".format(
+                            struct1.getAttributeValue(MAX_RESNUM)))
+        cls.assertTrue(struct1.getAttributeValue(N_CHAINS) == 2,
+                       "Partially renumbered and rechained 4ake should now have 2 chain, not {0}".format(
+                           struct1.getAttributeValue(N_CHAINS)))
+
+class TestProDyCompareModes(TestWorkflow):
+    """ Test protocol for comparing modes. """
+
+    @classmethod
+    def setUpClass(cls):
+        # Create a new project
+        setupTestProject(cls)
+        importSelect4ake(cls)
+        importANM2(cls)
+        importDefvec(cls)
+
+    def testProDyCompareANMvsDefvec(cls):
+        # Compare original CA ANM NMA to defvec with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protDefvec1.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_Defvec_overlap')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMdefaultOverlap(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_overlap')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,14)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMcovOverlap(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_covOverlap')
+        protComp5.metric.set(1)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # cov overlap collapses
+
+    def testProDyCompareANMvsANMrwsip(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_rwsip')
+        protComp5.metric.set(2)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # rwsip collapses
+
+    def testProDyCompareANMvsANMdefaultOverlapMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_overlap_match')
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.shape == (14,14)) # excluding 6 zero modes
+
+    def testProDyCompareANMvsANMcovOverlapMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare, match=True)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_covOverlap_match')
+        protComp5.metric.set(1)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # cov overlap collapses
+
+    def testProDyCompareANMvsANMrwsipMatch(cls):
+        # Compare original CA ANM NMA to itself with default overlaps
+        protComp5 = cls.newProtocol(ProDyCompare, match=True)
+        protComp5.modes1.set(cls.protANM2.outputModes)
+        protComp5.modes2.set(cls.protANM2.outputModes)
+        protComp5.setObjLabel('Compare_ANM_to_ANM_rwsip_match')
+        protComp5.metric.set(2)
+        cls.launchProtocol(protComp5)
+
+        matrix = np.loadtxt(protComp5.matrixFile.getFileName())
+        cls.assertTrue(matrix.size == 1) # rwsip collapses
 
 def importSelect4ake(cls):
     cls.protSel = cls.newProtocol(ProDySelect, 
@@ -516,13 +735,49 @@ def importSelect4ake(cls):
 def importSelect1ake(cls):
     # Import a PDB
     cls.protImportPdb2 = cls.newProtocol(ProtImportPdb, inputPdbData=0,
-                                        pdbId="1ake")
+                                         pdbId="1ake",
+                                         skipChimera=True)
     cls.protImportPdb2.setObjLabel('pwem import 1ake')
     cls.launchProtocol(cls.protImportPdb2)
 
     # Select Chain A
     cls.protSel3 = cls.newProtocol(ProDySelect,
-                                selection="protein and chain A and name CA")
+        selection="protein and chain A and name CA")
     cls.protSel3.inputStructure.set(cls.protImportPdb2.outputPdb)
     cls.protSel3.setObjLabel('Sel_1akeA_CA')
     cls.launchProtocol(cls.protSel3)
+
+def importAligned1akeA(cls):
+    # Import the already processed PDB
+    cls.protImportPdb1akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                             pdbFile=PRODY_TEST_ALG_PDB_FILE,
+                                             skipChimera=True)
+    cls.protImportPdb1akeA.setObjLabel('pwem import 1akeA_ca')
+    cls.launchProtocol(cls.protImportPdb1akeA)
+
+def importOnly4akeA(cls):
+    # Import the already processed PDB
+    cls.protImportPdb4akeA = cls.newProtocol(ProtImportPdb, inputPdbData=1,
+                                             pdbFile=PRODY_TEST_TAR_PDB_FILE,
+                                             skipChimera=True)
+    cls.protImportPdb4akeA.setObjLabel('pwem import 4akeA_ca')
+    cls.launchProtocol(cls.protImportPdb4akeA)
+
+def importANM2(cls):
+    # Import modes from prody npz
+    cls.protANM2 = cls.newProtocol(ProDyImportModes)
+    cls.protANM2.importType.set(MODES_NPZ)
+    cls.protANM2.filesPath.set(TESTDIR)
+    cls.protANM2.filesPattern.set("modes.anm.npz")
+    cls.protANM2.inputStructure.set(cls.protSel.outputStructure)
+    cls.protANM2.setObjLabel('import_npz_ANM_CA')
+    cls.launchProtocol(cls.protANM2)
+
+def importDefvec(cls):
+    # Import modes from prody npz
+    cls.protDefvec1 = cls.newProtocol(ProDyImportModes)
+    cls.protDefvec1.importType.set(NMD)
+    cls.protDefvec1.filesPath.set(TESTDIR)
+    cls.protDefvec1.filesPattern.set("defvec.nmd")
+    cls.protDefvec1.setObjLabel('import_nmd_Defvec_CA')
+    cls.launchProtocol(cls.protDefvec1)

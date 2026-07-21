@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -29,10 +29,10 @@
 """
 This module will provide ProDy atom tools including selection and superposition.
 """
-from collections import OrderedDict
-from os.path import basename, splitext, abspath
+import numpy as np
+from os.path import basename, splitext
 
-from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList
+from pwem.objects import AtomStruct, SetOfAtomStructs, Transform, CsvList, Integer
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import exists
@@ -40,13 +40,13 @@ from pyworkflow.protocol.params import (PointerParam, StringParam, FloatParam,
                                         BooleanParam, EnumParam, TextParam, IntParam,
                                         PathParam, MultiPointerParam, LEVEL_ADVANCED)
 
-import prody
-from pyworkflow.utils import logger
-
 from prody2 import Plugin
-from prody2.objects import Atom, SetOfAtoms
 from prody2.constants import (NOTHING, PWALIGN, CEALIGN, DEFAULT,  # residue mapping methods
-                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM) # chain matching
+                              BEST_MATCH, SAME_CHID, SAME_POS, CUSTOM, # chain matching
+                              N_ATOMS, N_RESIDUES, N_CHAINS,
+                              FIRST_RESNUM, LAST_RESNUM, MAX_RESNUM, MIN_RESNUM)
+
+PDB_DATA_FILE = 'pdb_data.txt'
 
 def notFoundException(inputFn):
     return Exception("Atomic structure not found at *%s*" % inputFn)
@@ -57,8 +57,6 @@ UNITE_CHAINS_HELP = ('Elect whether to unite chains in mmCIF segments for each s
 
 IMPORT_FROM_ID_CONDITION = 'inputPdbData == IMPORT_FROM_ID'
 SUMMARY_NO_OUTPUT = 'Output structure not ready yet'
-NOT_DUMMY_SELSTR = "not dummy"
-
 
 class ProDyAtomicProtocols(EMProtocol):
     """
@@ -459,6 +457,24 @@ class ProDyAtomicProtocols(EMProtocol):
                       label=UNITE_CHAINS_LABEL,
                       help=UNITE_CHAINS_HELP)
 
+    def getPdbFileName(self, inputFn):
+        return self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
+
+    def getInputFn(self):
+        if self.inputPdbData == self.IMPORT_FROM_ID:
+            args = '--pdb {0} --folder {1}'.format(self.pdbId.get(), self._getPath())
+            self.runJob(Plugin.getProgram('parse.py', script=True), args)
+            with open(self._getPath('inputFn.txt'), 'r') as fi:
+                inputFn = fi.readlines()[0]
+        elif self.inputPdbData == self.IMPORT_FROM_FILES:
+            inputFn = self.pdbFile.get()
+            if not exists(inputFn):
+                raise notFoundException(inputFn)
+        else:
+            inputFn = self.inputStructure.get().getFileName()
+
+        return inputFn
+
 class ProDySelect(ProDyAtomicBase):
     """
     This protocol will perform atom selection
@@ -466,40 +482,26 @@ class ProDySelect(ProDyAtomicBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
+        self._insertFunctionStep(self.selectionStep)
+        self._insertFunctionStep(self.createOutputStep)
 
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
-            
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
+    def selectionStep(self):
+        # First handle inputs
+        self.inputFn = self.getInputFn()
 
-            prody.pathPDBFolder("")
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
-            inputFn = self.inputStructure.get().getFileName()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
-
-        self._insertFunctionStep('selectionStep', inputFn)
-        self._insertFunctionStep('createOutputStep')
-
-    def selectionStep(self, inputFn):
-        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        args = '"{0}" {1} -o {2}'.format(str(self.selection), inputFn,
+        # Then actually perform the selection
+        self.pdbFileName = self.getPdbFileName(self.inputFn)
+        args = '"{0}" {1} -o {2}'.format(str(self.selection), self.inputFn,
                                          self.pdbFileName)
         if self.uniteChains.get():
             args += '--unite-chains'
         self.runJob(Plugin.getProgram('select'), args)
 
     def createOutputStep(self):
+        if not self.hasAttribute('inputFn'):
+            self.inputFn = self.getInputFn()
+        if not self.hasAttribute('pdbFileName'):
+            self.pdbFileName = self.getPdbFileName(self.inputFn)
         if exists(self.pdbFileName):
             outputPdb = AtomStruct()
             outputPdb.setFileName(self.pdbFileName)
@@ -512,19 +514,7 @@ class ProDySelect(ProDyAtomicBase):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            inputAg = prody.parsePDB(self.inputStruct.getFileName(),
-                                     unite_chains=self.uniteChains.get())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(),
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                outputAg.numAtoms(), inputAg.numAtoms())]
-            if outputAg.ca is not None:
-                summ.append('The new structure has *{0}* protein residues '
-                            'from original *{1}* protein residues'.format(
-                            outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
-            else:
-                summ.append('The new structure has *0* protein residues')
+            summ = ['Atom selection successful']
         return summ
 
 
@@ -655,126 +645,60 @@ class ProDyAlign(EMProtocol):
 
     def alignStep(self):
         """This step includes alignment mapping and superposition"""
+
         mobFn = self.mobStructure.get().getFileName()
-        mob = prody.parsePDB(mobFn, alt='all',
-                             unite_chains=self.uniteChains.get())
+        self.pdbFileNameMob = self.getPdbFileNameMob()
+        args = '--mobFn {0} --uniteChains {1} --folder {2}'.format(
+            mobFn, self.uniteChains.get(), self._getPath())
         
         if self.tarStructure.hasValue():
             tarFn = self.tarStructure.get().getFileName()
-            tar = prody.parsePDB(tarFn, alt='all',
-                                unite_chains=self.uniteChains.get())
+            self.pdbFileNameTar = self.getPdbFileNameTar()
 
-            if self.matchFunc.get() == BEST_MATCH:
-                matchFunc = prody.bestMatch
-                logger.info('\nUsing bestMatch\n')
-            elif self.matchFunc.get() == SAME_CHID:
-                matchFunc = prody.sameChid
-                logger.info('\nUsing sameChid\n')
-            elif self.matchFunc.get() == SAME_POS:
-                matchFunc = prody.sameChainPos
-                logger.info('\nUsing sameChainPos\n')
-            else:
-                chmap = eval(self.chainOrders.get())
-                logger.info('\nUsing user-defined match function based on \n{0}\n'.format(self.chainOrders.get()))
-                matchFunc = lambda chain1, chain2: prody.userDefined(chain1, chain2, chmap)
+            args += ' --tarFn {0} --keepMismatching {1} --seqid {2}' \
+                ' --overlap {3} --rmsdReject {4}'.format(
+                tarFn, self.keepMismatching.get(), self.seqid.get(),
+                self.overlap.get(), self.rmsd_reject.get())
 
-            if self.mapping.get() == DEFAULT:
-                mapping = 'auto'
-            elif self.mapping.get() == PWALIGN:
-                mapping = 'pwalign'
-            elif self.mapping.get() == CEALIGN:
-                mapping = 'ce'
-            else:
-                mapping = False
+            matchFuncId = self.matchFunc.get()
+            args += ' --matchFunc {0}'.format(matchFuncId)
 
-            mobAmapList = prody.alignChains(mob.protein, tar.protein,
-                                            seqid=self.seqid.get(),
-                                            overlap=self.overlap.get(),
-                                            match_func=matchFunc,
-                                            mapping=mapping,
-                                            rmsd_reject=self.rmsd_reject.get())
-            if len(mobAmapList):
-                mobAmap = mobAmapList[0]
-                mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-                mobSel.setTitle(mob.getTitle())
+            if matchFuncId == CUSTOM:
+                chmapFn = self._getPath('chmap.txt')
+                fo = open(chmapFn, 'w')
+                fo.write(eval(self.chainOrders.get()))
+                fo.close()
+                args += ' --chmapFn {0}'.format(chmapFn)
 
-                tarAmapList = prody.alignChains(tar.protein, mobSel,
-                                                seqid=self.seqid.get(),
-                                                overlap=self.overlap.get(),
-                                                match_func=matchFunc,
-                                                mapping=mapping,
-                                                rmsd_reject=self.rmsd_reject.get())
-                if len(tarAmapList):
-                    tarAmap = tarAmapList[0]
-                    tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                    tarSel.setTitle(tar.getTitle())
+            mappingId = self.mapping.get()
+            args += ' --mapping {0}'.format(mappingId)
 
-                    if mobSel.numAtoms != tarSel.numAtoms():
-                        mobAmapList = prody.alignChains(mobSel, tarSel,
-                                                        seqid=self.seqid.get(),
-                                                        overlap=self.overlap.get(),
-                                                        match_func=matchFunc,
-                                                        mapping=mapping,
-                                                        rmsd_reject=self.rmsd_reject.get())
-                        if len(mobAmapList):
-                            mobAmap = mobAmapList[0]
-                            mobSel = mobAmap.select(NOT_DUMMY_SELSTR).copy()
-                            mobSel.setTitle(mob.getTitle())
-
-                        tarAmapList = prody.alignChains(tarSel, mobSel,
-                                                        seqid=self.seqid.get(),
-                                                        overlap=self.overlap.get(),
-                                                        match_func=matchFunc,
-                                                        mapping=mapping,
-                                                        rmsd_reject=self.rmsd_reject.get())
-                        if len(tarAmapList):
-                            tarAmap = tarAmapList[0]
-                            tarSel = tarAmap.select(NOT_DUMMY_SELSTR).copy()
-                            tarSel.setTitle(tar.getTitle())
-
-                    if self.transformation.get() is None:
-                        self.T = prody.calcTransformation(mobSel, tarSel)
-                    else:
-                        self.T = prody.Transformation(self.transformation.get().getMatrix())
-
-                    alg = prody.applyTransformation(self.T, mobSel)
-
-                    self.rmsd = prody.calcRMSD(mobSel, tarSel)
-                    logger.info("\nRMSD = {:6.2f}\n".format(self.rmsd))
-
-                    if self.keepMismatching.get():
-                        alg = prody.applyTransformation(self.T, mob)
-                        tarSel = tar
-
-                    self.pdbFileNameMob = self._getPath('mobile.pdb')
-                    prody.writePDB(self.pdbFileNameMob, alg)
-
-                    self.pdbFileNameTar = self._getPath('target.pdb')
-                    prody.writePDB(self.pdbFileNameTar, tarSel)
-
-                    self.matrixFileName = self._getPath('transformation.txt')
-                    prody.writeArray(self.matrixFileName, self.T.getMatrix())
-        else:
             if self.transformation.get() is not None:
-                self.T = prody.Transformation(self.transformation.get().getMatrix())
-                alg = prody.applyTransformation(self.T, mob)
+                transformation = self.transformation.get().getMatrix()
+                transFn = self._getPath('transform.txt')
+                np.savetxt(transFn, transformation)
+                args += ' --transformationFn {0}'.format(transFn)                
+        else:
+            transformation = self.transformation.get().getMatrix()
+            transFn = self._getPath('transform.txt')
+            np.savetxt(transFn, transformation)
+            args += ' --transformationFn {0}'.format(transFn)
 
-                self.pdbFileNameMob = self._getPath('mobile.pdb')
-                prody.writePDB(self.pdbFileNameMob, alg)
+        self.runJob(Plugin.getProgram('align.py', script=True), args)
 
     def createOutputStep(self):
         if hasattr(self, "pdbFileNameMob"):
             outputPdbMob = AtomStruct()
-            outputPdbMob.setFileName(self.pdbFileNameMob)
-
+            outputPdbMob.setFileName(self.getPdbFileNameMob())
             self._defineOutputs(outputStructureMob=outputPdbMob)
             
         if hasattr(self, "pdbFileNameTar"):
             outputPdbTar = AtomStruct()
-            outputPdbTar.setFileName(self.pdbFileNameTar)
+            outputPdbTar.setFileName(self.getPdbFileNameTar())
 
             outputTrans = Transform()
-            outputTrans.setMatrix(self.T.getMatrix())
+            transMatrix = np.loadtxt(self.getTransFileName())
+            outputTrans.setMatrix(transMatrix)
 
             self._defineOutputs(outputStructureMob=outputPdbMob,
                                 outputStructureTar=outputPdbTar,
@@ -790,35 +714,17 @@ class ProDyAlign(EMProtocol):
     
     def createMatchDic(self, index):
 
-        index = int(index)
-
-        self.mob = prody.parsePDB(self.mobStructure.get().getFileName(), alt='all',
-                                  unite_chains=self.uniteChains.get())
-        self.tar = prody.parsePDB(self.tarStructure.get().getFileName(), alt='all',
-                                  unite_chains=self.uniteChains.get())
+        args = ' --mobFn {0} --tarFn {1} --uniteChains {2}' \
+                ' --chainOrders {3} --customOrder {4} --index {5} --folder {6}'.format(
+                self.mobStructure.get().getFileName(), 
+                self.tarStructure.get().getFileName(), self.uniteChains.get(),
+                self.chainOrders.get(), self.customOrder.get(), int(index), self._getPath())
         
-        try:
-            self.matchDic = eval(self.chainOrders.get())
-            _ = self.matchDic.keys()
-        except (AttributeError, TypeError):
-            self.matchDic = OrderedDict()
-            self.matchDic[self.mob.getTitle()] = self.getInitialMobileChainOrder()
-            self.matchDic[self.tar.getTitle()] = self.getInitialTargetChainOrder()
-            
-        if index == 0:
-            label = self.mob.getTitle()
-            if self.customOrder.get() == '':
-                self.matchDic[label] = self.getInitialMobileChainOrder()
-            else:
-                self.matchDic[label] = self.customOrder.get()
-                
-        else:
-            label = self.tar.getTitle()
-            if self.customOrder.get() == '':
-                self.matchDic[label] = self.getInitialTargetChainOrder()
-            else:
-                self.matchDic[label] = self.customOrder.get()
-                            
+        self.runJob(Plugin.getProgram('alignMatchDic.py', script=True), args)
+
+        with open(self._getPath('matchDic.txt')) as fo:
+            self.matchDic = fo.readlines()
+
         return self.matchDic
     
     def getInitialMobileChainOrder(self):
@@ -827,6 +733,22 @@ class ProDyAlign(EMProtocol):
     def getInitialTargetChainOrder(self):
         return ''.join([ch.getChid() for ch in self.tar.iterChains()])
 
+    def getPdbFileNameMob(self):
+        return self._getPath('mobile.pdb')
+
+    def getPdbFileNameTar(self):
+        return self._getPath('target.pdb')
+
+    def getTransFileName(self):
+        return self._getPath('transformation.txt')
+
+    def _validate(self):
+        errors = []
+        if not (self.tarStructure.hasValue() or (self.use_trans.get() 
+                                                 and self.transformation.hasValue())):
+            errors.append('A target structure or transformation matrix must be provided')
+
+        return errors
 
 
 class ProDyBiomol(ProDyAtomicBase):
@@ -858,47 +780,25 @@ class ProDyBiomol(ProDyAtomicBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
-
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-
-            if self.membrane.get():
-                inputFn = prody.fetchPDBfromOPM(self.pdbId.get(), filename=self.getPath(self.pdbId.get()+'-opm.pdb'))
-            else:
-                inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
-            
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
-
-            prody.pathPDBFolder("")
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
-            inputFn = self.inputStructure.get().getFileName()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
-
-        self._insertFunctionStep('extractionStep', inputFn)
+        self._insertFunctionStep('extractionStep')
         self._insertFunctionStep('createOutputStep')
 
-    def extractionStep(self, inputFn):
-        ags = prody.parsePDB(inputFn, alt='all', compressed=False,
-                             biomol=True, extend_biomol=True,
-                             unite_chains=self.uniteChains.get())
-        if isinstance(ags, prody.AtomGroup):
-            ags = [ags] 
+    def extractionStep(self):
+        self.inputFn = self.getInputFn()
+
+        args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
+            self.inputFn, self.uniteChains.get(), self._getPath())
+        self.runJob(Plugin.getProgram('biomol.py', script=True), args)
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
+            lines = fi.readlines()
 
         self.pdbs = SetOfAtomStructs().create(self._getExtraPath())
-        for i, ag in enumerate(ags):
-            filename = self._getPath(splitext(basename(inputFn))[0] + '_atoms_{0}.pdb'.format(i))
-            prody.writePDB(filename, ag)
+        for line in lines:
+            filename, numAtoms, numResidues, numChains = line.split('\t')
             pdb = AtomStruct(filename)
+            setattr(pdb, N_ATOMS, Integer(numAtoms))
+            setattr(pdb, N_RESIDUES, Integer(numResidues))
+            setattr(pdb, N_CHAINS, Integer(numChains))
             self.pdbs.append(pdb)
 
     def createOutputStep(self):
@@ -916,16 +816,6 @@ class ProDyBiomol(ProDyAtomicBase):
                 self._summ = CsvList()
                 numStructs = len(self.outputStructures)
                 self._summ.append('Extracted *{0}* biomolecular assemblies'.format(numStructs))
-
-                ags = prody.parsePDB([struct.getFileName() for struct in self.outputStructures],
-                                     unite_chains=self.uniteChains.get())
-                if numStructs == 1:
-                    ags = [ags]
-                     
-                for i, ag in enumerate(ags):
-                    self._summ.append('New structure {0} has *{1}* residues '
-                                     'across *{2}* chains'.format(i+1, ag.numResidues(), 
-                                                                 ag.numChains()))
         return self._summ
 
 
@@ -967,20 +857,22 @@ class ProDyAddPDBs(EMProtocol):
         self._insertFunctionStep('createOutputStep')
 
     def additionStep(self):
-        pdbs = [struct.get().getFileName() for struct in self.inputStructure]
 
-        ags = prody.parsePDB(pdbs, unite_chains=self.uniteChains.get())
-
-        outAg = ags[0]
-        for ag in ags[1:]:
-            outAg += ag
-
-        self.pdbFileName = self._getPath('joined_atoms.pdb')
-        prody.writePDB(self.pdbFileName, outAg)
+        pdbs = ' '.join([struct.get().getFileName() for struct in self.inputStructure])
+        args = '--inputFns "{0}" --uniteChains {1} --folder {2}'.format(
+            pdbs, self.uniteChains.get(), self._getPath())
+        self.runJob(Plugin.getProgram('add_pdbs.py', script=True), args)
 
     def createOutputStep(self):
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
+            line = fi.readlines()[0]
+
+        self.pdbFileName, numAtoms, numResidues, numChains = line.split('\t')
         if exists(self.pdbFileName):
             outputPdb = AtomStruct()
+            setattr(outputPdb, N_ATOMS, Integer(numAtoms))
+            setattr(outputPdb, N_RESIDUES, Integer(numResidues))
+            setattr(outputPdb, N_CHAINS, Integer(numChains))
             outputPdb.setFileName(self.pdbFileName)
             self._defineOutputs(outputStructure=outputPdb)
 
@@ -988,61 +880,12 @@ class ProDyAddPDBs(EMProtocol):
         if not hasattr(self, 'outputStructure'):
             summ = [SUMMARY_NO_OUTPUT]
         else:
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(), 
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['The new structure has *{0}* protein residues '
+            summ = ['The new structure has *{0}* residues '
                      'and *{1}* atoms in *{2}* chains'.format(
-                     outputAg.ca.numAtoms(), outputAg.numAtoms(),
-                     outputAg.numChains())]
+                     self.outputStructure.getAttributeValue(N_RESIDUES),
+                     self.outputStructure.getAttributeValue(N_ATOMS),
+                     self.outputStructure.getAttributeValue(N_CHAINS))]
         return summ
-
-
-class ProDyToBiopythonMetadata(EMProtocol):
-    """
-    This protocol will add pdb/mmcif files together into a single pdb file
-    """
-    _label = 'convert to metadata'
-    IMPORT_FROM_ID = 0
-    IMPORT_FROM_FILES = 1
-    USE_POINTER = 2
-
-    # -------------------------- DEFINE param functions ----------------------
-    def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params
-        """
-        # You need a params to belong to a section:
-        form.addSection(label='ProDy PDB to metadata')
-
-        form.addParam('inputStructure', PointerParam, label="Input structures",
-                      important=True,
-                      pointerClass='AtomStruct',
-                      help='Each input structures should be an atomic model '
-                           '(true PDB) or a pseudoatomic model\n'
-                           '(an EM volume converted into pseudoatoms)')
-
-    # --------------------------- STEPS functions ------------------------------
-    def _insertAllSteps(self):
-        self._insertFunctionStep('createOutputStep')
-
-    def createOutputStep(self):
-        filename = abspath(self.inputStructure.get().getFileName())
-        struct = prody.parsePDB(filename)
-        outputPdb = SetOfAtoms().create(self._getExtraPath())
-        for i in range(struct.numAtoms()):
-            atom = Atom((i, filename))
-            outputPdb.append(atom)
-        self._defineOutputs(outputStructure=outputPdb)
-
-    def _summary(self):
-        if not hasattr(self, 'outputStructure'):
-            summ = [SUMMARY_NO_OUTPUT]
-        else:
-            summ = ['The new structure has *{0}* atoms'.format(len(self.outputStructure))]
-        return summ
-
 
 class ProDyRenumber(ProDyAtomicBase):
     """
@@ -1074,46 +917,42 @@ class ProDyRenumber(ProDyAtomicBase):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
 
-        if self.inputPdbData == self.IMPORT_FROM_ID:
-            prody.pathPDBFolder(self.getPath(""))
-            inputFn = prody.fetchPDB(self.pdbId.get(), compressed=False)
-            
-            if inputFn == None:
-                inputFn = prody.fetchPDB(self.pdbId.get(), format="cif",
-                                         compressed=False)
-
-            prody.pathPDBFolder("")
-
-        elif self.inputPdbData == self.IMPORT_FROM_FILES:
-            inputFn = self.pdbFile.get()
-            if not exists(inputFn):
-                raise notFoundException(inputFn)
-
-        else:
+        if self.inputPdbData == self.USE_POINTER:
             inputFn = self.inputStructure.get().getFileName()
-
-        self.inputStruct = AtomStruct()
-        self.inputStruct.setFileName(inputFn)
+        else:
+            inputFn = self.pdbId.get()
 
         self._insertFunctionStep('renumStep', inputFn)
         self._insertFunctionStep('createOutputStep')
 
     def renumStep(self, inputFn):
-        self.pdbFileName = self._getPath(splitext(basename(inputFn))[0] + '_atoms.pdb')
-        ag = prody.parsePDB(inputFn)
 
-        sel = ag.select(self.selection.get())
-        sel.setResnums(sel.getResnums() + self.offset.get())
-        prody.writePDB(self.pdbFileName, ag)
+        args = '--inputFn {0} --uniteChains {1} --folder {2}'.format(
+            inputFn, self.uniteChains.get(), self._getPath())
 
         chain = self.chain.get()
-        if chain != '':
-            sel.setChids(chain)
+        if chain == '':
+            chain = ' '
+        args += ' --selection "{0}" --offset {1} --chain "{2}"'.format(
+            self.selection.get(), self.offset.get(), chain)
+
+        self.runJob(Plugin.getProgram('renumber_pdbs.py', script=True), args)
 
     def createOutputStep(self):
+        with open(self._getPath(PDB_DATA_FILE), 'r') as fi:
+            line = fi.readlines()[0]
+
+        (self.pdbFileName, numAtoms, numResidues, numChains,
+         firstResnum, lastResnum, maxResnum, minResnum) = line.split('\t')
         if exists(self.pdbFileName):
-            outputPdb = AtomStruct()
-            outputPdb.setFileName(self.pdbFileName)
+            outputPdb = AtomStruct(self.pdbFileName)
+            setattr(outputPdb, N_ATOMS, Integer(numAtoms))
+            setattr(outputPdb, N_RESIDUES, Integer(numResidues))
+            setattr(outputPdb, N_CHAINS, Integer(numChains))
+            setattr(outputPdb, FIRST_RESNUM, Integer(firstResnum))
+            setattr(outputPdb, LAST_RESNUM, Integer(lastResnum))
+            setattr(outputPdb, MAX_RESNUM, Integer(maxResnum))
+            setattr(outputPdb, MIN_RESNUM, Integer(minResnum))
             self._defineOutputs(outputStructure=outputPdb)
 
     def _summary(self):
@@ -1123,17 +962,11 @@ class ProDyRenumber(ProDyAtomicBase):
             else:
                 summ = ['No atoms match selection so no output structure']
         else:
-            inputAg = prody.parsePDB(self.inputStruct.getFileName(),
-                                     unite_chains=self.uniteChains.get())
-            outputAg = prody.parsePDB(self.outputStructure.getFileName(),
-                                      unite_chains=self.uniteChains.get())
-
-            summ = ['Selected *{0}* atoms from original *{1}* atoms'.format(
-                outputAg.numAtoms(), inputAg.numAtoms())]
-            if outputAg.ca is not None:
-                summ.append('The new structure has *{0}* protein residues '
-                            'from original *{1}* protein residues'.format(
-                            outputAg.ca.numAtoms(), inputAg.ca.numAtoms()))
+            summ = ['Selected *{0}* atoms'.format(
+                self.outputStructure.getAttributeValue(N_ATOMS))]
+            if self.hasAttribute('outputStructure'):
+                summ.append('The new structure has *{0}* residues'.format(
+                            self.outputStructure.getAttributeValue(N_RESIDUES)))
             else:
-                summ.append('The new structure has *0* protein residues')
+                summ.append('The new structure has *0* residues')
         return summ

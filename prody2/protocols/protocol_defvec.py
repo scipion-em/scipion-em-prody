@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -30,14 +30,16 @@
 This module will provide ProDy deformation vector analysis.
 """
 from pwem.emlib import MetaData, MDL_NMA_MODEFILE, MDL_NMA_ATOMSHIFT
-from pwem.objects import AtomStruct, SetOfNormalModes, String
+from pwem.objects import SetOfNormalModes, String
 from pwem.protocols import EMProtocol
 
 from pyworkflow.utils import join, makePath
 from pyworkflow.protocol.params import (PointerParam, FloatParam, IntParam, 
                                         BooleanParam, LEVEL_ADVANCED)
 
-import prody
+from prody2 import Plugin
+from prody2.protocols.protocol_atoms import (UNITE_CHAINS_HELP,
+                                             UNITE_CHAINS_LABEL)
 import math
 
 class ProDyDefvec(EMProtocol):
@@ -245,6 +247,10 @@ class ProDyDefvec(EMProtocol):
                            '(an EM volume converted into pseudoatoms)'
                            'The two structures should have the same number of nodes.')
 
+        form.addParam('uniteChains', BooleanParam, default=False,
+                      label=UNITE_CHAINS_LABEL,
+                      help=UNITE_CHAINS_HELP)
+
         form.addSection(label='Animation')        
         form.addParam('rmsd', FloatParam, default=0,
                       label='RMSD Amplitude (A)',
@@ -270,68 +276,36 @@ class ProDyDefvec(EMProtocol):
     # --------------------------- STEPS functions ------------------------------
     def _insertAllSteps(self):
         self._insertFunctionStep('defvecStep')
-        self._insertFunctionStep('animateModesStep', self.rmsd.get(), self.n_steps.get(),
-                                 self.neg.get(), self.pos.get())
+        self._insertFunctionStep('animateModesStep')
         self._insertFunctionStep('computeAtomShiftsStep')
         self._insertFunctionStep('createOutputStep')
 
     def defvecStep(self):
-        mobStruct = self.mobStructure.get()
-        self.mobFn = mobStruct.getFileName()
 
-        tarStruct = self.tarStructure.get()
-        self.tarFn = tarStruct.getFileName()
+        pdbs = " ".join([self.mobStructure.get().getFileName(),
+                         self.tarStructure.get().getFileName()])
 
-        self.mob = prody.parsePDB(self.mobFn, alt='all')
-        self.tar = prody.parsePDB(self.tarFn, alt='all')
-
-        if self.rmsd.get() == 0:
-            self.rmsd = prody.calcRMSD(self.mob, self.tar)
-        else:
-            self.rmsd = self.rmsd.get()
-
-        self.defvec = prody.calcDeformVector(self.mob, self.tar)
-
-        self.outModes = prody.NMA('defvec')
-        self.outModes.setEigens(self.defvec.getArray().reshape(-1, 1))
-        prody.writeScipionModes(self._getPath(), self.outModes, write_star=True)
-        prody.writeNMD(self._getPath('modes.nmd'), self.outModes, self.mob)
-
-    def animateModesStep(self, rmsd, nSteps, pos, neg):
         animationsDir = self._getExtraPath('animations')
         makePath(animationsDir)
 
+        args = '--inputFns "{0}" --uniteChains {1} --folder {2} --rmsd {3} '  \
+            '--nSteps {4} --neg {5} --pos {6}'.format(
+            pdbs, self.uniteChains.get(), self._getPath(),
+            self.rmsd.get(), self.n_steps.get(),
+            self.neg.get(), self.pos.get())
+        self.runJob(Plugin.getProgram('defvec.py', script=True), args)
+
+    def animateModesStep(self):
+        animationsDir = self._getExtraPath('animations')
         fnAnimation = join(animationsDir, "animated_mode_001")
-
-        self.outAtoms = prody.traverseMode(self.defvec, self.mob, rmsd=rmsd,
-                                           n_steps=nSteps,
-                                           pos=pos, neg=neg)
-        prody.writePDB(fnAnimation+".pdb", self.outAtoms)
-
         fhCmd=open(fnAnimation+".vmd",'w')
         fhCmd.write("mol new %s.pdb\n" % fnAnimation)
         fhCmd.write("animate style Rock\n")
         fhCmd.write("display projection Orthographic\n")
         fhCmd.write("mol modcolor 0 0 Index\n")
 
-        if self.mob.select('name P') is not None:
-            numAtomsP = self.mob.select('name P').numAtoms()
-        else:
-            numAtomsP = 0
-
-        if self.mob.ca is not None:
-            numAtomsCA = self.mob.ca.numAtoms()
-        else:
-            numAtomsCA = 0
-
-        numAtomsRep = numAtomsCA + numAtomsP
-        if numAtomsRep == self.mob.numAtoms():
-            fhCmd.write("mol modstyle 0 0 Beads 2.000000 8.000000\n")
-            # fhCmd.write("mol modstyle 0 0 Beads 1.800000 6.000000 "
-            #         "2.600000 0\n")
-        else:
-            fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
-                    "2.600000 0\n")
+        fhCmd.write("mol modstyle 0 0 NewRibbons 1.800000 6.000000 "
+            "2.600000 0\n")
         fhCmd.write("animate speed 0.5\n")
         fhCmd.write("animate forward\n")
         fhCmd.close()   

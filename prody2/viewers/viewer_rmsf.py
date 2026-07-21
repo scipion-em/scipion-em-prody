@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     James Krieger (jmkrieger@cnb.csic.es)
+# * Authors:     James Krieger (jamesmkrieger@gmail.com)
 # *
 # * Centro Nacional de Biotecnologia, CSIC
 # *
@@ -41,8 +41,6 @@ from pwem.viewers import VmdView
 from pwem.viewers.plotter import EmPlotter
 
 from prody2.protocols.protocol_logistic import ProDyLRA
-from prody2.objects import SetOfLogisticModes
-
 import prody
 
 class ProDyRmsfViewer(ProtocolViewer):
@@ -83,12 +81,8 @@ class ProDyRmsfViewer(ProtocolViewer):
 
         if isinstance(self.protocol, SetOfNormalModes):
             modes = self.protocol
-            isLRA = False
-            if isinstance(self.protocol, SetOfLogisticModes):
-                isLRA = True
         else:
             modes = self.protocol.outputModes
-            isLRA = True
 
         modesPath = os.path.dirname(os.path.dirname(modes._getMapper().selectFirst().getModeFile()))
         try:
@@ -106,7 +100,7 @@ class ProDyRmsfViewer(ProtocolViewer):
                                         "the availables ones." % (modeNumber+1),
                                         title="Invalid input")]
 
-        if isLRA:
+        if hasattr(modes, "getShuffledPercentile"):
             cutoff = modes.getShuffledPercentile(self.percentile.get())
             inds = prody.calcMostMobileNodes(mode, cutoff=cutoff)
         else:
